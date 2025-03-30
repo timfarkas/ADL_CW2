@@ -17,7 +17,7 @@ def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
     )
 
 
-def load_test_pet_data() -> torch.utils.data.DataLoader:
+def load_test_pet_data(batch_size: int) -> torch.utils.data.DataLoader:
     """
     Loads the test data from the Oxford Pets dataset.
     """
@@ -42,7 +42,7 @@ def load_test_pet_data() -> torch.utils.data.DataLoader:
     )
 
     test_loader = torch.utils.data.DataLoader(
-        test_set, batch_size=50, shuffle=False, num_workers=4
+        test_set, batch_size=batch_size, shuffle=False, num_workers=4
     )
 
     return test_loader
@@ -60,6 +60,7 @@ def evaluate_model(
     total_IoU = 0
     total_f1_score = 0
     for i, (images, masks) in enumerate(test_loader):
+        # TODO: When we have a model, ensure the prediction results are actually comparable
         predictions = model(images)
 
         for j, prediction in enumerate(predictions):
