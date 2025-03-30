@@ -3,8 +3,7 @@ from torchvision import transforms
 from torchvision.datasets import OxfordIIITPet
 from torch.utils.data import DataLoader, random_split, ConcatDataset
 
-torch.manual_seed(27)
-generator = torch.Generator().manual_seed(2025)
+generator = torch.Generator().manual_seed(27)
 
 transform = transforms.Compose([
     # could set to 512×512 if increases performance
