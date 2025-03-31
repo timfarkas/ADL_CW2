@@ -53,14 +53,18 @@ def evaluate_model(
     test_loader: torch.utils.data.DataLoader,
     image_number: int,
     image_name: str,
+    device: str = None
 ) -> None:
     """
     Evaluates the model on the test data and stores the images.
     """
+    print("Evaluating model...")
     total_IoU = 0
     total_f1_score = 0
     for i, (images, masks) in enumerate(test_loader):
         # TODO: When we have a model, ensure the prediction results are actually comparable
+        images = images.to(device)
+        masks = masks.to(device)
         predictions = model(images)
 
         for j, prediction in enumerate(predictions):
@@ -90,7 +94,7 @@ def evaluate_model(
         if i == 0:
             images_to_store = images[:image_number]
             masks_to_store = masks[:image_number]
-            predictions_to_store = predictions[:image_number]
+            predictions_to_store = predictions.unsqueeze(1)[:image_number]
             store_images(images_to_store, image_name + "_images.jpg")
             store_images(
                 masks_to_store, image_name + "_true_masks.jpg", is_segmentation=True
@@ -100,6 +104,8 @@ def evaluate_model(
                 image_name + "_predictions.jpg",
                 is_segmentation=True,
             )
+        else:
+            break
 
     print(f"Mean IoU: {total_IoU / len(test_loader)}")
     print(f"Mean F1 Score: {total_f1_score / len(test_loader)}")
