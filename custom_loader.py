@@ -6,6 +6,9 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from custom_data import OxfordPetDataset
 import random
+import os
+from PIL import Image
+import numpy as np
 
 RANDOM_SEED = 27
 
@@ -15,21 +18,25 @@ class OxfordPetTorchAdapter(Dataset):
     Converts the basic dataset into PyTorch-compatible format with various
     target options.
     """
-    def __init__(self, data_items, oxford_dataset, transform=None, target_type="class", normalize_bbox=True):
+    def __init__(self, data_items, oxford_dataset, transform=None, target_type="class", normalize_bbox=True, target_transform=None, data_directory="oxford_pet_data"):
         """Initialize the PyTorch dataset adapter.
 
         Args:
             data_items: List of data items (img_path, class_idx, species_idx, bbox)
             oxford_dataset: OxfordPetDataset instance for image loading
             transform: Optional torchvision transforms to apply to images
-            target_type: Type of target ("class", "species", or "bbox")
+            target_type: Type of target ("class", "species", "bbox", or "segmentation")
             normalize_bbox: Whether to normalize bounding box coordinates to [0,1]
+            target_transform: Optional transforms to apply to targets (for segmentation masks)
+            data_directory: Directory containing the dataset files (default: "oxford_pet_data")
         """
         self.data_items = data_items
         self.oxford_dataset = oxford_dataset
         self.transform = transform
         self.target_type = target_type
         self.normalize_bbox = normalize_bbox
+        self.target_transform = target_transform
+        self.data_directory = data_directory
 
     def __len__(self):
         """Return the number of items in the dataset.
@@ -81,7 +88,30 @@ class OxfordPetTorchAdapter(Dataset):
 
                 bbox_tensor = torch.tensor([xmin, ymin, xmax, ymax], dtype=torch.float32)
             return image, bbox_tensor
-
+        elif self.target_type == "segmentation":
+            # Load segmentation mask from trimaps directory
+            base_name = os.path.splitext(os.path.basename(img_path))[0].lower()
+            seg_path = os.path.join(self.data_directory, 'annotations/trimaps', base_name + '.png')
+            
+            try:
+                mask = Image.open(seg_path)
+                
+                # Apply target transform if provided
+                if self.target_transform:
+                    mask = self.target_transform(mask)
+                else:
+                    # Convert to tensor by default if no transform provided
+                    mask = transforms.ToTensor()(mask)
+                
+                return image, mask
+            except FileNotFoundError:
+                # If segmentation mask is not found, return a blank mask
+                print(f"Warning: Segmentation mask not found for {base_name}")
+                blank_mask = torch.zeros((1, original_height, original_width), dtype=torch.float32)
+                if self.target_transform:
+                    # Resize blank mask to match target transform expectations
+                    blank_mask = torch.zeros((1, 256, 256), dtype=torch.float32)
+                return image, blank_mask
         else:
             raise ValueError(f"Unknown target_type: {self.target_type}")
 
@@ -121,7 +151,8 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
 
 
 def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                       test_ratio=0.15, random_seed=RANDOM_SEED, target_type="class", normalize_bbox=True):
+                       test_ratio=0.15, random_seed=RANDOM_SEED, target_type="class", 
+                       normalize_bbox=True, data_directory="oxford_pet_data"):
     """Create PyTorch DataLoaders for training, validation, and testing.
 
     Args:
@@ -131,8 +162,9 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
         val_ratio: Proportion for validation set
         test_ratio: Proportion for test set
         random_seed: Seed for reproducible splitting
-        target_type: Target type for the model ("class", "species", or "bbox")
+        target_type: Target type for the model ("class", "species", "bbox", or "segmentation")
         normalize_bbox: Whether to normalize bounding box coordinates
+        data_directory: Directory containing the dataset files (default: "oxford_pet_data")
 
     Returns:
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
@@ -154,6 +186,14 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
+    # Define target transform for segmentation masks
+    target_transform = None
+    if target_type == "segmentation":
+        target_transform = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+        ])
+
     # split dataset
     train_data, val_data, test_data = split_dataset(
         dataset, train_ratio, val_ratio, test_ratio, random_seed
@@ -161,13 +201,16 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     # Create PyTorch datasets and dataloaders
     train_dataset = OxfordPetTorchAdapter(
-        train_data, dataset, transform=train_transform, target_type=target_type, normalize_bbox=normalize_bbox
+        train_data, dataset, transform=train_transform, target_type=target_type, 
+        normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
     )
     val_dataset = OxfordPetTorchAdapter(
-        val_data, dataset, transform=val_test_transform, target_type=target_type, normalize_bbox=normalize_bbox
+        val_data, dataset, transform=val_test_transform, target_type=target_type, 
+        normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
     )
     test_dataset = OxfordPetTorchAdapter(
-        test_data, dataset, transform=val_test_transform, target_type=target_type, normalize_bbox=normalize_bbox
+        test_data, dataset, transform=val_test_transform, target_type=target_type, 
+        normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -181,7 +224,7 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 if __name__ == "__main__":
 
     # Prepare dataset
-    dataset = OxfordPetDataset().prepare_dataset()
+    dataset = OxfordPetDataset(data_directory="oxford_pet_data").prepare_dataset()
 
     # Create dataloaders
     train_loader, val_loader, test_loader = create_dataloaders(dataset, batch_size=32)
