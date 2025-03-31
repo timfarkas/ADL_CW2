@@ -103,3 +103,4 @@ def evaluate_model(
 
     print(f"Mean IoU: {total_IoU / len(test_loader)}")
     print(f"Mean F1 Score: {total_f1_score / len(test_loader)}")
+

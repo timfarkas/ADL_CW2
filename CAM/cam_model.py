@@ -14,23 +14,7 @@ import os
 '''I only ran this code on CPU, not sure if that's compatible with GPU'''
 
 
-from loader import H5ImageLoader
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-minibatch_size = 32
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
-DATA_PATH = '../../../DLcourse/GroupTask/segmentation/data'
 
-## data loader
-loader_train = H5ImageLoader(DATA_PATH+'/images_train.h5', minibatch_size, DATA_PATH+'/labels_train.h5')
-loader_test = H5ImageLoader(DATA_PATH+'/images_val.h5', 20, DATA_PATH+'/labels_val.h5')
-dataloader_train=iter(loader_train)
-dataloader_test=iter(loader_test)
-images, labels,sp,br = next(dataloader_train)
-print(dataloader_train)
-print(images[0])
-print(labels[0])
-print(sp[0])
-print(br[0])
 
 # to show the images and labels of a batch
 def show_batch(images, species, breeds, rows=4):
@@ -193,10 +177,10 @@ def show_cam_on_image(img_tensor, cam, title='CAM'):
     plt.axis('off')
     plt.show()
 
-def visualize_cam(model,dataset, label_select):
+def visualize_cam(model,dataset, label_select, device = None):
     # Get a batch of test images
-    data_iter= iter(dataset)
-    images, _, species,breeds = next(data_iter)  # images: (B, 3, H, W)
+    data_iter = iter(dataset)
+    images, labels = next(data_iter)  # images: (B, 3, H, W)
     images = images[:4].to(device)  # Take first 8 images
 
     # Prepare figure
@@ -208,13 +192,11 @@ def visualize_cam(model,dataset, label_select):
         for i in range(4):  # only plot 4 images
             img = images[i]  # (3, H, W)
             fmap = feature_maps[i]  # (C, H, W)
-            if label_select=="breed":
-                target_class = breeds[i].item()
-            elif label_select=="species":
-                target_class= species[i].item()
-
+            
+            target_class = labels[i].item()
+            
             # Compute CAM
-            cam = compute_cam(fmap, model_test.classifier.weight.data,target_class)
+            cam = compute_cam(fmap, model.classifier.weight.data,target_class)
             img_np = img.permute(1, 2, 0).cpu().numpy()
 
             # Original image on first row
@@ -246,6 +228,25 @@ def visualize_cam(model,dataset, label_select):
 
 
 if __name__ == "__main__":
+
+    from loader import H5ImageLoader
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    minibatch_size = 32
+    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    DATA_PATH = '../../../DLcourse/GroupTask/segmentation/data'
+
+    ## data loader
+    loader_train = H5ImageLoader(DATA_PATH+'/images_train.h5', minibatch_size, DATA_PATH+'/labels_train.h5')
+    loader_test = H5ImageLoader(DATA_PATH+'/images_val.h5', 20, DATA_PATH+'/labels_val.h5')
+    dataloader_train=iter(loader_train)
+    dataloader_test=iter(loader_test)
+    images, labels,sp,br = next(dataloader_train)
+    print(dataloader_train)
+    print(images[0])
+    print(labels[0])
+    print(sp[0])
+    print(br[0])
+
     batch_size=32
     loss_function = torch.nn.CrossEntropyLoss()
     train_mode=False # if False, will use trained local model.
