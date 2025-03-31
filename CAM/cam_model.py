@@ -247,7 +247,28 @@ class CAMWrapper(nn.Module):
         plt.show()
 
 
-def fit_sgd(model_train, trainloader, label_select, number_epoch,learning_rate,model_path):  # training model
+def fit_sgd(model_train: torch.nn.Module, 
+            trainloader: torch.utils.data.DataLoader, 
+            label_select: str, 
+            number_epoch: int, 
+            learning_rate: float,
+            batch_size : int,
+            loss_function: torch.nn.Module, 
+            model_path: str, 
+            device: str = None) -> None:
+    """
+    Train a model using Stochastic Gradient Descent.
+    
+    Args:
+        model_train: The neural network model to train
+        trainloader: DataLoader containing the training data
+        label_select: Type of label to use for training (e.g., 'breed', 'species')
+        number_epoch: Number of epochs to train for
+        learning_rate: Learning rate for the optimizer
+        loss_function: Loss function to optimize
+        model_path: Path where the trained model will be saved
+        device: Device to run the training on ('cuda', 'cpu', etc.)
+    """
     print("<Training Start>")
     model_train.to(device)
     optimizer = optim.SGD(model_train.parameters(), lr=learning_rate,
@@ -257,22 +278,20 @@ def fit_sgd(model_train, trainloader, label_select, number_epoch,learning_rate,m
         correct_count = 0
         sample_count = 0
         loss_sum = 0
-        for images,labels,species,breeds in trainloader:
+        for images, labels in trainloader:
+            images = images.to(device)
+            labels = labels.to(device)
             batch_count += 1
             # images, breeds = images.to(device), breeds.to(device)  # Move data to GPU
             optimizer.zero_grad()
-            outputs = model_train(images)
-            if label_select=="breed":
-                loss = loss_function(outputs,breeds) # I used breeds as label. Potentially can switch to species
-            elif label_select=="species":
-                loss = loss_function(outputs,species) # I used breeds as label. Potentially can switch to species
+            outputs = model_train(images) 
+            loss = loss_function(outputs,labels) # I used breeds as label. Potentially can switch to species
             loss.backward()
             optimizer.step()
             _, predicted = torch.max(outputs[:batch_size], 1)  # Get the index of the max logit (prediction)
-            if label_select=="breed":
-                batch_correct_count = (predicted == breeds).sum().item()
-            elif label_select=="species":
-                batch_correct_count = (predicted == species).sum().item()
+            
+            batch_correct_count = (predicted == labels).sum().item()
+            
             # Count correct predictions
             correct_count += batch_correct_count
             sample_count += batch_size
