@@ -62,7 +62,7 @@ class OxfordPetTorchAdapter(Dataset):
             image = self.transform(image)
 
         # Return appropriate target
-        if self.target_type == "class":
+        if self.target_type in ["class", "breed"]:
             return image, class_idx
         elif self.target_type == "species":
             return image, species_idx
