@@ -12,25 +12,8 @@ import os
 '''One additional Library OpenCV has been used in this file for processing images with CAM. However it's possible to remove this library if necessary'''
 
 '''I only ran this code on CPU, not sure if that's compatible with GPU'''
+from utils import resize_images
 
-
-from loader import H5ImageLoader
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-minibatch_size = 32
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
-DATA_PATH = '../../../DLcourse/GroupTask/segmentation/data'
-
-## data loader
-loader_train = H5ImageLoader(DATA_PATH+'/images_train.h5', minibatch_size, DATA_PATH+'/labels_train.h5')
-loader_test = H5ImageLoader(DATA_PATH+'/images_val.h5', 20, DATA_PATH+'/labels_val.h5')
-dataloader_train=iter(loader_train)
-dataloader_test=iter(loader_test)
-images, labels,sp,br = next(dataloader_train)
-print(dataloader_train)
-print(images[0])
-print(labels[0])
-print(sp[0])
-print(br[0])
 
 # to show the images and labels of a batch
 def show_batch(images, species, breeds, rows=4):
@@ -47,27 +30,28 @@ def show_batch(images, species, breeds, rows=4):
     plt.show()
 
 
-# defin a CNN model
+# define a CNN model
 class CNN(nn.Module):  # define the model
     def __init__(self, out_channels, num_classes):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),
+            # Input: (B, 3, 256, 256)
+            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),  # (B, 32, 256, 256)
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2),  # (B, 32, 128, 128)
 
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),  # (B, 64, 128, 128)
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2),  # (B, 64, 64, 64)
 
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),  # (B, 128, 64, 64)
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2),  # (B, 128, 32, 32)
 
-            nn.Conv2d(in_channels=128, out_channels=out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=128, out_channels=out_channels, kernel_size=3, padding=1),  # (B, out_channels, 32, 32)
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
@@ -125,9 +109,28 @@ class ResNetBackbone(nn.Module):
         else:
             return x
 
-
-
-def fit_sgd(model_train, trainloader, label_select, number_epoch,learning_rate,model_path):  # training model
+def fit_sgd(model_train: torch.nn.Module, 
+            trainloader: torch.utils.data.DataLoader, 
+            label_select: str, 
+            number_epoch: int, 
+            learning_rate: float,
+            batch_size : int,
+            loss_function: torch.nn.Module, 
+            model_path: str, 
+            device: str = None) -> None:
+    """
+    Train a model using Stochastic Gradient Descent.
+    
+    Args:
+        model_train: The neural network model to train
+        trainloader: DataLoader containing the training data
+        label_select: Type of label to use for training (e.g., 'breed', 'species')
+        number_epoch: Number of epochs to train for
+        learning_rate: Learning rate for the optimizer
+        loss_function: Loss function to optimize
+        model_path: Path where the trained model will be saved
+        device: Device to run the training on ('cuda', 'cpu', etc.)
+    """
     print("<Training Start>")
     model_train.to(device)
     optimizer = optim.SGD(model_train.parameters(), lr=learning_rate,
@@ -137,22 +140,20 @@ def fit_sgd(model_train, trainloader, label_select, number_epoch,learning_rate,m
         correct_count = 0
         sample_count = 0
         loss_sum = 0
-        for images,labels,species,breeds in trainloader:
+        for images, labels in trainloader:
+            images = images.to(device)
+            labels = labels.to(device)
             batch_count += 1
             # images, breeds = images.to(device), breeds.to(device)  # Move data to GPU
             optimizer.zero_grad()
-            outputs = model_train(images)
-            if label_select=="breed":
-                loss = loss_function(outputs,breeds) # I used breeds as label. Potentially can switch to species
-            elif label_select=="species":
-                loss = loss_function(outputs,species) # I used breeds as label. Potentially can switch to species
+            outputs = model_train(images) 
+            loss = loss_function(outputs,labels) # I used breeds as label. Potentially can switch to species
             loss.backward()
             optimizer.step()
             _, predicted = torch.max(outputs[:batch_size], 1)  # Get the index of the max logit (prediction)
-            if label_select=="breed":
-                batch_correct_count = (predicted == breeds).sum().item()
-            elif label_select=="species":
-                batch_correct_count = (predicted == species).sum().item()
+            
+            batch_correct_count = (predicted == labels).sum().item()
+            
             # Count correct predictions
             correct_count += batch_correct_count
             sample_count += batch_size
@@ -193,10 +194,10 @@ def show_cam_on_image(img_tensor, cam, title='CAM'):
     plt.axis('off')
     plt.show()
 
-def visualize_cam(model,dataset, label_select):
+def visualize_cam(model,dataset, label_select, device = None):
     # Get a batch of test images
-    data_iter= iter(dataset)
-    images, _, species,breeds = next(data_iter)  # images: (B, 3, H, W)
+    data_iter = iter(dataset)
+    images, labels = next(data_iter)  # images: (B, 3, H, W)
     images = images[:4].to(device)  # Take first 8 images
 
     # Prepare figure
@@ -208,13 +209,11 @@ def visualize_cam(model,dataset, label_select):
         for i in range(4):  # only plot 4 images
             img = images[i]  # (3, H, W)
             fmap = feature_maps[i]  # (C, H, W)
-            if label_select=="breed":
-                target_class = breeds[i].item()
-            elif label_select=="species":
-                target_class= species[i].item()
-
+            
+            target_class = labels[i].item()
+            
             # Compute CAM
-            cam = compute_cam(fmap, model_test.classifier.weight.data,target_class)
+            cam = compute_cam(fmap, model.classifier.weight.data,target_class)
             img_np = img.permute(1, 2, 0).cpu().numpy()
 
             # Original image on first row
@@ -246,6 +245,25 @@ def visualize_cam(model,dataset, label_select):
 
 
 if __name__ == "__main__":
+
+    from loader import H5ImageLoader
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    minibatch_size = 32
+    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    DATA_PATH = '../../../DLcourse/GroupTask/segmentation/data'
+
+    ## data loader
+    loader_train = H5ImageLoader(DATA_PATH+'/images_train.h5', minibatch_size, DATA_PATH+'/labels_train.h5')
+    loader_test = H5ImageLoader(DATA_PATH+'/images_val.h5', 20, DATA_PATH+'/labels_val.h5')
+    dataloader_train=iter(loader_train)
+    dataloader_test=iter(loader_test)
+    images, labels,sp,br = next(dataloader_train)
+    print(dataloader_train)
+    print(images[0])
+    print(labels[0])
+    print(sp[0])
+    print(br[0])
+
     batch_size=32
     loss_function = torch.nn.CrossEntropyLoss()
     train_mode=False # if False, will use trained local model.
