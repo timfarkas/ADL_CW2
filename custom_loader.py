@@ -176,6 +176,25 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     return train_loader, val_loader, test_loader
 
+def get_pet_dataloaders(batch_size=32, target_type="class"):
+    """
+    Creates and returns dataloaders for the Oxford Pets dataset.
+
+    Parameters:
+        batch_size (int, optional): Size of each batch. Defaults is 32.
+        target_type (str, optional): Type of target labels. Defaults is "class".
+
+    Returns:
+        DataLoaders: Training, validation and test data loaders for the Oxford Pets dataset.
+    """
+
+    dataset = OxfordPetDataset().prepare_dataset()
+
+    return create_dataloaders(
+        dataset,
+        batch_size=batch_size,
+        target_type=target_type
+    )
 
 # Example usage:
 if __name__ == "__main__":
@@ -187,5 +206,10 @@ if __name__ == "__main__":
     train_loader, val_loader, test_loader = create_dataloaders(dataset, batch_size=32)
 
     print(f"Training batches: {len(train_loader)}")
+    print(f"Training images: {len(train_loader.dataset)}")
+
     print(f"Validation batches: {len(val_loader)}")
+    print(f"Validation images: {len(val_loader.dataset)}")
+
     print(f"Testing batches: {len(test_loader)}")
+    print(f"Testing images: {len(test_loader.dataset)}")
