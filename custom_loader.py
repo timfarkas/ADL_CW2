@@ -201,7 +201,7 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     return train_loader, val_loader, test_loader
 
-def get_pet_dataloaders(batch_size=32, supervision_type="class"):
+def get_oxford_pet_dataloaders(batch_size=32, supervision_type="class"):
     """
     Creates and returns dataloaders for the Oxford Pets dataset.
 
