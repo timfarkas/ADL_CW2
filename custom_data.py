@@ -6,6 +6,7 @@ import urllib.request
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from PIL import Image
+import numpy as np
 import re
 
 
@@ -137,7 +138,10 @@ class OxfordPetDataset:
             # Get bounding box
             bbox = self.get_head_bbox(img_path.stem)
 
-            dataset.append((img_path, class_idx, species_idx, bbox))
+            # Get segmentation mask
+            seg_path = self.get_segmentation_mask_path(img_path.stem)
+
+            dataset.append((img_path, class_idx, species_idx, bbox, seg_path))
 
         return dataset
 
@@ -183,6 +187,23 @@ class OxfordPetDataset:
 
         return (xmin, ymin, xmax, ymax)
 
+    def get_segmentation_mask_path(self, image_name):
+
+        mask_path = self.annotations_dir / "trimaps" / f"{image_name}.png"
+
+        if mask_path.exists():
+            return mask_path
+        return None
+
+    def load_segmentation_mask(self, mask_path):
+        if mask_path is None:
+            return None
+
+        mask = Image.open(mask_path)
+        mask_array = np.array(mask)
+
+        return mask_array
+
     def __len__(self):
         return len(list(self.images_dir.glob("*.jpg")))
 
@@ -199,7 +220,7 @@ def main():
     if all_data:
         print("\nTest example assessing and processing item:")
 
-        img_path, class_idx, species_idx, bbox = all_data[0]
+        img_path, class_idx, species_idx, bbox, seg_path = all_data[0]
         print(f"First image: {img_path.name}")
         print(f"Class: {dataset.class_names[class_idx]}")
         print(f"Species: {'cat' if species_idx == 0 else 'dog'}")
