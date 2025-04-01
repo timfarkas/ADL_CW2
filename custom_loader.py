@@ -1,5 +1,6 @@
 # AI Usage Statement: AI assistance was used to help
 # assist docstrings for this code.
+import os.path
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -16,7 +17,7 @@ class OxfordPetDatasetWeakly(Dataset):
     Converts the basic dataset into PyTorch-compatible format with various
     target options.
     """
-    def __init__(self, data_items, oxford_dataset, transform=None, supervision_type="class", normalize_bbox=True):
+    def __init__(self, data_items, oxford_dataset, transform=None, supervision_type="class", normalize_bbox=True, use_pseudo_labels=False):
         """Initialize the PyTorch dataset adapter.
 
         Args:
@@ -31,6 +32,8 @@ class OxfordPetDatasetWeakly(Dataset):
         self.transform = transform
         self.supervision_type = supervision_type
         self.normalize_bbox = normalize_bbox
+        self.pseudo_labels = {}
+        self.use_pseudo_labels = use_pseudo_labels
 
     def __len__(self):
         """Return the number of items in the dataset.
@@ -53,6 +56,7 @@ class OxfordPetDatasetWeakly(Dataset):
             ValueError: If target_type is not recognized
         """
         img_path, class_idx, species_idx, bbox, seg_path = self.data_items[idx]
+        image_id = img_path.stem
 
         # Load image
         image = self.oxford_dataset.load_image(img_path)
@@ -104,11 +108,51 @@ class OxfordPetDatasetWeakly(Dataset):
 
                 bbox_tensor = torch.tensor([xmin, ymin, xmax, ymax], dtype=torch.float32)
             supervision = bbox_tensor
+        elif self.supervision_type == "mixed":
+            if bbox is None:
+                # If no bbox available, return zeros or default values
+                bbox_tensor = torch.zeros(4, dtype=torch.float32)
+            else:
+                xmin, ymin, xmax, ymax = bbox
+
+                if self.normalize_bbox:
+                    xmin = xmin / original_width
+                    xmax = xmax / original_width
+                    ymin = ymin / original_height
+                    ymax = ymax / original_height
+
+                bbox_tensor = torch.tensor([xmin, ymin, xmax, ymax], dtype=torch.float32)
+
+            supervision = {
+                "class": class_idx,
+                "species": species_idx,
+                "bbox": bbox_tensor
+            }
+
         else:
             raise ValueError(f"Unknown supervision_type: {self.supervision_type}")
 
+        pseudo_mask = torch.tensor([]) if not (self.use_pseudo_labels and image_id in self.pseudo_labels) else \
+        self.pseudo_labels[image_id]
+        if self.use_pseudo_labels and image_id in self.pseudo_labels:
+            pseudo_mask = self.pseudo_labels[image_id]
+
         # return image, weak supervision signal, and ground truth mask
-        return image, supervision, mask
+        return image, supervision, mask, pseudo_mask, image_id
+
+    def update_pseudo_labels(self, image_ids, predictions, confidences, threshold=0.7):
+        for img_id, prediction, confidence in zip(image_ids, predictions, confidences):
+            if confidence >= threshold:
+                self.pseudo_labels[img_id] = prediction
+
+    def save_pseudo_labels(self, path):
+        torch.save(self.pseudo_labels, path)
+
+    def load_pseudo_labels(self, path):
+        if os.path.exists(path):
+            self.pseudo_labels = torch.load(path)
+            print(f"Loaded {len(self.pseudo_labels)} pseudo-labels")
+
 
 def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
     """Split the dataset into training, validation, and test sets.
@@ -146,7 +190,7 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
 
 
 def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                       test_ratio=0.15, random_seed=RANDOM_SEED, supervision_type="class", normalize_bbox=True):
+                       test_ratio=0.15, random_seed=RANDOM_SEED, supervision_type="class", normalize_bbox=True, use_pseudo_labels=False):
     """Create PyTorch DataLoaders for training, validation, and testing.
 
     Args:
@@ -186,7 +230,7 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     # Create PyTorch datasets and dataloaders
     train_dataset = OxfordPetDatasetWeakly(
-        train_data, dataset, transform=train_transform, supervision_type=supervision_type, normalize_bbox=normalize_bbox
+        train_data, dataset, transform=train_transform, supervision_type=supervision_type, normalize_bbox=normalize_bbox, use_pseudo_labels=use_pseudo_labels
     )
     val_dataset = OxfordPetDatasetWeakly(
         val_data, dataset, transform=val_test_transform, supervision_type=supervision_type, normalize_bbox=normalize_bbox
