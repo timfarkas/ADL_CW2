@@ -1,3 +1,4 @@
+from typing import Literal
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -28,7 +29,9 @@ from utils import resize_images
 
 
 class BasicCAMWrapper(nn.Module):
-    def __init__(self, model):
+    cam_type: Literal["CAM", "GradCAM", "ScoreCAM"] = "CAM"
+
+    def __init__(self, model, cam_type="CAM"):
         """
         Wrapper class for models to generate Class Activation Maps (CAM) during forward pass
         
@@ -38,6 +41,7 @@ class BasicCAMWrapper(nn.Module):
         super().__init__()
         self.model = model
         self.hooks = []
+        self.cam_type = cam_type
         
     def forward(self, x, target_class=None, return_cam=False):
         """
@@ -71,8 +75,13 @@ class BasicCAMWrapper(nn.Module):
                 current_target = target_class
             
             # Compute CAM for this batch item
-            classifier_weights = self.model.classifier.weight.data
-            cam = self._compute_cam(feature_map, classifier_weights, current_target)
+            match self.cam_type:
+                case "CAM":
+                    cam = self._compute_cam(feature_map, self.model.classifier.weight.data, current_target)
+                case "ScoreCAM":
+                    cam = self._compute_scorecam(self.model, feature_map, x[b], current_target)
+                case _:
+                    raise ValueError(f"Unsupported CAM type: {self.cam_type}")
             cam = resize_images(cam, 256, 256)
             cams.append(torch.tensor(cam))
         
@@ -91,6 +100,31 @@ class BasicCAMWrapper(nn.Module):
         cam = cam / (np.max(cam) + 1e-8)  # Normalize to [0, 1]
         return cam
     
+    def _compute_scorecam(self, model, feature_map, input_image, target_class_idx):
+        """Compute Score-CAM"""
+
+        # Normalize activation maps to [0,1] range - maintains shape of [C, H, W]
+        normalized_map = (feature_map - feature_map.min()) / (
+            feature_map.max() - feature_map.min()
+        )
+
+        # Multiply input image by each activation map (element-wise masking)
+        masked_inputs = input_image.unsqueeze(0) * normalized_map.unsqueeze(
+            1
+        )  # Shape: [C, C, H, W]; each image has multiple masked versions
+
+        # Forward pass all masked inputs through the model
+        scores = model(masked_inputs)[:, target_class_idx]  # Shape: [C]
+
+        # Use these scores as weights for the activation maps
+        weights = torch.tensor(scores).reshape(1, -1, 1, 1)  # Shape: [1, C, 1, 1]
+        cam = torch.sum(weights * feature_map, dim=1)  # Weighted sum
+
+        # Normalize to [0,1]
+        cam = torch.relu(cam)
+        cam = (cam - cam.min()) / (cam.max() - cam.min())  
+        return cam
+
     def _generate_cam_image(self, img_tensor, cam):
         """Generate CAM overlay on the original image"""
         img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
