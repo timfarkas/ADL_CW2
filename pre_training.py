@@ -8,7 +8,24 @@ import sys
 import io
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from utils import compute_accuracy
+from utils import compute_accuracy, computeBBoxIoU
+
+### Num Inputs:
+#       Breed:                  37
+#       Species:                2
+#       Bbox:                   256x256       
+#       Breed + Species??:      39
+#       Breed + Bbox:           37 + 256x256
+#       Species + Bbox:         2 + 256x256
+#       Breed+Species+Bbox?:    39 + 256x256
+
+# Backbone:
+#   CNN
+#   ResNet
+# Head:
+#   Bbox Head
+#   Classifier Head
+
 
 class Trainer():
     """
@@ -444,11 +461,150 @@ if __name__ == "__main__":
     trainer.set_eval_functions([compute_accuracy, compute_accuracy], ["Acc", "Acc"])
     trainer.set_loaders(loader_dict['breed']['train_loader'], loader_dict['breed']['val_loader'])
 
-    loss_fn1 = nn.CrossEntropyLoss()
-    loss_fn2 = nn.CrossEntropyLoss()
+    cel_fn = nn.CrossEntropyLoss()
+    mse_fn = nn.MSELoss()
     
-    trainer.set_loss_functions([loss_fn1, loss_fn2])
+    trainer.set_loss_functions([cel_fn, cel_fn])
 
     print("Trainer set up successfully!")
 
-    trainer.fit_sgd()
+    #trainer.fit_sgd()
+
+    checkpoints_dir = "checkpoints"
+    NUM_SPECIES = 2
+    NUM_BREEDS = 37
+
+    run_dicts = [
+        {   ### cnn_species
+            "model_path": os.path.join(checkpoints_dir, "cnn_species"),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [compute_accuracy],
+            "loss_functions": [cel_fn],
+            "loader_targets": ["species"]
+        },
+        {   ### cnn_breed
+            "model_path": os.path.join(checkpoints_dir, "cnn_breed"),
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [compute_accuracy],
+            "loss_functions": [cel_fn],
+            "loader_targets": ["breed"]
+        },
+        {   ### cnn_bbox
+            "model_path": os.path.join(checkpoints_dir, "cnn_bbox"),
+            "heads": [BboxHead(adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [computeBBoxIoU], 
+            "loss_functions": [mse_fn], 
+            "loader_targets": ["bbox"]
+        },
+        {   ### cnn_breed_species
+            "model_path": os.path.join(checkpoints_dir, "cnn_breed_species"),
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), ClassifierHead(NUM_SPECIES, adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [compute_accuracy, compute_accuracy],
+            "loss_functions": [cel_fn, cel_fn],
+            "loader_targets": ["breed", "species"]
+        },
+        {   ### cnn_breed_bbox
+            "model_path": os.path.join(checkpoints_dir, "cnn_breed_bbox"),
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [compute_accuracy, computeBBoxIoU], 
+            "loss_functions": [cel_fn, mse_fn], 
+            "loader_targets": ["breed", "bbox"]
+        },
+        {   ### cnn_species_bbox
+            "model_path": os.path.join(checkpoints_dir, "cnn_species_bbox"),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), BboxHead(adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [compute_accuracy, computeBBoxIoU],
+            "loss_functions": [cel_fn, mse_fn], 
+            "loader_targets": ["species", "bbox"]
+        },
+        {   ### cnn_species_breed_bbox
+            "model_path": os.path.join(checkpoints_dir, "cnn_species_breed_bbox"),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
+            "backbone": CNNBackbone(),
+            "eval_functions": [compute_accuracy, compute_accuracy, computeBBoxIoU], 
+            "loss_functions": [cel_fn, cel_fn, mse_fn],
+            "loader_targets": ["species", "breed", "bbox"]
+        },
+        {   ### res_species
+            "model_path": os.path.join(checkpoints_dir, "res_species"),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [compute_accuracy],
+            "loss_functions": [cel_fn],
+            "loader_targets": ["species"]
+        },
+        {   ### res_breed
+            "model_path": os.path.join(checkpoints_dir, "res_breed"),
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [compute_accuracy],
+            "loss_functions": [cel_fn],
+            "loader_targets": ["breed"]
+        },
+        {   ### res_bbox
+            "model_path": os.path.join(checkpoints_dir, "res_bbox"),
+            "heads": [BboxHead(adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [], # TODO
+            "loss_functions": [mse_fn], 
+            "loader_targets": ["bbox"]
+        },
+        {   ### res_breed_species
+            "model_path": os.path.join(checkpoints_dir, "res_breed_species"),
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="Res"), ClassifierHead(NUM_SPECIES, adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [compute_accuracy, compute_accuracy],
+            "loss_functions": [cel_fn, cel_fn],
+            "loader_targets": ["breed", "species"]
+        },
+        {   ### res_breed_bbox
+            "model_path": os.path.join(checkpoints_dir, "res_breed_bbox"),
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="Res"), BboxHead(adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [compute_accuracy, ], # TODO
+            "loss_functions": [cel_fn, mse_fn],
+            "loader_targets": ["breed", "bbox"]
+        },
+        {   ### res_species_bbox
+            "model_path": os.path.join(checkpoints_dir, "res_species_bbox"),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), BboxHead(adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [compute_accuracy, computeBBoxIoU],
+            "loss_functions": [cel_fn, mse_fn],
+            "loader_targets": ["species", "bbox"]
+        },
+        {   ### res_species_breed_bbox
+            "model_path": os.path.join(checkpoints_dir, "res_species_breed_bbox"),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="Res")],
+            "backbone": ResNetBackbone(),
+            "eval_functions": [compute_accuracy, compute_accuracy,computeBBoxIoU],
+            "loss_functions": [cel_fn, cel_fn, mse_fn],
+            "loader_targets": ["species", "breed", "bbox"]
+        },
+    ]
+
+    print(f"{len(run_dicts)} run_dicts successfully initialized.")
+
+
+
+### Num Inputs:
+#       Species:                2      
+#       Breed:                  37
+#       Bbox:                   256x256       
+#       Breed + Species??:      39
+#       Breed + Bbox:           37 + 256x256
+#       Species + Bbox:         2 + 256x256
+#       Breed+Species+Bbox?:    39 + 256x256
+
+# Backbone:
+#   CNN
+#   ResNet
+# Head:
+#   Bbox Head
+#   Classifier Head
