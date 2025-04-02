@@ -224,11 +224,14 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 if __name__ == "__main__":
 
     # Prepare dataset
-    dataset = OxfordPetDataset(data_directory="oxford_pet_data").prepare_dataset()
+    dataset = OxfordPetDataset(root_dir="oxford_pet_data").prepare_dataset()
 
     # Create dataloaders
     train_loader, val_loader, test_loader = create_dataloaders(dataset, batch_size=32)
 
     print(f"Training batches: {len(train_loader)}")
+    print(f"Training images: {len(train_loader.dataset)}")
     print(f"Validation batches: {len(val_loader)}")
+    print(f"Validation images: {len(val_loader.dataset)}")
     print(f"Testing batches: {len(test_loader)}")
+    print(f"Testing images: {len(test_loader.dataset)}")
