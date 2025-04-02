@@ -8,7 +8,6 @@ from custom_data import OxfordPetDataset
 import random
 import os
 from PIL import Image
-import numpy as np
 
 RANDOM_SEED = 27
 
@@ -18,7 +17,7 @@ class OxfordPetTorchAdapter(Dataset):
     Converts the basic dataset into PyTorch-compatible format with various
     target options.
     """
-    def __init__(self, data_items, oxford_dataset, transform=None, target_type="class", normalize_bbox=True, target_transform=None, data_directory="oxford_pet_data"):
+    def __init__(self, data_items, oxford_dataset, transform=None, target_type=["class"], normalize_bbox=True, target_transform=None, data_directory="oxford_pet_data"):
         """Initialize the PyTorch dataset adapter.
 
         Args:
@@ -33,7 +32,12 @@ class OxfordPetTorchAdapter(Dataset):
         self.data_items = data_items
         self.oxford_dataset = oxford_dataset
         self.transform = transform
-        self.target_type = target_type
+
+        if isinstance(target_type, str):
+            self.target_type = [target_type]
+        else:
+            self.target_type = target_type
+
         self.normalize_bbox = normalize_bbox
         self.target_transform = target_transform
         self.data_directory = data_directory
@@ -64,16 +68,29 @@ class OxfordPetTorchAdapter(Dataset):
         image = self.oxford_dataset.load_image(img_path)
         original_width, original_height = image.size
 
-        # Apply transformations if provided
         if self.transform:
             image = self.transform(image)
 
+        if len(self.target_type) == 1:
+            return image, self._get_target(self.target_type[0], img_path, class_idx, species_idx, bbox, original_width, original_height)
+
+        targets = {}
+        for target_type in self.target_type:
+            targets[target_type] = self._get_target(target_type, img_path, class_idx, species_idx, bbox, original_width, original_height)
+
+        return image, targets
+
+
+    def _get_target(self, target_type, img_path, class_idx, species_idx, bbox, original_width, original_height):
+        # Apply transformations if provided
+
+
         # Return appropriate target
-        if self.target_type in ["class", "breed"]:
-            return image, class_idx
-        elif self.target_type == "species":
-            return image, species_idx
-        elif self.target_type == "bbox":
+        if target_type in ["class", "breed"]:
+            return class_idx
+        elif target_type == "species":
+            return species_idx
+        elif target_type == "bbox":
             if bbox is None:
                 # If no bbox available, return zeros or default values
                 bbox_tensor = torch.zeros(4, dtype=torch.float32)
@@ -87,8 +104,8 @@ class OxfordPetTorchAdapter(Dataset):
                     ymax = ymax / original_height
 
                 bbox_tensor = torch.tensor([xmin, ymin, xmax, ymax], dtype=torch.float32)
-            return image, bbox_tensor
-        elif self.target_type == "segmentation":
+            return bbox_tensor
+        elif target_type == "segmentation":
             # Load segmentation mask from trimaps directory
             base_name = os.path.splitext(os.path.basename(img_path))[0].lower()
             seg_path = os.path.join(self.data_directory, 'annotations/trimaps', base_name + '.png')
@@ -103,7 +120,7 @@ class OxfordPetTorchAdapter(Dataset):
                     # Convert to tensor by default if no transform provided
                     mask = transforms.ToTensor()(mask)
                 
-                return image, mask
+                return mask
             except FileNotFoundError:
                 # If segmentation mask is not found, return a blank mask
                 print(f"Warning: Segmentation mask not found for {base_name}")
@@ -111,9 +128,9 @@ class OxfordPetTorchAdapter(Dataset):
                 if self.target_transform:
                     # Resize blank mask to match target transform expectations
                     blank_mask = torch.zeros((1, 256, 256), dtype=torch.float32)
-                return image, blank_mask
+                return blank_mask
         else:
-            raise ValueError(f"Unknown target_type: {self.target_type}")
+            raise ValueError(f"Unknown target_type: {target_type}")
 
 def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
     """Split the dataset into training, validation, and test sets.
@@ -151,7 +168,7 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
 
 
 def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                       test_ratio=0.15, random_seed=RANDOM_SEED, target_type="class", 
+                       test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
                        normalize_bbox=True, data_directory="oxford_pet_data"):
     """Create PyTorch DataLoaders for training, validation, and testing.
 
@@ -188,7 +205,7 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     # Define target transform for segmentation masks
     target_transform = None
-    if target_type == "segmentation":
+    if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
         target_transform = transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
@@ -227,7 +244,9 @@ if __name__ == "__main__":
     dataset = OxfordPetDataset(root_dir="oxford_pet_data").prepare_dataset()
 
     # Create dataloaders
-    train_loader, val_loader, test_loader = create_dataloaders(dataset, batch_size=32)
+    train_loader, val_loader, test_loader = create_dataloaders(
+        dataset, target_type=["class", "bbox"]
+    )
 
     print(f"Training batches: {len(train_loader)}")
     print(f"Training images: {len(train_loader.dataset)}")
