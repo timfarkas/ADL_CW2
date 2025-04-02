@@ -174,6 +174,7 @@ class BboxHead(nn.Module):
             nn.Linear(num_inputs, 4),
             nn.Sigmoid() ### [cx, cy, w, h]
         )
+        self.name = "BBoxHead"
     
     def forward(self, z):
         return self.head(z)
@@ -188,6 +189,8 @@ class ClassifierHead(nn.Module):
             nn.Linear(num_inputs, num_classes),
             nn.Sigmoid() 
         )
+
+        self.name = f"ClassifierHead({num_classes})"
     
     def forward(self, z):
         return self.head(z)
