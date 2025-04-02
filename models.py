@@ -10,22 +10,6 @@ import cv2
 import os  
 from utils import resize_images 
 
-### Num Inputs:
-#       Breed:                  37
-#       Species:                2
-#       Bbox:                   256x256       
-#       Breed + Species??:      39
-#       Breed + Bbox:           37 + 256x256
-#       Species + Bbox:         2 + 256x256
-#       Breed+Species+Bbox?:    39 + 256x256
-
-# Backbone:
-#   CNN
-#   ResNet
-# Head:
-#   Bbox Head
-#   Classifier Head
-
 
 class BasicCAMWrapper(nn.Module):
     def __init__(self, model):
