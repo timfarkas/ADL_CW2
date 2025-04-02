@@ -57,112 +57,6 @@ class UNet(nn.Module):
         out = F.interpolate(out, size=input_size, mode='bilinear', align_corners=False)
 
         return out
-# class Conv2dLayer(nn.Module):
-#     def __init__(self, out_channels, is_output=False):
-#         super().__init__()
-#         self.is_output = is_output
-#         self.conv = nn.Conv2d(
-#             in_channels=None,  # placeholder, will be updated during model building
-#             out_channels=out_channels,
-#             kernel_size=3,
-#             padding=1,
-#             bias=is_output
-#         )
-#         self.activation = nn.Sigmoid() if is_output else nn.ReLU(inplace=False)
-#         self.batch_norm = nn.BatchNorm2d(out_channels) if not is_output else None
-#
-#     def forward(self, x):
-#         # Set in_channels at runtime
-#         if not hasattr(self, 'conv_initialized'):
-#             self.conv = nn.Conv2d(x.size(1), self.conv.out_channels, kernel_size=3, padding=1, bias=self.is_output)
-#             self.conv_initialized = True
-#
-#         x = self.conv(x)
-#         x = self.batch_norm(x) if self.batch_norm else x
-#         x = self.activation(x)
-#         return x
-#
-#
-# class ResnetBlock(nn.Module):
-#     def __init__(self, channels, mode, bn=True):
-#         super().__init__()
-#         self.mode = mode
-#         self.bn = bn
-#
-#         self.conv_block = nn.Sequential(
-#             nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-#             nn.BatchNorm2d(channels),
-#             nn.ReLU(inplace=False),
-#             nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-#             nn.BatchNorm2d(channels),
-#             nn.ReLU(inplace=False),
-#         )
-#
-#         if mode == 'down':
-#             self.down = nn.Sequential(
-#                 nn.Conv2d(channels, channels * 2, kernel_size=3, stride=1, padding=1),
-#                 nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
-#                 nn.BatchNorm2d(channels * 2) if bn else nn.Identity()
-#             )
-#         elif mode == 'up':
-#             self.up = nn.Sequential(
-#                 nn.ConvTranspose2d(channels, channels // 2, kernel_size=3, stride=2, padding=1, output_padding=1),
-#                 nn.BatchNorm2d(channels // 2) if bn else nn.Identity(),
-#                 nn.ReLU(inplace=False)
-#             )
-#
-#     def forward(self, x):
-#         identity = x
-#         x = self.conv_block(x)
-#         x = x + identity
-#         if self.mode == 'down':
-#             return self.down(x)
-#         elif self.mode == 'up':
-#             return self.up(x)
-#         return x
-#
-#
-# class ResUNet(nn.Module):
-#     def __init__(self, init_ch=32, num_levels=3, out_ch=1):
-#         super().__init__()
-#         self.first_layer = nn.Sequential(
-#             nn.Conv2d(3, init_ch, kernel_size=3, padding=1),
-#             nn.BatchNorm2d(init_ch),
-#             nn.ReLU(inplace=False)
-#         )
-#
-#         self.encoder = nn.ModuleList([
-#             ResnetBlock(2**i * init_ch, mode='down') for i in range(num_levels)
-#         ])
-#         self.encoder.append(ResnetBlock(2**num_levels * init_ch, mode='none'))
-#
-#         self.decoder = nn.ModuleList([
-#             ResnetBlock(2**i * init_ch, mode='up') for i in range(num_levels, 0, -1)
-#         ])
-#         self.decoder.append(ResnetBlock(init_ch, mode='none'))
-#
-#         self.out_layer = nn.Conv2d(init_ch, out_ch, kernel_size=3, padding=1) #this returns raw logits to fit in BCEWithLogitsLoss()
-#
-#     def forward(self, x):
-#         x = self.first_layer(x)
-#         skips = []
-#         for block in self.encoder[:-1]:
-#             x = block(x)
-#             skips.append(x)
-#         x = self.encoder[-1](x)
-#         for block, skip in zip(self.decoder[:-1], reversed(skips)):
-#             x = self._resize_to(x, skip) + skip
-#             x = block(x)
-#         x = self._resize_to(x, x)  # final resizing to match input
-#         x = self.decoder[-1](x)
-#         return self.out_layer(x)
-#
-#     def _resize_to(self, x, target):
-#         if x.shape[2:] == target.shape[2:]:
-#             return x
-#         else:
-#             return F.interpolate(x, size=target.shape[2:], mode='bilinear', align_corners=False)
-
 
 def fit_sgd_pixel(model_train,
             dataloader_new,
@@ -256,7 +150,7 @@ def predict_pixel_classification_dataset(model: nn.Module,
     all_images = torch.cat(image_list, dim=0)
     all_probs = torch.cat(prob_mask_list, dim=0)
 
-    print(f"✅ Generated filtered probability masks for {len(all_images)} samples.")
+    print(f"Generated filtered probability masks for {len(all_images)} samples.")
     return TensorDataset(all_images, all_probs)
 def visualize_predicted_masks(dataset, num_samples=4, save_path=None):
     """
@@ -299,7 +193,7 @@ def visualize_predicted_masks(dataset, num_samples=4, save_path=None):
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
         plt.savefig(save_path)
-        print(f"✅ Saved visualization to {save_path}")
+        print(f"Saved visualization to {save_path}")
 
     plt.close()  # Just close it silently without showing
 
