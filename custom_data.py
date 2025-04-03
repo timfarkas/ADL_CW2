@@ -52,6 +52,8 @@ class OxfordPetDataset:
         self.class_to_idx = None
         self.class_to_species = None
 
+        self.setup_class_mappings()
+
     def prepare_dataset(self):
         """Download, extract, and setup class mappings for the dataset.
 
