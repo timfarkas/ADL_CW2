@@ -20,21 +20,15 @@ class UNet(nn.Module):
                 nn.BatchNorm2d(out_ch),
                 nn.ReLU(inplace=True),
             )
-
         self.enc1 = conv_block(in_channels, base_ch)
         self.enc2 = conv_block(base_ch, base_ch * 2)
         self.enc3 = conv_block(base_ch * 2, base_ch * 4)
-
         self.pool = nn.MaxPool2d(2)
-
         self.middle = conv_block(base_ch * 4, base_ch * 4)
-
         self.up2 = nn.ConvTranspose2d(base_ch * 4, base_ch * 2, kernel_size=2, stride=2)
         self.dec2 = conv_block(base_ch * 4 + base_ch * 2, base_ch * 2)
-
         self.up1 = nn.ConvTranspose2d(base_ch * 2, base_ch, kernel_size=2, stride=2)
         self.dec1 = conv_block(base_ch * 2 + base_ch, base_ch)
-
         self.out = nn.Conv2d(base_ch, out_channels, kernel_size=1)
 
     def forward(self, x):
