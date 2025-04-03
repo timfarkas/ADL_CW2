@@ -8,7 +8,7 @@ import sys
 import io
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from utils import compute_accuracy, computeBBoxIoU
+from utils import compute_accuracy, computeBBoxIoU, convertVOCBBoxFormatToAnchorFormat
 
 ### Num Inputs:
 #       Breed:                  37
@@ -396,6 +396,12 @@ class Trainer():
         print(f"Final model saved to {self.model_path}")
         print(f"Number of parameters: {sum(p.numel() for p in self.backbone.parameters()) + sum(sum(p.numel() for p in head.parameters()) for head in self.heads)}")
 
+def convert_and_get_IoU(outputs, targets) -> float:
+    outputs = convertVOCBBoxFormatToAnchorFormat(outputs)
+    targets = convertVOCBBoxFormatToAnchorFormat(targets)
+    iou = computeBBoxIoU(outputs, targets)
+    return iou
+
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -460,7 +466,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "cnn_bbox"),
             "heads": [BboxHead(adapter="CNN")],
             "backbone": CNNBackbone(),
-            "eval_functions": [computeBBoxIoU],
+            "eval_functions": [convert_and_get_IoU],
             "eval_function_names" : ["IoU"], 
             "loss_functions": [mse_fn], 
             "loader_targets": ["bbox"]
@@ -478,7 +484,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "cnn_breed_bbox"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
             "backbone": CNNBackbone(),
-            "eval_functions": [compute_accuracy, computeBBoxIoU],
+            "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"], 
             "loss_functions": [cel_fn, mse_fn], 
             "loader_targets": ["breed", "bbox"]
@@ -487,7 +493,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "cnn_species_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), BboxHead(adapter="CNN")],
             "backbone": CNNBackbone(),
-            "eval_functions": [compute_accuracy, computeBBoxIoU],
+            "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"],
             "loss_functions": [cel_fn, mse_fn], 
             "loader_targets": ["species", "bbox"]
@@ -496,7 +502,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "cnn_species_breed_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
             "backbone": CNNBackbone(),
-            "eval_functions": [compute_accuracy, compute_accuracy, computeBBoxIoU],
+            "eval_functions": [compute_accuracy, compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "Acc", "IoU"], 
             "loss_functions": [cel_fn, cel_fn, mse_fn],
             "loader_targets": ["species", "breed", "bbox"]
@@ -523,7 +529,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "res_bbox"),
             "heads": [BboxHead(adapter="Res")],
             "backbone": ResNetBackbone(),
-            "eval_functions": [computeBBoxIoU],
+            "eval_functions": [convert_and_get_IoU],
             "eval_function_names" : ["IoU"],
             "loss_functions": [mse_fn], 
             "loader_targets": ["bbox"]
@@ -541,7 +547,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "res_breed_bbox"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="Res"), BboxHead(adapter="Res")],
             "backbone": ResNetBackbone(),
-            "eval_functions": [compute_accuracy, computeBBoxIoU],
+            "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"],
             "loss_functions": [cel_fn, mse_fn],
             "loader_targets": ["breed", "bbox"]
@@ -550,7 +556,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "res_species_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), BboxHead(adapter="Res")],
             "backbone": ResNetBackbone(),
-            "eval_functions": [compute_accuracy, computeBBoxIoU],
+            "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"],
             "loss_functions": [cel_fn, mse_fn],
             "loader_targets": ["species", "bbox"]
@@ -559,7 +565,7 @@ if __name__ == "__main__":
             "model_path": os.path.join(checkpoints_dir, "res_species_breed_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="Res")],
             "backbone": ResNetBackbone(),
-            "eval_functions": [compute_accuracy, compute_accuracy,computeBBoxIoU],
+            "eval_functions": [compute_accuracy, compute_accuracy,convert_and_get_IoU],
             "eval_function_names" : ["Acc", "Acc", "IoU"],
             "loss_functions": [cel_fn, cel_fn, mse_fn],
             "loader_targets": ["species", "breed", "bbox"]
