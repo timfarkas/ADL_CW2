@@ -6,6 +6,7 @@ import urllib.request
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from PIL import Image
+import re
 
 
 class OxfordPetDataset:
@@ -101,7 +102,7 @@ class OxfordPetDataset:
         image_files = list(self.images_dir.glob("*.jpg"))
 
         # Extract class names from filenames
-        class_names = sorted(list(set(img.stem.split('_')[0].lower() for img in image_files)))
+        class_names = sorted(list(set(re.sub(r'_\d+$', '', img.stem.lower()) for img in image_files)))
 
         self.class_names = class_names
         self.class_to_idx = {cls_name: i for i, cls_name in enumerate(class_names)}
@@ -128,7 +129,7 @@ class OxfordPetDataset:
 
         for img_path in image_files:
             # Get class info
-            class_name = img_path.stem.split('_')[0].lower()
+            class_name = re.sub(r'_\d+$', '', img_path.stem.lower())
             class_idx = self.class_to_idx[class_name]
             species = self.class_to_species[class_name]
             species_idx = species_to_idx[species]
