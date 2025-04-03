@@ -266,8 +266,9 @@ class Trainer():
 
             print(f"\nTrain {epoch+1}/{num_epochs} ", end="")
             for i, (images, labels) in enumerate(self.train_loader):
-                labels = [labels] if not isinstance(labels, list) else labels ## convert labels to list
-                
+                labels = [labels] if isinstance(labels, torch.Tensor) else labels ## convert label tensor to list
+                labels = [labels[key] for key in labels.keys()] if isinstance(labels, dict) else labels ## convert label dict to list
+
                 if i % max(1, len(self.train_loader) // 10) == 0:
                     print(f"|", end="", flush=True)
                 
@@ -331,7 +332,8 @@ class Trainer():
             
             with torch.no_grad():
                 for images, labels in self.val_loader:
-                    labels = [labels] if not isinstance(labels, list) else labels ## convert labels to list
+                    labels = [labels] if isinstance(labels, torch.Tensor) else labels ## convert label tensor to list
+                    labels = [labels[key] for key in labels.keys()] if isinstance(labels, dict) else labels ## convert label dict to list
 
                     images = images.to(device)
                     labels = [label.to(device) for label in labels]
