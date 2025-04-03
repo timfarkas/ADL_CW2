@@ -213,7 +213,7 @@ def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_si
 
 def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
                        test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
-                       normalize_bbox=True, data_directory="oxford_pet_data"):
+                       normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False):
     """Create PyTorch DataLoaders for training, validation, and testing.
 
     Args:
@@ -231,16 +231,22 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
     """
 
-    # define transformations - currently commented out until instructed that we need them
-    train_transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(256),
-        # transforms.RandomHorizontalFlip(),
-        # transforms.RandomRotation(10),
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+    if use_augmentation:
+        train_transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(256),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+    else:
+        train_transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(256),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
 
     val_test_transform = transforms.Compose([
         transforms.Resize(256),
@@ -320,14 +326,15 @@ if __name__ == "__main__":
 
     images, targets = next(iter(train_loader))
 
+    print(targets)
+
+
     id = 5
 
     print(images[id])
     print("First item targets:")
     for key, value in targets.items():
         print(f"  {key}: {value[5]}")
-
-    print(targets)
 
     img = images[id].permute(1, 2, 0).cpu().numpy()
 
@@ -369,6 +376,16 @@ if __name__ == "__main__":
         species_idx = targets['species'][id].item()
         species_name = "Cat" if species_idx == 0 else "Dog"
         title += f"\nSpecies: {species_idx} - {species_name}"
+    if 'segmentation' in targets:
+        seg_mask_tensor = targets['segmentation'][id]
+        # If the segmentation mask has an extra channel dimension, remove it
+        if seg_mask_tensor.ndim > 2:
+            seg_mask = seg_mask_tensor.squeeze().cpu().numpy()
+        else:
+            seg_mask = seg_mask_tensor.cpu().numpy()
+        plt.imshow(seg_mask, cmap='jet', alpha=0.5)
+
+
 
     plt.title(title)
     plt.axis('off')
