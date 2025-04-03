@@ -4,12 +4,87 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+import torchvision.transforms.functional as F
 from custom_data import OxfordPetDataset
 import random
 import os
 from PIL import Image
 
 RANDOM_SEED = 27
+
+class AugmentationTransforms:
+    def __init__(self, size=(256, 256), hflip_prob=0.5, brightness=0.2, contrast=0.2,
+                enable_augmentation=True):
+
+        self.size = size
+        self.enable_augmentation = enable_augmentation
+
+        self.hflip_prob = hflip_prob if enable_augmentation else 0
+        self.brightness = brightness if enable_augmentation else 0
+        self.contrast = contrast if enable_augmentation else 0
+
+        self.norm_mean = [0.485, 0.456, 0.406]
+        self.norm_std = [0.229, 0.224, 0.225]
+
+    def __call__(self, image, targets):
+
+        # original dimensions before transformations
+        orig_width, orig_height = image.size
+
+        # create copy
+        transformed_targets = targets.copy()
+
+        image = F.to_tensor(image)
+
+        image = F.resize(image, self.size, antialias=True)
+
+        # if bbox is present, handle resize
+        if 'bbox' in targets and targets['bbox'] is not None:
+            bbox = targets['bbox']
+            # convert to relative coordinates if not already
+            if not all(0 <= coord <= 1 for coord in bbox):
+                bbox = [
+                    bbox[0] / orig_width,
+                    bbox[1] / orig_height,
+                    bbox[2] / orig_width,
+                    bbox[3] / orig_height
+                ]
+            transformed_targets['bbox'] = bbox
+
+        # handle segmentation mask resize if present
+        if 'segmentation' in targets and targets['segmentation'] is not None:
+            mask = targets['segmentation']
+            if not isinstance(mask, torch.Tensor):
+                mask = F.to_tensor(mask)
+            mask = F.resize(mask, self.size, antialias=False)
+            transformed_targets['segmentation'] = mask
+
+        # add horizontal flip with probablity p
+        if random.random() < self.hflip_prob:
+            image = F.hflip(image)
+
+            # flip bbox and segementation mask if present
+            if 'bbox' in transformed_targets and transformed_targets['bbox'] is not None:
+                xmin, ymin, xmax, ymax = transformed_targets['bbox']
+                transformed_targets['bbox'] = [1 - xmax, ymin, 1 - xmin, ymax]
+
+            if 'segmentation' in transformed_targets and transformed_targets['segmentation'] is not None:
+                transformed_targets['segmentation'] = F.hflip(transformed_targets['segmentation'])
+
+        # apply color jitter (brightness and contrast)
+        if self.brightness > 0:
+            brightness_factor = random.uniform(max(0, 1 - self.brightness), 1 + self.brightness)
+            image = F.adjust_brightness(image, brightness_factor)
+
+        if self.contrast > 0:
+            contrast_factor = random.uniform(max(0, 1 - self.contrast), 1 + self.contrast)
+            image = F.adjust_contrast(image, contrast_factor)
+
+        # apply normalisation
+        image = F.normalize(image, mean=self.norm_mean, std=self.norm_std)
+
+        return image, transformed_targets
+
 
 class OxfordPetTorchAdapter(Dataset):
     """PyTorch Dataset adapter for the Oxford-IIIT Pet Dataset.
@@ -169,7 +244,7 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
 
 def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
                        test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
-                       normalize_bbox=True, data_directory="oxford_pet_data"):
+                       normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False):
     """Create PyTorch DataLoaders for training, validation, and testing.
 
     Args:
@@ -187,13 +262,13 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
     """
 
+    augmentation_transforms = AugmentationTransforms(enable_augmentation=use_augmentation)
+
     # define transformations - currently commented out until instructed that we need them
     train_transform = transforms.Compose([
         transforms.Resize((256, 256)),
-        # transforms.RandomHorizontalFlip(),
-        # transforms.RandomRotation(10),
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
+        augmentation_transforms,
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
