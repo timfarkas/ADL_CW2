@@ -11,13 +11,16 @@ from PIL import Image
 
 RANDOM_SEED = 27
 
+
 class OxfordPetTorchAdapter(Dataset):
     """PyTorch Dataset adapter for the Oxford-IIIT Pet Dataset.
 
     Converts the basic dataset into PyTorch-compatible format with various
     target options.
     """
-    def __init__(self, data_items, oxford_dataset, transform=None, target_type=["class"], normalize_bbox=True, target_transform=None, data_directory="oxford_pet_data"):
+
+    def __init__(self, data_items, oxford_dataset, transform=None, target_type=["class"], normalize_bbox=True,
+                 target_transform=None, data_directory="oxford_pet_data"):
         """Initialize the PyTorch dataset adapter.
 
         Args:
@@ -72,18 +75,18 @@ class OxfordPetTorchAdapter(Dataset):
             image = self.transform(image)
 
         if len(self.target_type) == 1:
-            return image, self._get_target(self.target_type[0], img_path, class_idx, species_idx, bbox, original_width, original_height)
+            return image, self._get_target(self.target_type[0], img_path, class_idx, species_idx, bbox, original_width,
+                                           original_height)
 
         targets = {}
         for target_type in self.target_type:
-            targets[target_type] = self._get_target(target_type, img_path, class_idx, species_idx, bbox, original_width, original_height)
+            targets[target_type] = self._get_target(target_type, img_path, class_idx, species_idx, bbox, original_width,
+                                                    original_height)
 
         return image, targets
 
-
     def _get_target(self, target_type, img_path, class_idx, species_idx, bbox, original_width, original_height):
         # Apply transformations if provided
-
 
         # Return appropriate target
         if target_type in ["class", "breed"]:
@@ -109,17 +112,17 @@ class OxfordPetTorchAdapter(Dataset):
             # Load segmentation mask from trimaps directory
             base_name = os.path.splitext(os.path.basename(img_path))[0].lower()
             seg_path = os.path.join(self.data_directory, 'annotations/trimaps', base_name + '.png')
-            
+
             try:
                 mask = Image.open(seg_path)
-                
+
                 # Apply target transform if provided
                 if self.target_transform:
                     mask = self.target_transform(mask)
                 else:
                     # Convert to tensor by default if no transform provided
                     mask = transforms.ToTensor()(mask)
-                
+
                 return mask
             except FileNotFoundError:
                 # If segmentation mask is not found, return a blank mask
@@ -131,6 +134,7 @@ class OxfordPetTorchAdapter(Dataset):
                 return blank_mask
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
+
 
 def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
     """Split the dataset into training, validation, and test sets.
@@ -218,15 +222,15 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     # Create PyTorch datasets and dataloaders
     train_dataset = OxfordPetTorchAdapter(
-        train_data, dataset, transform=train_transform, target_type=target_type, 
+        train_data, dataset, transform=train_transform, target_type=target_type,
         normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
     )
     val_dataset = OxfordPetTorchAdapter(
-        val_data, dataset, transform=val_test_transform, target_type=target_type, 
+        val_data, dataset, transform=val_test_transform, target_type=target_type,
         normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
     )
     test_dataset = OxfordPetTorchAdapter(
-        test_data, dataset, transform=val_test_transform, target_type=target_type, 
+        test_data, dataset, transform=val_test_transform, target_type=target_type,
         normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
     )
 
@@ -239,7 +243,6 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
 # Example usage:
 if __name__ == "__main__":
-
     # Prepare dataset
     dataset = OxfordPetDataset(root_dir="oxford_pet_data").prepare_dataset()
 

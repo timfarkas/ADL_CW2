@@ -6,9 +6,22 @@ import os
 from CAM.cam_model import ResNetBackbone, CNN, fit_sgd, visualize_cam, generate_cam_label_dataset
 import torch
 from self_training_model import UNet, fit_sgd_pixel,predict_pixel_classification_dataset,visualize_predicted_masks, visualize_first_batch
-
+from custom_data import OxfordPetDataset
+import custom_loader
 from PIL import ImageFile
-# ImageFile.LOAD_TRUNCATED_IMAGES = True
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+
+
+classification_mode = "breed"
+
+
+'''
+# 
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+dataset = OxfordPetDataset().prepare_dataset()
+dataloader_train, dataloader_val,dataloader_test = custom_loader.create_dataloaders(dataset, target_type=classification_mode)
+'''
 
 DATA_PATH = '../../DLcourse/GroupTask/segmentation/data'
 image_list = []
@@ -22,10 +35,9 @@ tensor_dataset_train = TensorDataset(images_tensor, labels_tensor)
 dataloader_train = DataLoader(tensor_dataset_train, batch_size=32, shuffle=False)
 
 
-classification_mode = "breed"
 
 ## HYPERPARAMETERS
-
+num_epochs = 30
 batch_size = 32
 
 model_type = "CNN" ## CNN, Res
@@ -33,7 +45,7 @@ model_dir = os.path.join("checkpoints", "CAM")
 os.makedirs(model_dir, exist_ok=True)
 train_mode=True # if False, will use trained local mode
 
-num_epochs = 30
+
 
 loss_function = torch.nn.CrossEntropyLoss()
 

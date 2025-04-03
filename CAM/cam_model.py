@@ -161,7 +161,7 @@ def fit_sgd(model_train: torch.nn.Module,
             sample_count += batch_size
             running_loss = loss.item() * batch_size
             loss_sum += running_loss
-
+            print("batch",batch_count)
         print(
             f"Epoch:{epoch + 1}/{number_epoch},Accuracy: {correct_count / sample_count},{correct_count}/{sample_count},Loss:{loss_sum / sample_count}")
 
