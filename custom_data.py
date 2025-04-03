@@ -7,6 +7,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 from PIL import Image
 import re
+import random
+import matplotlib.pyplot as plt
 
 
 class OxfordPetDataset:
@@ -192,22 +194,45 @@ def main():
     dataset = OxfordPetDataset().prepare_dataset()
 
     # Get all data for training
+    print("\n(img_path, class_idx, species_idx, bbox)")
+    print("classes:", list(enumerate(dataset.class_names)))
+    print("species_idx: 'cat': 0, 'dog': 1, 'unknown': 2")
+    print("bbox: (xmin, ymin, xmax, ymax)")
+
     all_data = dataset.get_all_data()
+    print(all_data[0:10])
+
     print(f"Dataset contains {len(all_data)} images")
 
     # test example
     if all_data:
-        print("\nTest example assessing and processing item:")
+        print("\nTest example selected randomly:")
 
-        img_path, class_idx, species_idx, bbox = all_data[0]
-        print(f"First image: {img_path.name}")
-        print(f"Class: {dataset.class_names[class_idx]}")
+        random_index = random.randint(0, len(all_data) - 1)
+        img_path, class_idx, species_idx, bbox = all_data[random_index]
+        print(f"Image: {img_path.name}")
+        print(f"Class: {dataset.class_names[class_idx], class_idx}")
         print(f"Species: {'cat' if species_idx == 0 else 'dog'}")
+        print(f"Species index: {species_idx}")  # Print the species index
+        print(f"Class index: {class_idx}")  # Print the class index
 
         # Load and process the image
         image = dataset.load_image(img_path)
         print(f"Image size (x, y): {image.size}")
         print(f"Bounding box (xmin, ymin, xmax, ymax): {bbox}")
+        plt.imshow(image)
+        if bbox:
+            xmin, ymin, xmax, ymax = bbox
+            rect = plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
+                                 fill=False, edgecolor='red', linewidth=1)
+            plt.gca().add_patch(rect)
+
+        title = (f"Image: {img_path.name}\n"
+                 f"Class: {dataset.class_names[class_idx]}, Index: {class_idx}\n"
+                 f"Species: {'cat' if species_idx == 0 else 'dog'}, Index: {species_idx}")
+        plt.title(title)
+        plt.axis('off')  # Hide axis ticks and labels
+        plt.show()
 
 if __name__ == "__main__":
     main()
