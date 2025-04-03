@@ -178,6 +178,39 @@ def compute_cam(feature_map, classifier_weights, class_idx):
     cam = cam / (np.max(cam) + 1e-8)  # Normalize to [0, 1]
     return cam
 
+def _compute_scorecam(model, feature_map, input_image, target_class_idx):
+    """Compute Score-CAM"""
+
+    # Normalize activation maps to [0,1] range - maintains shape of [C, H, W]
+    normalized_map = (feature_map - feature_map.min()) / (
+        feature_map.max() - feature_map.min()
+    )
+
+    # Resize to the same size as the input image using bilinear interpolation
+    normalized_map = F.interpolate(
+        normalized_map.unsqueeze(1),
+        size=(256, 256),
+        mode="bilinear",
+        align_corners=False,
+    )
+
+    # Multiply input image by each activation map (element-wise masking)
+    masked_inputs = input_image.unsqueeze(
+        0
+    )  # Shape: [C, C, H, W]; each image has multiple masked versions
+
+    # Forward pass all masked inputs through the model
+    scores = F.softmax(model(masked_inputs), dim=1)[:, target_class_idx]  # Shape: [C]
+
+    # Use these scores as weights for the activation maps
+    weights = scores.clone().detach().reshape(1, -1, 1, 1)  # Shape: [1, C, 1, 1]
+    cam = torch.sum(weights * feature_map, dim=1).squeeze(0)  # Weighted sum
+    # Normalize to [0,1]
+    cam = torch.relu(cam)
+    cam = (cam - cam.min()) / (cam.max() - cam.min())
+
+    return cam.detach().cpu().numpy()
+
 def show_cam_on_image(img_tensor, cam, title='CAM'):
     # img_tensor: (3, H, W), range [0,1]
     img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
@@ -194,7 +227,7 @@ def show_cam_on_image(img_tensor, cam, title='CAM'):
     plt.axis('off')
     plt.show()
 
-def visualize_cam(model,dataset, label_select, device = None):
+def visualize_cam(model,dataset, label_select, device = None, cam_type = "CAM"):
     # Get a batch of test images
     data_iter = iter(dataset)
     images, labels = next(data_iter)  # images: (B, 3, H, W)
@@ -213,7 +246,12 @@ def visualize_cam(model,dataset, label_select, device = None):
             target_class = labels[i].item()
             
             # Compute CAM
-            cam = compute_cam(fmap, model.classifier.weight.data,target_class)
+            if cam_type == "CAM":
+                cam = compute_cam(fmap, model.classifier.weight.data,target_class)
+            elif cam_type == "ScoreCAM":
+                cam = _compute_scorecam(model, fmap, img, target_class)
+            else:
+                raise ValueError("Invalid CAM type. Choose 'CAM' or 'ScoreCAM'.")
             img_np = img.permute(1, 2, 0).cpu().numpy()
 
             # Original image on first row

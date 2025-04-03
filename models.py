@@ -108,22 +108,30 @@ class BasicCAMWrapper(nn.Module):
             feature_map.max() - feature_map.min()
         )
 
+        # Resize to the same size as the input image using bilinear interpolation
+        normalized_map = F.interpolate(
+            normalized_map.unsqueeze(1),
+            size=(256, 256),
+            mode="bilinear",
+            align_corners=False,
+        )
+
         # Multiply input image by each activation map (element-wise masking)
-        masked_inputs = input_image.unsqueeze(0) * normalized_map.unsqueeze(
-            1
+        masked_inputs = input_image.unsqueeze(
+            0
         )  # Shape: [C, C, H, W]; each image has multiple masked versions
 
         # Forward pass all masked inputs through the model
-        scores = model(masked_inputs)[:, target_class_idx]  # Shape: [C]
+        scores = F.softmax(model(masked_inputs), dim=1)[:, target_class_idx]  # Shape: [C]
 
         # Use these scores as weights for the activation maps
-        weights = torch.tensor(scores).reshape(1, -1, 1, 1)  # Shape: [1, C, 1, 1]
-        cam = torch.sum(weights * feature_map, dim=1)  # Weighted sum
-
+        weights = scores.clone().detach().reshape(1, -1, 1, 1)  # Shape: [1, C, 1, 1]
+        cam = torch.sum(weights * feature_map, dim=1).squeeze(0)  # Weighted sum
         # Normalize to [0,1]
         cam = torch.relu(cam)
-        cam = (cam - cam.min()) / (cam.max() - cam.min())  
-        return cam
+        cam = (cam - cam.min()) / (cam.max() - cam.min())
+
+        return cam.detach().cpu().numpy()
 
     def _generate_cam_image(self, img_tensor, cam):
         """Generate CAM overlay on the original image"""
