@@ -157,3 +157,72 @@ def compute_IOULoss(outputs, targets) -> float:
     iou_loss = (1 - iou) ** 2 ### square to punish very bad predictions more
     return iou_loss
 
+
+if __name__ == "__main__":
+    import torch
+    
+    # Test cases for computeBBoxIoU function
+    
+    # Case 1: Zero overlap
+    print("Testing with zero overlap:")
+    outputs_zero = torch.tensor([[0.1, 0.1, 0.2, 0.2]])  # Box at (0.1, 0.1) with width=0.2, height=0.2
+    targets_zero = torch.tensor([[0.8, 0.8, 0.2, 0.2]])  # Box at (0.8, 0.8) with width=0.2, height=0.2
+    iou_zero = computeBBoxIoU(outputs_zero, targets_zero)
+    print(f"IoU (zero overlap): {iou_zero}")
+    print(f"IoU Loss (zero overlap): {compute_IOULoss(outputs_zero, targets_zero)}")
+    
+    # Case 2: Medium overlap
+    print("\nTesting with medium overlap:")
+    outputs_medium = torch.tensor([[0.5, 0.5, 0.4, 0.4]])  # Box at (0.5, 0.5) with width=0.4, height=0.4
+    targets_medium = torch.tensor([[0.6, 0.6, 0.4, 0.4]])  # Box at (0.6, 0.6) with width=0.4, height=0.4
+    iou_medium = computeBBoxIoU(outputs_medium, targets_medium)
+    print(f"IoU (medium overlap): {iou_medium}")
+    print(f"IoU Loss (medium overlap): {compute_IOULoss(outputs_medium, targets_medium)}")
+    
+    # Case 3: Maximum overlap (identical boxes)
+    print("\nTesting with maximum overlap:")
+    outputs_max = torch.tensor([[0.5, 0.5, 0.4, 0.4]])  # Box at (0.5, 0.5) with width=0.4, height=0.4
+    targets_max = torch.tensor([[0.5, 0.5, 0.4, 0.4]])  # Identical box
+    iou_max = computeBBoxIoU(outputs_max, targets_max)
+    print(f"IoU (maximum overlap): {iou_max}")
+    print(f"IoU Loss (maximum overlap): {compute_IOULoss(outputs_max, targets_max)}")
+    
+    # Testing with VOC format bboxes
+    print("\nTesting with VOC format bboxes:")
+    
+    # Case 1: Zero overlap in VOC format [xmin, ymin, xmax, ymax]
+    outputs_voc_zero = torch.tensor([[0.0, 0.0, 0.2, 0.2]])  # Box from (0,0) to (0.2,0.2)
+    targets_voc_zero = torch.tensor([[0.7, 0.7, 0.9, 0.9]])  # Box from (0.7,0.7) to (0.9,0.9)
+    
+    # Convert to anchor format
+    outputs_anchor_zero = convertVOCBBoxFormatToAnchorFormat(outputs_voc_zero)
+    targets_anchor_zero = convertVOCBBoxFormatToAnchorFormat(targets_voc_zero)
+    
+    iou_voc_zero = computeBBoxIoU(outputs_anchor_zero, targets_anchor_zero)
+    print(f"IoU (VOC format, zero overlap): {iou_voc_zero}")
+    print(f"IoU Loss (VOC format, zero overlap): {compute_IOULoss(outputs_anchor_zero, targets_anchor_zero)}")
+    
+    # Case 2: Medium overlap in VOC format
+    outputs_voc_medium = torch.tensor([[0.3, 0.3, 0.7, 0.7]])  # Box from (0.3,0.3) to (0.7,0.7)
+    targets_voc_medium = torch.tensor([[0.5, 0.5, 0.9, 0.9]])  # Box from (0.5,0.5) to (0.9,0.9)
+    
+    # Convert to anchor format
+    outputs_anchor_medium = convertVOCBBoxFormatToAnchorFormat(outputs_voc_medium)
+    targets_anchor_medium = convertVOCBBoxFormatToAnchorFormat(targets_voc_medium)
+    
+    iou_voc_medium = computeBBoxIoU(outputs_anchor_medium, targets_anchor_medium)
+    print(f"IoU (VOC format, medium overlap): {iou_voc_medium}")
+    print(f"IoU Loss (VOC format, medium overlap): {compute_IOULoss(outputs_anchor_medium, targets_anchor_medium)}")
+    
+    # Case 3: Maximum overlap in VOC format (identical boxes)
+    outputs_voc_max = torch.tensor([[0.3, 0.3, 0.7, 0.7]])  # Box from (0.3,0.3) to (0.7,0.7)
+    targets_voc_max = torch.tensor([[0.3, 0.3, 0.7, 0.7]])  # Identical box
+    
+    # Convert to anchor format
+    outputs_anchor_max = convertVOCBBoxFormatToAnchorFormat(outputs_voc_max)
+    targets_anchor_max = convertVOCBBoxFormatToAnchorFormat(targets_voc_max)
+    
+    iou_voc_max = computeBBoxIoU(outputs_anchor_max, targets_anchor_max)
+    print(f"IoU (VOC format, maximum overlap): {iou_voc_max}")
+    print(f"IoU Loss (VOC format, maximum overlap): {compute_IOULoss(outputs_anchor_max, targets_anchor_max)}")
+
