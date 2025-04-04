@@ -1,6 +1,8 @@
 from data import OxfordPetDataset
 import data
-import os
+import json
+import os        
+
 from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
 import torch 
 import torch.nn as nn
@@ -34,7 +36,8 @@ class Trainer():
     This class handles the setup and training of a backbone network with multiple
     task-specific heads, managing data loaders, loss functions, and optimization.
     """
-    def __init__(self):
+
+    def __init__(self, log_dir = "logs", log_file = "training.json"):
         """Initialize the Trainer with default None values for all attributes."""
         self.backbone = None
         self.heads = None
@@ -45,6 +48,9 @@ class Trainer():
         self.val_loader = None
         self.eval_functions = None
         self.eval_fn_names = None
+
+        self.log_dir = log_dir
+        self.log_file = log_file
 
     def __repr__(self):
         """Return a string representation of the Trainer instance."""
@@ -160,7 +166,9 @@ class Trainer():
         """
         self.loss_functions = loss_functions 
 
-    def set_optimizer(self, learning_rate: float):
+
+    def set_optimizer(self, learning_rate: float, weight_decay: float):
+
         """
         Set up the optimizer with all trainable parameters.
         
@@ -174,7 +182,8 @@ class Trainer():
         all_params = list(self.backbone.parameters())
         for head in self.heads:
             all_params.extend(head.parameters())
-        self.optimizer = optim.AdamW(all_params, lr=learning_rate)
+
+        self.optimizer = optim.AdamW(all_params, lr=learning_rate, weight_decay=weight_decay)
 
     def set_loaders(self, train_loader : DataLoader, val_loader : DataLoader):
         """
@@ -222,6 +231,45 @@ class Trainer():
         features = self.backbone(x)
         outputs = [head(features) for head in self.heads]
         return outputs
+
+    
+    def log_performance(self, model_name, epoch, metrics_list):
+        """
+        Log performance metrics to a JSON file.
+        
+        Args:
+            model_name: Name of the model being trained
+            epoch: Current epoch number
+            metrics_list: List of tuples (metric_name, metric_value) to log
+        """
+        
+        os.makedirs(self.log_dir, exist_ok=True)
+        log_file = os.path.join(self.log_dir, self.log_file)
+        
+        # Create or load existing log
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                log_data = json.load(f)
+        else:
+            log_data = {}
+        
+        if model_name not in log_data:
+            log_data[model_name] = {}
+
+        
+        epoch_key = str(epoch)
+
+        if epoch_key not in log_data[model_name]:
+            log_data[model_name][epoch_key] = {}
+        
+        # Add metrics to the epoch entry
+        for metric_name, metric_value in metrics_list:
+            log_data[model_name][epoch_key][metric_name] = metric_value
+        
+        # Save updated log
+        with open(log_file, 'w') as f:
+            json.dump(log_data, f, indent=4)
+
 
     def fit_sgd(self, num_epochs: int = 20, learning_rate: float = 3e-4, 
                 checkpoint_interval: int = 5, device: str = None) -> None:
@@ -307,16 +355,22 @@ class Trainer():
             # Log overall loss, head-specific losses and metrics for training
             print(f"\nEpoch:{epoch + 1}/{num_epochs}, Train Loss:{train_epoch_loss_sum / train_sample_count:.4f}")
             
+
+            # Prepare metrics for logging
+            metrics_to_log = [("train_loss", train_epoch_loss_sum / train_sample_count)]
+            
             # Log individual head losses and evaluation metrics for training
             for i, head in enumerate(self.heads):
                 head_loss = train_epoch_head_losses_sum[i] / train_sample_count
                 log_str = f"   Train {head.name} Loss: {head_loss:.4f}"
+                metrics_to_log.append((f"train_{head.name}_loss", head_loss))
                 
                 # Add evaluation metric to the same log line if available
                 if self.eval_functions is not None and i < len(self.eval_fn_names):
                     metric_name = self.eval_fn_names[i]
                     metric_value = train_epoch_head_evals_sum[i] / train_sample_count
                     log_str += f", {metric_name}: {metric_value:.4f}"
+                    metrics_to_log.append((f"train_{head.name}_{metric_name}", metric_value))
                 
                 print(log_str)
             
@@ -365,20 +419,28 @@ class Trainer():
             
             # Log overall loss, head-specific losses and metrics for validation
             print(f"Epoch:{epoch + 1}/{num_epochs}, Val Loss:{val_epoch_loss_sum / val_sample_count:.4f}")
+            metrics_to_log.append(("val_loss", val_epoch_loss_sum / val_sample_count))
             
             # Log individual head losses and evaluation metrics for validation
             for i, head in enumerate(self.heads):
                 head_loss = val_epoch_head_losses_sum[i] / val_sample_count
                 log_str = f"  Val {head.name} Loss: {head_loss:.4f}"
+                metrics_to_log.append((f"val_{head.name}_loss", head_loss))
                 
                 # Add evaluation metric to the same log line if available
                 if self.eval_functions is not None and i < len(self.eval_fn_names):
                     metric_name = self.eval_fn_names[i]
                     metric_value = val_epoch_head_evals_sum[i] / val_sample_count
                     log_str += f", {metric_name}: {metric_value:.4f}"
+
+                    metrics_to_log.append((f"val_{head.name}_{metric_name}", metric_value))
                 
                 print(log_str)
             
+            # Log performance metrics to JSON
+            model_name = os.path.basename(self.model_path).split('.')[0]
+            self.log_performance(model_name, epoch + 1, metrics_to_log)
+
             # Save checkpoints during training
             if checkpoint_interval > 0 and (epoch + 1) % checkpoint_interval == 0:
                 self.save_checkpoint(epoch=epoch + 1, additional_info={
@@ -418,8 +480,17 @@ if __name__ == "__main__":
     res_class_head2 = ClassifierHead(adapter="res", num_classes=37).to(device)
     cnn_class_head = ClassifierHead(adapter="cnn", num_classes=37).to(device)
 
-    dataset = OxfordPetDataset()
-    loader, _, _ = custom_loader.create_dataloaders(dataset)
+
+    # Print the number of parameters in the CNN backbone
+    cnn_params = sum(p.numel() for p in backbone.parameters())
+    print(f"CNN Backbone parameters: {cnn_params:,}")
+    
+    # Print the number of parameters in the ResNet backbone
+    res_params = sum(p.numel() for p in res_backbone.parameters())
+    print(f"ResNet Backbone parameters: {res_params:,}")
+
+    loader, _, _ = data.create_dataloaders()
+
 
     ### First, test whether models, loader & device work
     for images, labels in loader:
@@ -436,7 +507,8 @@ if __name__ == "__main__":
         print("All tests passed.")
         break
 
-    
+
+    print("\n\nPreparing pre-training sweep...")
 
     cel_fn = nn.CrossEntropyLoss()
     mse_fn = nn.MSELoss()
@@ -449,7 +521,7 @@ if __name__ == "__main__":
         {   ### cnn_species
             "model_path": os.path.join(checkpoints_dir, "cnn_species"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [compute_accuracy],
             "eval_function_names" : ["Acc"],
             "loss_functions": [cel_fn],
@@ -458,7 +530,7 @@ if __name__ == "__main__":
         {   ### cnn_breed
             "model_path": os.path.join(checkpoints_dir, "cnn_breed"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [compute_accuracy],
             "eval_function_names" : ["Acc"],
             "loss_functions": [cel_fn],
@@ -467,7 +539,7 @@ if __name__ == "__main__":
         {   ### cnn_bbox
             "model_path": os.path.join(checkpoints_dir, "cnn_bbox"),
             "heads": [BboxHead(adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [convert_and_get_IoU],
             "eval_function_names" : ["IoU"], 
             "loss_functions": [mse_fn], 
@@ -476,7 +548,7 @@ if __name__ == "__main__":
         {   ### cnn_breed_species
             "model_path": os.path.join(checkpoints_dir, "cnn_breed_species"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), ClassifierHead(NUM_SPECIES, adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [compute_accuracy, compute_accuracy],
             "eval_function_names" : ["Acc", "Acc"],
             "loss_functions": [cel_fn, cel_fn],
@@ -485,7 +557,7 @@ if __name__ == "__main__":
         {   ### cnn_breed_bbox
             "model_path": os.path.join(checkpoints_dir, "cnn_breed_bbox"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"], 
             "loss_functions": [cel_fn, mse_fn], 
@@ -494,7 +566,7 @@ if __name__ == "__main__":
         {   ### cnn_species_bbox
             "model_path": os.path.join(checkpoints_dir, "cnn_species_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), BboxHead(adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"],
             "loss_functions": [cel_fn, mse_fn], 
@@ -503,7 +575,7 @@ if __name__ == "__main__":
         {   ### cnn_species_breed_bbox
             "model_path": os.path.join(checkpoints_dir, "cnn_species_breed_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
-            "backbone": CNNBackbone(),
+            "backbone": "cnn",
             "eval_functions": [compute_accuracy, compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "Acc", "IoU"], 
             "loss_functions": [cel_fn, cel_fn, mse_fn],
@@ -512,7 +584,7 @@ if __name__ == "__main__":
         {   ### res_species
             "model_path": os.path.join(checkpoints_dir, "res_species"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "backbone": "res",
             "eval_functions": [compute_accuracy],
             "eval_function_names" : ["Acc"], 
             "loss_functions": [cel_fn],
@@ -521,7 +593,7 @@ if __name__ == "__main__":
         {   ### res_breed
             "model_path": os.path.join(checkpoints_dir, "res_breed"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "backbone": "res",
             "eval_functions": [compute_accuracy],
             "eval_function_names" : ["Acc"],
             "loss_functions": [cel_fn],
@@ -530,7 +602,7 @@ if __name__ == "__main__":
         {   ### res_bbox
             "model_path": os.path.join(checkpoints_dir, "res_bbox"),
             "heads": [BboxHead(adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "backbone": "res",
             "eval_functions": [convert_and_get_IoU],
             "eval_function_names" : ["IoU"],
             "loss_functions": [mse_fn], 
@@ -539,7 +611,7 @@ if __name__ == "__main__":
         {   ### res_breed_species
             "model_path": os.path.join(checkpoints_dir, "res_breed_species"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="Res"), ClassifierHead(NUM_SPECIES, adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "backbone": "res",
             "eval_functions": [compute_accuracy, compute_accuracy],
             "eval_function_names" : ["Acc", "Acc"],
             "loss_functions": [cel_fn, cel_fn],
@@ -548,7 +620,7 @@ if __name__ == "__main__":
         {   ### res_breed_bbox
             "model_path": os.path.join(checkpoints_dir, "res_breed_bbox"),
             "heads": [ClassifierHead(NUM_BREEDS, adapter="Res"), BboxHead(adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "backbone": "res",
             "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"],
             "loss_functions": [cel_fn, mse_fn],
@@ -557,7 +629,7 @@ if __name__ == "__main__":
         {   ### res_species_bbox
             "model_path": os.path.join(checkpoints_dir, "res_species_bbox"),
             "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), BboxHead(adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "backbone": "res",
             "eval_functions": [compute_accuracy, convert_and_get_IoU],
             "eval_function_names" : ["Acc", "IoU"],
             "loss_functions": [cel_fn, mse_fn],
@@ -565,23 +637,25 @@ if __name__ == "__main__":
         },
         {   ### res_species_breed_bbox
             "model_path": os.path.join(checkpoints_dir, "res_species_breed_bbox"),
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="Res")],
-            "backbone": ResNetBackbone(),
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="Res"), ClassifierHead(NUM_BREEDS, adapter="Res"), BboxHead(adapter="Res")],
+            "backbone": "res",
             "eval_functions": [compute_accuracy, compute_accuracy,convert_and_get_IoU],
             "eval_function_names" : ["Acc", "Acc", "IoU"],
             "loss_functions": [cel_fn, cel_fn, mse_fn],
             "loader_targets": ["species", "breed", "bbox"]
-        },
+        }
     ]
-    
-    print(f"Starting {len(run_dicts)} training runs....\n")
+
+    print(f"Starting {len(run_dicts)} runs....\n")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
     dataset = OxfordPetDataset() 
-    batch_size = 32
+    
+    batch_size = 64 
     learning_rate = 3e-4
-    num_epochs = 20
+    weight_decay = 1e-4
+    num_epochs = 15 
     
     print(f"Using {device}")
 
@@ -591,17 +665,32 @@ if __name__ == "__main__":
 
         print("Setting up trainer...")
 
-        trainer = Trainer()
-        
-        trainer.set_model(run_dict["backbone"],run_dict['heads'], model_path)
+
+        trainer = Trainer(log_dir="logs", log_file="pretraining.json")
+
         trainer.set_eval_functions(run_dict["eval_functions"],run_dict["eval_function_names"])
        
-        train_loader, val_loader, _ = custom_loader.create_dataloaders(dataset, batch_size, target_type=run_dict["loader_targets"])
+        train_loader, val_loader, _ = data.create_dataloaders(batch_size, target_type=run_dict["loader_targets"], lazy_loading=False)
         trainer.set_loaders(train_loader, val_loader) 
-        trainer.set_optimizer(learning_rate)
         trainer.set_loss_functions(run_dict['loss_functions'])
 
-        print("Trainer set up successfully!")
+        backbone = None
 
-        trainer.fit_sgd(device=device)
+        if run_dict["backbone"] == "cnn":
+            backbone = CNNBackbone()
+            trainer.set_model(backbone ,run_dict['heads'], model_path)
+            trainer.set_optimizer(learning_rate, weight_decay)
+            print("Trainer set up successfully!")
+            trainer.fit_sgd(device=device)
+        elif run_dict['backbone'] == "res":
+            for size in ['18', '50', '101']:
+                backbone = ResNetBackbone(model_type=f"resnet"+size)
+                [head.change_adapter("res"+size) for head in run_dict['heads']] ## change adapter to match resnet size
+                trainer.set_model(backbone, run_dict['heads'], model_path+"_"+size)
+                trainer.set_optimizer(learning_rate, weight_decay)
+                print("Trainer set up successfully!")
+                trainer.fit_sgd(device=device)        
 
+
+
+        
