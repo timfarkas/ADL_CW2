@@ -48,6 +48,48 @@ def load_test_pet_data(batch_size: int) -> torch.utils.data.DataLoader:
     return test_loader
 
 
+def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> tuple:
+    """
+    Computes IoU and F1 score for a batch of predictions and true masks.
+    
+    Args:
+        predictions: Tensor of shape (batch_size, C, H, W) with model predictions
+        true_masks: Tensor of shape (batch_size, C, H, W) with ground truth masks
+        
+    Returns:
+        tuple: (total_iou, total_f1) - sum of IoU and F1 scores for the batch
+    """
+    batch_size = predictions.shape[0]
+    total_iou = 0
+    total_f1 = 0
+    
+    for j in range(batch_size):
+        prediction = predictions[j]
+        true_mask = true_masks[j]
+        
+        # Calculate IoU
+        intersection = torch.logical_and(prediction, true_mask)
+        union = torch.logical_or(prediction, true_mask)
+        if torch.sum(union) == 0:
+            iou = torch.tensor(1.0)  # This seems to be a bug in the dataset
+        else:
+            iou = torch.sum(intersection) / torch.sum(union)
+        total_iou += iou.item()
+        
+        # Calculate precision and recall
+        true_positive = torch.sum(intersection)
+        false_positive = (prediction > 0).sum() - true_positive
+        false_negative = (true_mask > 0).sum() - true_positive
+        precision = true_positive / (true_positive + false_positive)
+        recall = true_positive / (true_positive + false_negative)
+        if precision.isnan() or recall.isnan():
+            f1_score = torch.tensor(1.0)
+        else:
+            f1_score = 2 * (precision * recall) / (precision + recall)
+        total_f1 += f1_score.item()
+    
+    return total_iou, total_f1
+
 def evaluate_model(
     model: torch.nn.Module,
     test_loader: torch.utils.data.DataLoader,
@@ -61,35 +103,18 @@ def evaluate_model(
     print("Evaluating model...")
     total_IoU = 0
     total_f1_score = 0
+    num_samples = 0
+    
     for i, (images, masks) in enumerate(test_loader):
         # TODO: When we have a model, ensure the prediction results are actually comparable
         images = images.to(device)
         masks = masks.to(device)
         predictions = model(images)
-
-        for j, prediction in enumerate(predictions):
-            true_mask = masks[j]
-
-            # Calculate IoU
-            intersection = torch.logical_and(prediction, true_mask)
-            union = torch.logical_or(prediction, true_mask)
-            if torch.sum(union) == 0:
-                iou = torch.tensor(1.0)  # This seems to be a bug in the dataset
-            else:
-                iou = torch.sum(intersection) / torch.sum(union)
-            total_IoU += iou.item()
-
-            # Calculate precision and recall
-            true_positive = torch.sum(intersection)
-            false_positive = (prediction > 0).sum() - true_positive
-            false_negative = (true_mask > 0).sum() - true_positive
-            precision = true_positive / (true_positive + false_positive)
-            recall = true_positive / (true_positive + false_negative)
-            if precision.isnan() or recall.isnan():
-                f1_score = torch.tensor(1.0)
-            else:
-                f1_score = 2 * (precision * recall) / (precision + recall)
-            total_f1_score += f1_score.item()
+        
+        batch_iou, batch_f1 = compute_iou_and_f1(predictions, masks)
+        total_IoU += batch_iou
+        total_f1_score += batch_f1
+        num_samples += images.size(0)
 
         if i == 0:
             images_to_store = images[:image_number]
@@ -107,6 +132,8 @@ def evaluate_model(
         else:
             break
 
-    print(f"Mean IoU: {total_IoU / len(test_loader)}")
-    print(f"Mean F1 Score: {total_f1_score / len(test_loader)}")
+    print(f"Mean IoU: {total_IoU / num_samples}")
+    print(f"Mean F1 Score: {total_f1_score / num_samples}")
+
+
 

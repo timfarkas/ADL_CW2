@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.models import resnet18, ResNet18_Weights, resnet50, ResNet50_Weights, resnet101, ResNet101_Weights
 import cv2
 import os  
 from utils import resize_images 
@@ -151,30 +151,89 @@ class BasicCAMWrapper(nn.Module):
 class BboxHead(nn.Module):
     def __init__(self, adapter = "CNN"):
         super().__init__()
-        num_inputs = 256 if adapter.lower() == "cnn" else 512 
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),                  # → (C,)
             nn.Linear(num_inputs, 4),
             nn.Sigmoid() ### [cx, cy, w, h]
         )
-        self.name = "BBoxHead"
-    
+
+        self.name = "BboxHead"
+
+    def change_adapter(self, adapter):
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
+            nn.Flatten(),                  # → (C,)
+            nn.Linear(num_inputs, 4),
+            nn.Sigmoid() ### [cx, cy, w, h]
+        )
+
     def forward(self, z):
         return self.head(z)
 
 class ClassifierHead(nn.Module):
     def __init__(self, num_classes = 2, adapter = "CNN"):
         super().__init__()
-        num_inputs = 256 if adapter.lower() == "cnn" else 512 
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
+        self.num_classes = num_classes
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),                  # → (C,)
             nn.Linear(num_inputs, num_classes),
             nn.Sigmoid() 
         )
-
         self.name = f"ClassifierHead({num_classes})"
+
+    
+    def change_adapter(self, adapter):
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
+            nn.Flatten(),                  # → (C,)
+            nn.Linear(num_inputs, self.num_classes),
+            nn.Sigmoid() 
+        )
+
     
     def forward(self, z):
         return self.head(z)
@@ -209,12 +268,26 @@ class CNNBackbone(nn.Module):
         return self.features(img)
         
 class ResNetBackbone(nn.Module):
-    def __init__(self,pretrained : bool = True):
+    def __init__(self, pretrained: bool = True, model_type: str = "resnet18"):
         super().__init__()
-        if pretrained:
-            base_model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1) # With pretrained weights
+        
+        if model_type == "resnet18":
+            if pretrained:
+                base_model = resnet18(weights=ResNet18_Weights.DEFAULT)
+            else:
+                base_model = resnet18(weights=None)
+        elif model_type == "resnet50":
+            if pretrained:
+                base_model = resnet50(weights=ResNet50_Weights.DEFAULT)
+            else:
+                base_model = resnet50(weights=None)
+        elif model_type == "resnet101":
+            if pretrained:
+                base_model = resnet101(weights=ResNet101_Weights.DEFAULT)
+            else:
+                base_model = resnet101(weights=None)
         else:
-            base_model = resnet18(weights=None)  # No pretrained weights
+            raise ValueError(f"Unsupported model type: {model_type}. Choose from 'resnet18', 'resnet50', or 'resnet101'")
 
         self.features = nn.Sequential(
             base_model.conv1,
@@ -227,5 +300,8 @@ class ResNetBackbone(nn.Module):
             base_model.layer4
         )
 
-    def forward(self, img):
-        return self.features(img)
+    def forward(self, img, return_features=False):
+        features = self.features(img)
+        if return_features:
+            return features, features
+        return features
