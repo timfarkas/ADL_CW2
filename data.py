@@ -595,10 +595,29 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
 # Example usage:
 if __name__ == "__main__":
+    print("TESTING DATASET AND DATALOADER")
+    # Prepare the dataset without loaders
+    dataset = OxfordPetDataset().prepare_dataset()
 
-    # Prepare dataset
-    dataset = OxfordPetDataset(root_dir="oxford_pet_data").prepare_dataset()
-    del dataset
+    print("Testing labels...")
+    # Get all data for training
+    all_data = dataset.get_all_data_labels()
+    print(f"Dataset contains {len(all_data)} images")
+    
+    # test example
+    if all_data:
+        print("\nTest example assessing and processing item:")
+
+        img_path, class_idx, species_idx, bbox = all_data[0]
+        print(f"First image: {img_path.name}")
+        print(f"Class: {dataset.class_names[class_idx]}")
+        print(f"Species: {'cat' if species_idx == 0 else 'dog'}")
+
+        # Load and process the image
+        image = dataset.load_image(img_path)
+        print(f"Image size (x, y): {image.size}")
+        print(f"Bounding box (xmin, ymin, xmax, ymax): {bbox}")
+
     
     # Create dataloaders
     train_loader, val_loader, test_loader = create_dataloaders(
