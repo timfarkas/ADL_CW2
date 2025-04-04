@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.models import resnet18, ResNet18_Weights, resnet50, ResNet50_Weights, resnet101, ResNet101_Weights
 import cv2
 import os  
 from utils import resize_images 
@@ -222,12 +222,26 @@ class CNNBackbone(nn.Module):
         return self.features(img)
         
 class ResNetBackbone(nn.Module):
-    def __init__(self,pretrained : bool = True):
+    def __init__(self, pretrained: bool = True, model_type: str = "resnet18"):
         super().__init__()
-        if pretrained:
-            base_model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1) # With pretrained weights
+        
+        if model_type == "resnet18":
+            if pretrained:
+                base_model = resnet18(weights=ResNet18_Weights.DEFAULT)
+            else:
+                base_model = resnet18(weights=None)
+        elif model_type == "resnet50":
+            if pretrained:
+                base_model = resnet50(weights=ResNet50_Weights.DEFAULT)
+            else:
+                base_model = resnet50(weights=None)
+        elif model_type == "resnet101":
+            if pretrained:
+                base_model = resnet101(weights=ResNet101_Weights.DEFAULT)
+            else:
+                base_model = resnet101(weights=None)
         else:
-            base_model = resnet18(weights=None)  # No pretrained weights
+            raise ValueError(f"Unsupported model type: {model_type}. Choose from 'resnet18', 'resnet50', or 'resnet101'")
 
         self.features = nn.Sequential(
             base_model.conv1,
@@ -240,5 +254,8 @@ class ResNetBackbone(nn.Module):
             base_model.layer4
         )
 
-    def forward(self, img):
-        return self.features(img)
+    def forward(self, img, return_features=False):
+        features = self.features(img)
+        if return_features:
+            return features, features
+        return features
