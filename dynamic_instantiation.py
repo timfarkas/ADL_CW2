@@ -5,8 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 from models import CNNBackbone, ResNetBackbone, ClassifierHead
 from pre_training import Trainer
-from custom_loader import create_dataloaders
-from custom_data import OxfordPetDataset
+from data import create_dataloaders
+from data import OxfordPetDataset
 from utils import compute_accuracy
 
 # Set random seeds for reproducibility
