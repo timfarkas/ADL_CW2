@@ -9,10 +9,12 @@ import torch.nn.functional as F
 from torchvision.models import resnet18, ResNet18_Weights
 import cv2
 import os
+from torch.utils.data import TensorDataset, DataLoader
 '''One additional Library OpenCV has been used in this file for processing images with CAM. However it's possible to remove this library if necessary'''
 
 '''I only ran this code on CPU, not sure if that's compatible with GPU'''
 from utils import resize_images
+
 
 
 # to show the images and labels of a batch
@@ -194,123 +196,211 @@ def show_cam_on_image(img_tensor, cam, title='CAM'):
     plt.axis('off')
     plt.show()
 
-def visualize_cam(model,dataset, label_select, device = None):
+def unnormalize(img_tensor):
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    img = img_tensor.cpu().numpy().transpose((1, 2, 0))  # CxHxW -> HxWxC
+    img = std * img + mean
+    img = np.clip(img, 0, 1)
+    return img
+
+def visualize_cam(model, dataset, label_select, device=None):
     # Get a batch of test images
     data_iter = iter(dataset)
-    images, labels = next(data_iter)  # images: (B, 3, H, W)
-    images = images[:4].to(device)  # Take first 8 images
+    images, labels = next(data_iter)
+    images = images[:4].to(device)
+    labels = labels[:4]  # Ensure labels match the 4 images
 
-    # Prepare figure
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))  # 2 rows, 4 columns
+    # Create the figure for 2 rows x 4 columns
+    fig, axes = plt.subplots(2, 4, figsize=(16, 8))
 
+    model.eval()  # Just in case
     with torch.no_grad():
         logits, feature_maps = model(images, return_features=True)
 
-        for i in range(4):  # only plot 4 images
-            img = images[i]  # (3, H, W)
-            fmap = feature_maps[i]  # (C, H, W)
-            
+        for i in range(4):
+            img = images[i]
+            fmap = feature_maps[i]
             target_class = labels[i].item()
             
             # Compute CAM
-            cam = compute_cam(fmap, model.classifier.weight.data,target_class)
-            img_np = img.permute(1, 2, 0).cpu().numpy()
+            cam = compute_cam(fmap, model.classifier.weight.data, target_class)
+            img_np = unnormalize(img)  # Convert from tensor -> numpy [0,1] image
 
-            # Original image on first row
-            axes[0][i].imshow(img_np)
-            axes[0][i].set_title(f"Original - Class {target_class}")
-            axes[0][i].axis('off')
+            # Resize CAM to match image
             cam_resized = cv2.resize(cam, (img_np.shape[1], img_np.shape[0]))
+            cam_resized = np.clip(cam_resized, 0, 1)
 
-            cam_normalized = np.clip(cam_resized, 0, 1)
-
-            '''This part is for making a single-channel heatmap where only the red channel has values'''
-            # heatmap = np.zeros_like(img_np)
-            # heatmap[..., 0] = cam_normalized
-
-            '''This part is for drawing a heatmap with 3 channels of colors'''
-            heatmap = cv2.applyColorMap(np.uint8(255 * cam_normalized), cv2.COLORMAP_JET)
-            heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)  # OpenCV uses BGR by default
+            # Create heatmap
+            heatmap = cv2.applyColorMap(np.uint8(255 * cam_resized), cv2.COLORMAP_JET)
+            heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
             heatmap = heatmap.astype(np.float32) / 255.0
 
             overlay = 0.5 * img_np + 0.5 * heatmap
             overlay = np.clip(overlay, 0, 1)
 
-            axes[1][i].imshow(overlay)
-            axes[1][i].set_title(f"CAM - Class {target_class}")
-            axes[1][i].axis('off')
+            # Plot original
+            axes[0, i].imshow(img_np)
+            axes[0, i].set_title(f"Original - Class {target_class}")
+            axes[0, i].axis('off')
+
+            # Plot CAM
+            axes[1, i].imshow(overlay)
+            axes[1, i].set_title(f"CAM - Class {target_class}")
+            axes[1, i].axis('off')
 
     plt.tight_layout()
     plt.show()
 
 
-if __name__ == "__main__":
+def get_labels_from_cam(model, image_batch, device="cpu"):
+    """
+    Generate pixel-level label maps using Class Activation Maps (CAM) for a batch of images.
 
-    from loader import H5ImageLoader
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    minibatch_size = 32
-    os.environ["CUDA_VISIBLE_DEVICES"]="0"
-    DATA_PATH = '../../../DLcourse/GroupTask/segmentation/data'
+    Args:
+        model: Trained CNN or ResNetBackbone model
+        image_batch: Tensor of shape (B, C, H, W)
+        device: 'cpu' or 'cuda'
 
-    ## data loader
-    loader_train = H5ImageLoader(DATA_PATH+'/images_train.h5', minibatch_size, DATA_PATH+'/labels_train.h5')
-    loader_test = H5ImageLoader(DATA_PATH+'/images_val.h5', 20, DATA_PATH+'/labels_val.h5')
-    dataloader_train=iter(loader_train)
-    dataloader_test=iter(loader_test)
-    images, labels,sp,br = next(dataloader_train)
-    print(dataloader_train)
-    print(images[0])
-    print(labels[0])
-    print(sp[0])
-    print(br[0])
+    Returns:
+        cam_masks: List of 2D numpy arrays (one per image), resized to match image dimensions
+        predicted_classes: List of predicted class indices for each image
+    """
+    model.eval()
+    model.to(device)
+    image_batch = image_batch.to(device)
 
-    batch_size=32
-    loss_function = torch.nn.CrossEntropyLoss()
-    train_mode=False # if False, will use trained local model.
-    model_use="CNN_species" # choose the model used
+    cam_masks = []
+    predicted_classes = []
+
+    with torch.no_grad():
+        logits, feature_maps = model(image_batch, return_features=True)
+        weights = model.classifier.weight.data  # shape: (num_classes, channels)
+
+        for i in range(image_batch.size(0)):
+            feature_map = feature_maps[i]  # shape: (C, H, W)
+            _, pred_class = torch.max(logits[i], dim=0)
+            predicted_classes.append(pred_class.item())
+
+            class_weights = weights[pred_class].unsqueeze(1).unsqueeze(2)  # shape: (C, 1, 1)
+            cam = torch.sum(class_weights * feature_map, dim=0)  # shape: (H, W)
+            cam = cam.detach().cpu().numpy()
+            cam = np.maximum(cam, 0)  # Apply ReLU
+            cam = cam - cam.min()
+            cam = cam / (cam.max() + 1e-8)  # Normalize to [0, 1]
+
+            # Resize to match image dimensions (assumed 256x256, modify if needed)
+            cam_resized = cv2.resize(cam, (image_batch.shape[3], image_batch.shape[2]))
+            cam_masks.append(cam_resized)
+
+    return cam_masks, predicted_classes
+
+def generate_cam_label_dataset(model, dataloader, device="cpu"):
+    """
+    Generate a new dataset using get_labels_from_cam, where input is the original image
+    and label is the CAM (pixel-level pseudo label).
+
+    Args:
+        model (nn.Module): Trained CNN or ResNetBackbone model.
+        dataloader (DataLoader): DataLoader yielding (images, labels) batches.
+        device (str): 'cuda' or 'cpu'.
+
+    Returns:
+        TensorDataset: New dataset (image, CAM_mask) pairs.
+    """
+    all_inputs = []
+    all_cam_masks = []
+
+    model.eval()
+    model.to(device)
+
+    for image_batch, _ in dataloader:
+        image_batch = image_batch.to(device)
+        cam_masks, _ = get_labels_from_cam(model, image_batch, device)
+
+        for i in range(len(cam_masks)):
+            image_tensor = image_batch[i].cpu()
+            cam_tensor = torch.tensor(cam_masks[i], dtype=torch.float32).unsqueeze(0)  # (1, H, W)
+
+            all_inputs.append(image_tensor)
+            all_cam_masks.append(cam_tensor)
+
+    input_tensor = torch.stack(all_inputs)  # (N, 3, H, W)
+    cam_tensor = torch.stack(all_cam_masks)  # (N, 1, H, W)
+
+    print(f"Created CAM-labeled dataset with {len(input_tensor)} samples.")
+    return TensorDataset(input_tensor, cam_tensor)
 
 
-    # try 4 types of models with CNN and ResNET and with breed and species as labels
-    if model_use=="Res_breed":
-        if train_mode == True:
-            model_train=ResNetBackbone(num_classes=37,pretrained=True)
-            fit_sgd(model_train, dataloader_train,"breed", 20, 0.01,
-                    "../../../DLcourse/GroupTask/segmentation/Res_breed.pt")
-        model_test = ResNetBackbone(num_classes=37,pretrained=False)
-        model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
-        model_test.to(device)
-        model_test.eval()
-        visualize_cam(model_test,loader_train,"breed") # Use loaded model on training dataset to show CAM
-
-    elif model_use=="Res_species":
-        if train_mode == True:
-            model_train=ResNetBackbone(num_classes=2,pretrained=True)
-            fit_sgd(model_train, dataloader_train,"species", 20, 0.01,
-                    "../../../DLcourse/GroupTask/segmentation/Res_species.pt")
-        model_test = ResNetBackbone(num_classes=2,pretrained=False)
-        model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
-        model_test.to(device)
-        model_test.eval()
-        visualize_cam(model_test,loader_train,"species") # Use loaded model on training dataset to show CAM
-
-    elif model_use=="CNN_breed":
-        if train_mode == True:
-            model_train=CNN(out_channels=256,num_classes=37)
-            fit_sgd(model_train, dataloader_train, "breed", 50, 0.01, "CNN_breed.pt")
-        model_test =CNN(out_channels=256,num_classes=37)
-        model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
-        model_test.to(device)
-        model_test.eval()
-        visualize_cam(model_test,loader_train,"breed") # Use loaded model on training dataset to show CAM
-
-    elif model_use == "CNN_species":
-        if train_mode == True:
-            model_train = CNN(out_channels=256, num_classes=2)
-            fit_sgd(model_train, dataloader_train,"species", 50, 0.01, "CNN_species.pt")
-        model_test = CNN(out_channels=256, num_classes=2)
-        model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
-        model_test.to(device)
-        model_test.eval()
-        visualize_cam(model_test,loader_train,"species") # Use loaded model on training dataset to show CAM
 
 
+# if __name__ == "__main__":
+#
+#     from loader import H5ImageLoader
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     minibatch_size = 32
+#     os.environ["CUDA_VISIBLE_DEVICES"]="0"
+#     DATA_PATH = '../../../DLcourse/GroupTask/segmentation/data'
+#
+#     ## data loader
+#     loader_train = H5ImageLoader(DATA_PATH+'/images_train.h5', minibatch_size, DATA_PATH+'/labels_train.h5')
+#     loader_test = H5ImageLoader(DATA_PATH+'/images_val.h5', 20, DATA_PATH+'/labels_val.h5')
+#     dataloader_train=iter(loader_train)
+#     dataloader_test=iter(loader_test)
+#     images, labels,sp,br = next(dataloader_train)
+#     print(dataloader_train)
+#     print(images[0])
+#     print(labels[0])
+#     print(sp[0])
+#     print(br[0])
+#
+#     batch_size=32
+#     loss_function = torch.nn.CrossEntropyLoss()
+#     train_mode=False # if False, will use trained local model.
+#     model_use="CNN_breed" # choose the model used
+#
+#
+#     # try 4 types of models with CNN and ResNET and with breed and species as labels
+#     if model_use=="Res_breed":
+#         if train_mode == True:
+#             model_train=ResNetBackbone(num_classes=37,pretrained=True)
+#             fit_sgd(model_train, dataloader_train,"breed", 20, 0.01,
+#                     "../../../DLcourse/GroupTask/segmentation/Res_breed.pt")
+#         model_test = ResNetBackbone(num_classes=37,pretrained=False)
+#         model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
+#         model_test.to(device)
+#         model_test.eval()
+#         visualize_cam(model_test,loader_train,"breed") # Use loaded model on training dataset to show CAM
+#
+#     elif model_use=="Res_species":
+#         if train_mode == True:
+#             model_train=ResNetBackbone(num_classes=2,pretrained=True)
+#             fit_sgd(model_train, dataloader_train,"species", 20, 0.01,
+#                     "../../../DLcourse/GroupTask/segmentation/Res_species.pt")
+#         model_test = ResNetBackbone(num_classes=2,pretrained=False)
+#         model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
+#         model_test.to(device)
+#         model_test.eval()
+#         visualize_cam(model_test,loader_train,"species") # Use loaded model on training dataset to show CAM
+#
+#     elif model_use=="CNN_breed":
+#         if train_mode == True:
+#             model_train=CNN(out_channels=256,num_classes=37)
+#             fit_sgd(model_train, dataloader_train, "breed", 50, 0.01, "CNN_breed.pt")
+#         model_test =CNN(out_channels=256,num_classes=37)
+#         model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
+#         model_test.to(device)
+#         model_test.eval()
+#         visualize_cam(model_test,loader_train,"breed") # Use loaded model on training dataset to show CAM
+#
+#     elif model_use == "CNN_species":
+#         if train_mode == False:
+#             model_train = CNN(out_channels=256, num_classes=2)
+#             fit_sgd(model_train, dataloader_train,"species", 50, 0.01, "CNN_species.pt")
+#         model_test = CNN(out_channels=256, num_classes=2)
+#         model_test.load_state_dict(torch.load(f"{model_use}.pt"))  # Load model from local
+#         model_test.to(device)
+#         model_test.eval()
+#         visualize_cam(model_test,loader_train,"species") # Use loaded model on training dataset to show CAM
+#
+#

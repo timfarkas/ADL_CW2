@@ -2,6 +2,7 @@ from data import OxfordPetDataset
 import data
 import json
 import os        
+
 from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
 import torch 
 import torch.nn as nn
@@ -35,6 +36,7 @@ class Trainer():
     This class handles the setup and training of a backbone network with multiple
     task-specific heads, managing data loaders, loss functions, and optimization.
     """
+
     def __init__(self, log_dir = "logs", log_file = "training.json"):
         """Initialize the Trainer with default None values for all attributes."""
         self.backbone = None
@@ -46,6 +48,7 @@ class Trainer():
         self.val_loader = None
         self.eval_functions = None
         self.eval_fn_names = None
+
         self.log_dir = log_dir
         self.log_file = log_file
 
@@ -163,7 +166,9 @@ class Trainer():
         """
         self.loss_functions = loss_functions 
 
+
     def set_optimizer(self, learning_rate: float, weight_decay: float):
+
         """
         Set up the optimizer with all trainable parameters.
         
@@ -177,6 +182,7 @@ class Trainer():
         all_params = list(self.backbone.parameters())
         for head in self.heads:
             all_params.extend(head.parameters())
+
         self.optimizer = optim.AdamW(all_params, lr=learning_rate, weight_decay=weight_decay)
 
     def set_loaders(self, train_loader : DataLoader, val_loader : DataLoader):
@@ -225,6 +231,7 @@ class Trainer():
         features = self.backbone(x)
         outputs = [head(features) for head in self.heads]
         return outputs
+
     
     def log_performance(self, model_name, epoch, metrics_list):
         """
@@ -262,6 +269,7 @@ class Trainer():
         # Save updated log
         with open(log_file, 'w') as f:
             json.dump(log_data, f, indent=4)
+
 
     def fit_sgd(self, num_epochs: int = 20, learning_rate: float = 3e-4, 
                 checkpoint_interval: int = 5, device: str = None) -> None:
@@ -347,6 +355,7 @@ class Trainer():
             # Log overall loss, head-specific losses and metrics for training
             print(f"\nEpoch:{epoch + 1}/{num_epochs}, Train Loss:{train_epoch_loss_sum / train_sample_count:.4f}")
             
+
             # Prepare metrics for logging
             metrics_to_log = [("train_loss", train_epoch_loss_sum / train_sample_count)]
             
@@ -423,6 +432,7 @@ class Trainer():
                     metric_name = self.eval_fn_names[i]
                     metric_value = val_epoch_head_evals_sum[i] / val_sample_count
                     log_str += f", {metric_name}: {metric_value:.4f}"
+
                     metrics_to_log.append((f"val_{head.name}_{metric_name}", metric_value))
                 
                 print(log_str)
@@ -430,7 +440,7 @@ class Trainer():
             # Log performance metrics to JSON
             model_name = os.path.basename(self.model_path).split('.')[0]
             self.log_performance(model_name, epoch + 1, metrics_to_log)
-            
+
             # Save checkpoints during training
             if checkpoint_interval > 0 and (epoch + 1) % checkpoint_interval == 0:
                 self.save_checkpoint(epoch=epoch + 1, additional_info={
@@ -470,6 +480,7 @@ if __name__ == "__main__":
     res_class_head2 = ClassifierHead(adapter="res", num_classes=37).to(device)
     cnn_class_head = ClassifierHead(adapter="cnn", num_classes=37).to(device)
 
+
     # Print the number of parameters in the CNN backbone
     cnn_params = sum(p.numel() for p in backbone.parameters())
     print(f"CNN Backbone parameters: {cnn_params:,}")
@@ -479,6 +490,7 @@ if __name__ == "__main__":
     print(f"ResNet Backbone parameters: {res_params:,}")
 
     loader, _, _ = data.create_dataloaders()
+
 
     ### First, test whether models, loader & device work
     for images, labels in loader:
@@ -495,7 +507,9 @@ if __name__ == "__main__":
         print("All tests passed.")
         break
 
+
     print("\n\nPreparing pre-training sweep...")
+
     cel_fn = nn.CrossEntropyLoss()
     mse_fn = nn.MSELoss()
 
@@ -637,6 +651,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
     dataset = OxfordPetDataset() 
+    
     batch_size = 64 
     learning_rate = 3e-4
     weight_decay = 1e-4
@@ -649,6 +664,7 @@ if __name__ == "__main__":
         print(f"Starting training run {i+1}, {os.path.basename(model_path)}...")
 
         print("Setting up trainer...")
+
 
         trainer = Trainer(log_dir="logs", log_file="pretraining.json")
 
@@ -664,6 +680,7 @@ if __name__ == "__main__":
             backbone = CNNBackbone()
             trainer.set_model(backbone ,run_dict['heads'], model_path)
             trainer.set_optimizer(learning_rate, weight_decay)
+            print("Trainer set up successfully!")
             trainer.fit_sgd(device=device)
         elif run_dict['backbone'] == "res":
             for size in ['18', '50', '101']:
@@ -671,9 +688,9 @@ if __name__ == "__main__":
                 [head.change_adapter("res"+size) for head in run_dict['heads']] ## change adapter to match resnet size
                 trainer.set_model(backbone, run_dict['heads'], model_path+"_"+size)
                 trainer.set_optimizer(learning_rate, weight_decay)
+                print("Trainer set up successfully!")
                 trainer.fit_sgd(device=device)        
 
-        print("Trainer set up successfully!")
+
 
         
-

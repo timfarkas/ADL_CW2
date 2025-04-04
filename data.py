@@ -15,6 +15,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 RANDOM_SEED = 27
+
 class OxfordPetDataset(Dataset):
     """
     Oxford-IIIT Pet Dataset handler for downloading, extracting, processing images,
@@ -81,11 +82,12 @@ class OxfordPetDataset(Dataset):
             self.target_type = target_type
         self.normalize_bbox = normalize_bbox
         self.target_transform = target_transform
-        
+
         # Cache settings
         self.cache_in_memory = cache_in_memory
         self.cached_images = {}
         self.cached_masks = {}
+
         
         # Prepare the dataset (download, extract, setup mappings)
         self.prepare_dataset()
@@ -97,11 +99,12 @@ class OxfordPetDataset(Dataset):
         if split not in ["train", "val", "test"]:
             raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'")
             
+
         # Split the dataset
         train_data, val_data, test_data = self._split_dataset(
             data_labels, train_ratio, val_ratio, test_ratio, random_seed
         )
-        
+
         # Select the appropriate split
         if split == "train":
             self.data_items = train_data
@@ -109,6 +112,7 @@ class OxfordPetDataset(Dataset):
             self.data_items = val_data
         elif split == "test":
             self.data_items = test_data
+
             
         # If caching is enabled, preload images for the selected split only
         if self.cache_in_memory:
@@ -379,6 +383,7 @@ class OxfordPetDataset(Dataset):
             cache_key = str(img_path) + "_segmentation"
             if self.cache_in_memory and cache_key in self.cached_masks:
                 return self.cached_masks[cache_key]
+
                 
             # Load segmentation mask from trimaps directory
             base_name = os.path.splitext(os.path.basename(img_path))[0].lower()
@@ -387,13 +392,15 @@ class OxfordPetDataset(Dataset):
             try:
                 mask = Image.open(seg_path)
                 
+
+                
                 # Apply target transform if provided
                 if self.target_transform:
                     mask = self.target_transform(mask)
                 else:
                     # Convert to tensor by default if no transform provided
                     mask = transforms.ToTensor()(mask)
-                
+
                 # Cache the mask if caching is enabled
                 if self.cache_in_memory:
                     self.cached_masks[cache_key] = mask
@@ -408,6 +415,7 @@ class OxfordPetDataset(Dataset):
                 return blank_mask
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
+
 
 def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
     """Split the dataset into training, validation, and test sets.
@@ -443,8 +451,8 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
 
     return train_data, val_data, test_data
 
-def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_size=256):
 
+def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_size=256):
     # determine the scale factor used by transform.Resize(256)
     shorter_side = min(orig_w, orig_h)
     scale = final_size / float(shorter_side)
@@ -477,10 +485,12 @@ def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_si
 
     return new_xmin, new_ymin, new_xmax, new_ymax
 
+
 def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
                        test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
                        normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False, lazy_loading=True):
-    """Create PyTorch DataLoaders for training, validation, and testing.
+
+  """Create PyTorch DataLoaders for training, validation, and testing.
 
     Args:
         batch_size: Batch size for DataLoaders
@@ -545,6 +555,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         test_ratio=test_ratio,
         random_seed=random_seed
     )
+
     
     val_dataset = OxfordPetDataset(
         root_dir=data_directory,
@@ -559,7 +570,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         test_ratio=test_ratio,
         random_seed=random_seed
     )
-    
+
     test_dataset = OxfordPetDataset(
         root_dir=data_directory,
         transform=val_test_transform,
@@ -618,7 +629,7 @@ if __name__ == "__main__":
         print(f"Image size (x, y): {image.size}")
         print(f"Bounding box (xmin, ymin, xmax, ymax): {bbox}")
 
-    
+
     # Create dataloaders
     train_loader, val_loader, test_loader = create_dataloaders(
         target_type=["class", "species", "bbox", "segmentation"], lazy_loading=False
@@ -631,7 +642,6 @@ if __name__ == "__main__":
     images, targets = next(iter(train_loader))
 
     print(targets)
-
 
     id = 5
 
@@ -685,11 +695,7 @@ if __name__ == "__main__":
             seg_mask = seg_mask_tensor.cpu().numpy()
         plt.imshow(seg_mask, cmap='jet', alpha=0.5)
 
-
-
     plt.title(title)
     plt.axis('off')
     plt.show()
-
-
 
