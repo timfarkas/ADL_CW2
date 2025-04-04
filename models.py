@@ -10,22 +10,6 @@ import cv2
 import os  
 from utils import resize_images 
 
-### Num Inputs:
-#       Breed:                  37
-#       Species:                2
-#       Bbox:                   256x256       
-#       Breed + Species??:      39
-#       Breed + Bbox:           37 + 256x256
-#       Species + Bbox:         2 + 256x256
-#       Breed+Species+Bbox?:    39 + 256x256
-
-# Backbone:
-#   CNN
-#   ResNet
-# Head:
-#   Bbox Head
-#   Classifier Head
-
 
 class BasicCAMWrapper(nn.Module):
     def __init__(self, model):
@@ -183,6 +167,7 @@ class BboxHead(nn.Module):
             nn.Linear(num_inputs, 4),
             nn.Sigmoid() ### [cx, cy, w, h]
         )
+
         self.name = "BboxHead"
 
     def change_adapter(self, adapter):
@@ -227,7 +212,8 @@ class ClassifierHead(nn.Module):
             nn.Linear(num_inputs, num_classes),
             nn.Sigmoid() 
         )
-        self.name = "ClsHead"+str(num_classes)
+        self.name = f"ClassifierHead({num_classes})"
+
     
     def change_adapter(self, adapter):
         if adapter.lower() == "cnn":
@@ -247,6 +233,7 @@ class ClassifierHead(nn.Module):
             nn.Linear(num_inputs, self.num_classes),
             nn.Sigmoid() 
         )
+
     
     def forward(self, z):
         return self.head(z)

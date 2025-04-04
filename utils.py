@@ -157,6 +157,7 @@ def compute_IOULoss(outputs, targets) -> float:
     iou_loss = (1 - iou) ** 2 ### square to punish very bad predictions more
     return iou_loss
 
+
 if __name__ == "__main__":
     import torch
     
@@ -224,5 +225,4 @@ if __name__ == "__main__":
     iou_voc_max = computeBBoxIoU(outputs_anchor_max, targets_anchor_max)
     print(f"IoU (VOC format, maximum overlap): {iou_voc_max}")
     print(f"IoU Loss (VOC format, maximum overlap): {compute_IOULoss(outputs_anchor_max, targets_anchor_max)}")
-
 
