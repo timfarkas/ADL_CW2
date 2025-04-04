@@ -167,25 +167,84 @@ class BasicCAMWrapper(nn.Module):
 class BboxHead(nn.Module):
     def __init__(self, adapter = "CNN"):
         super().__init__()
-        num_inputs = 256 if adapter.lower() == "cnn" else 512 
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),                  # → (C,)
             nn.Linear(num_inputs, 4),
             nn.Sigmoid() ### [cx, cy, w, h]
         )
-    
+        self.name = "BboxHead"
+
+    def change_adapter(self, adapter):
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
+            nn.Flatten(),                  # → (C,)
+            nn.Linear(num_inputs, 4),
+            nn.Sigmoid() ### [cx, cy, w, h]
+        )
+
     def forward(self, z):
         return self.head(z)
 
 class ClassifierHead(nn.Module):
     def __init__(self, num_classes = 2, adapter = "CNN"):
         super().__init__()
-        num_inputs = 256 if adapter.lower() == "cnn" else 512 
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
+        self.num_classes = num_classes
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),                  # → (C,)
             nn.Linear(num_inputs, num_classes),
+            nn.Sigmoid() 
+        )
+        self.name = "ClsHead"+str(num_classes)
+    
+    def change_adapter(self, adapter):
+        if adapter.lower() == "cnn":
+            num_inputs = 256
+        elif adapter.lower() == "res18":
+            num_inputs = 512
+        elif adapter.lower() == "res50":
+            num_inputs = 2048
+        elif adapter.lower() == "res101":
+            num_inputs = 2048
+        else:  
+            num_inputs = 512
+
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
+            nn.Flatten(),                  # → (C,)
+            nn.Linear(num_inputs, self.num_classes),
             nn.Sigmoid() 
         )
     
