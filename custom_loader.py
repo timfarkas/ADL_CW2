@@ -287,7 +287,7 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        # num_workers=4,
+        num_workers=8,
         pin_memory=True,
         # persistent_workers=True
     )
