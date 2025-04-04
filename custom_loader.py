@@ -21,7 +21,8 @@ class OxfordPetTorchAdapter(Dataset):
     target options.
     """
     def __init__(self, data_items, oxford_dataset, transform=None, target_type=["class"],
-                 normalize_bbox=True, target_transform=None, data_directory="oxford_pet_data"):
+                 normalize_bbox=True, target_transform=None, data_directory="oxford_pet_data",
+                 cache_in_memory=False):
         """Initialize the PyTorch dataset adapter.
 
         Args:
@@ -46,6 +47,16 @@ class OxfordPetTorchAdapter(Dataset):
         self.target_transform = target_transform
         self.data_directory = data_directory
 
+        self.cache_in_memory = cache_in_memory
+        self.cached_images = None
+
+        # If selected, preload all images into memory
+        if self.cache_in_memory:
+            self.cached_images = []
+            for (img_path, _, _, _) in self.data_items:
+                img = self.oxford_dataset.load_image(img_path)
+                self.cached_images.append(img)
+
     def __len__(self):
         """Return the number of items in the dataset.
 
@@ -68,21 +79,30 @@ class OxfordPetTorchAdapter(Dataset):
         """
         img_path, class_idx, species_idx, bbox = self.data_items[idx]
 
-        # Load image
-        image = self.oxford_dataset.load_image(img_path)
+        if self.cache_in_memory:
+            image = self.cached_images[idx]
+        else:
+            image = self.oxford_dataset.load_image(img_path)
+
         original_width, original_height = image.size
 
         if self.transform:
             image = self.transform(image)
 
         if len(self.target_type) == 1:
-            return image, self._get_target(self.target_type[0], img_path, class_idx, species_idx, bbox, original_width, original_height)
-
-        targets = {}
-        for target_type in self.target_type:
-            targets[target_type] = self._get_target(target_type, img_path, class_idx, species_idx, bbox, original_width, original_height)
-
-        return image, targets
+            target = self._get_target(
+                self.target_type[0], img_path, class_idx, species_idx, bbox,
+                original_width, original_height
+            )
+            return image, target
+        else:
+            targets = {}
+            for t_type in self.target_type:
+                targets[t_type] = self._get_target(
+                    t_type, img_path, class_idx, species_idx, bbox,
+                    original_width, original_height
+                )
+            return image, targets
 
 
     def _get_target(self, target_type, img_path, class_idx, species_idx, bbox, original_width, original_height):
@@ -272,7 +292,8 @@ def create_dataloaders(dataset, batch_size=32, train_ratio=0.7, val_ratio=0.15,
     # Create PyTorch datasets and dataloaders
     train_dataset = OxfordPetTorchAdapter(
         train_data, dataset, transform=train_transform, target_type=target_type, 
-        normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory
+        normalize_bbox=normalize_bbox, target_transform=target_transform, data_directory=data_directory,
+        cache_in_memory=False
     )
     val_dataset = OxfordPetTorchAdapter(
         val_data, dataset, transform=val_test_transform, target_type=target_type, 
