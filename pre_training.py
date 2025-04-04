@@ -1,5 +1,5 @@
-from custom_data import OxfordPetDataset
-import custom_loader
+from data import OxfordPetDataset
+import data
 import os
 from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
 import torch 
