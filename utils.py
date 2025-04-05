@@ -2,6 +2,8 @@ import torch
 import torchvision
 import cv2
 import numpy as np
+from torch.utils.data import TensorDataset, DataLoader
+import os
 
 def store_images(
     images: torch.Tensor, file_name: str, is_segmentation: bool = False
@@ -156,6 +158,21 @@ def compute_IOULoss(outputs, targets) -> float:
     iou = computeBBoxIoU(outputs, targets) ### 1 = max overlap, 0 = zero overlap
     iou_loss = (1 - iou) ** 2 ### square to punish very bad predictions more
     return iou_loss
+
+def save_tensor_dataset(dataset, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save({
+        'images': dataset.tensors[0],
+        'cams': dataset.tensors[1],
+        'masks': dataset.tensors[2],
+    }, path)
+
+def unnormalize(img_tensor):
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+    return (img_tensor * std + mean).clamp(0, 1)
+
+
 
 
 if __name__ == "__main__":

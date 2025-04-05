@@ -17,7 +17,7 @@ def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
     )
 
 
-def load_test_pet_data(batch_size: int) -> torch.utils.data.DataLoader:
+def load_test_pet_data(batch_size: int,resize_size: int = 256) -> torch.utils.data.DataLoader:
     """
     Loads the test data from the Oxford Pets dataset.
     """
@@ -27,13 +27,13 @@ def load_test_pet_data(batch_size: int) -> torch.utils.data.DataLoader:
         target_types="segmentation",
         transform=torchvision.transforms.Compose(
             [
-                torchvision.transforms.Resize((256, 256)),
+                torchvision.transforms.Resize((resize_size, resize_size)),
                 torchvision.transforms.ToTensor(),
             ]
         ),
         target_transform=torchvision.transforms.Compose(
             [
-                torchvision.transforms.Resize((256, 256)),
+                torchvision.transforms.Resize((resize_size, resize_size)),
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.Lambda(get_categories_from_normalization),
             ]
@@ -90,6 +90,48 @@ def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> t
     
     return total_iou, total_f1
 
+def compute_iou_and_f1_non_binary(predictions: torch.Tensor, true_masks: torch.Tensor, threshold=0.5) -> tuple:
+    """
+    Computes IoU and F1 score for a batch of predictions and true masks.
+    Thresholds prediction probabilities into binary masks.
+
+    Args:
+        predictions: Tensor of shape (batch_size, 1, H, W) with values in [0,1]
+        true_masks: Tensor of shape (batch_size, 1, H, W) with binary labels
+        threshold: Threshold to binarize predictions
+
+    Returns:
+        tuple: (total_iou, total_f1) over the batch
+    """
+    preds_bin = (predictions > threshold).bool()
+    true_bin = true_masks.bool()
+
+    batch_size = predictions.shape[0]
+    total_iou = 0.0
+    total_f1 = 0.0
+
+    for j in range(batch_size):
+        pred = preds_bin[j]
+        truth = true_bin[j]
+
+        intersection = (pred & truth).sum().float()
+        union = (pred | truth).sum().float()
+
+        iou = intersection / union if union > 0 else torch.tensor(1.0)
+        total_iou += iou.item()
+
+        # F1 = 2 * precision * recall / (precision + recall)
+        tp = intersection
+        fp = pred.sum().float() - tp
+        fn = truth.sum().float() - tp
+
+        precision = tp / (tp + fp + 1e-8)
+        recall = tp / (tp + fn + 1e-8)
+        f1 = 2 * precision * recall / (precision + recall + 1e-8)
+        total_f1 += f1.item()
+
+    return total_iou, total_f1
+
 def evaluate_model(
     model: torch.nn.Module,
     test_loader: torch.utils.data.DataLoader,
@@ -110,7 +152,7 @@ def evaluate_model(
         images = images.to(device)
         masks = masks.to(device)
         predictions = model(images)
-        
+
         batch_iou, batch_f1 = compute_iou_and_f1(predictions, masks)
         total_IoU += batch_iou
         total_f1_score += batch_f1
@@ -136,4 +178,39 @@ def evaluate_model(
     print(f"Mean F1 Score: {total_f1_score / num_samples}")
 
 
+def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = None):
+    """
+    Evaluates a segmentation dataset using IoU and F1 metrics.
 
+    Args:
+        dataset (TensorDataset): Dataset containing (images, predicted_masks, ground_truth_masks)
+        image_number (int): Number of samples to visualize
+        image_name (str): Filename prefix for saved visualizations
+        device (str): Device to use ('cuda', 'cpu', etc.)
+    """
+    print("Evaluating model...")
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
+
+    total_IoU = 0
+    total_f1_score = 0
+    num_samples = 0
+
+    for i, (images, masks, masks_gt) in enumerate(dataloader):
+        masks = masks.to(device)
+        masks_gt = masks_gt.to(device)
+
+        batch_iou, batch_f1 = compute_iou_and_f1_non_binary(masks, masks_gt)
+        total_IoU += batch_iou
+        total_f1_score += batch_f1
+        num_samples += images.size(0)
+
+        if i == 0:
+            images_to_store = images[:image_number]
+            masks_to_store = masks[:image_number]
+            gt_to_store = (masks_gt[:image_number] * 255).byte()
+            store_images(images_to_store, image_name + "_images.jpg")
+            store_images(masks_to_store, image_name + "+masks.jpg", is_segmentation=True)
+            store_images(gt_to_store, image_name + "_gt.jpg", is_segmentation=True)
+
+    print(f"Mean IoU: {total_IoU / num_samples:.4f}")
+    print(f"Mean F1 Score: {total_f1_score / num_samples:.4f}")
