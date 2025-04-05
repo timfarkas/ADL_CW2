@@ -547,7 +547,7 @@ class SelfTraining():
                 logits = model(images)  # [B, 1, H, W]
                 gt_masks = targets["segmentation"].to(device)
                 probs = torch.sigmoid(logits)  # ∈ [0,1]
-                filtered_probs = probs * (probs > threshold).float()  # Zero out low-confidence pixels, and left the rest as 1
+                filtered_probs = probs * (probs > threshold).float()  # Zero out low-confidence pixels
 
                 image_list.append(images.cpu())
                 prob_mask_list.append(filtered_probs.cpu())
