@@ -6,7 +6,7 @@ from PIL import ImageFile
 from torch.utils.data import DataLoader, TensorDataset
 
 from CAM.cam_model import CNN, ResNetBackbone, fit_sgd
-from models import CAMManager, CAMtools, SelfTraining, UNet
+from models import CAMManager, SelfTraining, UNet
 
 import data
 from data import OxfordPetDataset
@@ -46,7 +46,7 @@ print(f"Number of training samples (from dataloader): {total_samples}")
 """
 
 ## HYPERPARAMETERS
-num_epochs = 2
+num_epochs = 20
 model_type = "CNN"  ## CNN, Res
 model_dir = os.path.join("checkpoints", "CAM")
 os.makedirs(model_dir, exist_ok=True)
@@ -108,17 +108,11 @@ if get_new_cam or not os.path.exists("cam_data/new_dataset.pt"):
     cam_instance = CAMManager(
         model=model_test,
         dataloader=dataloader_train,
-        method="GradCAM",
+        method="ScoreCAM",
         target_type=classification_mode,
     )
     new_dataset = cam_instance.dataset
 
-    print(new_dataset[0][0].shape)
-    print(new_dataset[0][0][0])
-    
-    old_dataset = CAMtools.generate_cam_label_dataset(model_test, dataloader_train ,device="cpu")
-    print(old_dataset[0][0].shape)
-    print(old_dataset[0][0][0])
     save_tensor_dataset(new_dataset, "cam_data/new_dataset.pt")
 else:
     print("Loading CAM dataset...")
@@ -141,7 +135,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     loss_function = nn.BCEWithLogitsLoss()
     model_path = os.path.join(model_dir, f"{model_type}_bootstrap_round_{round_num}.pt")
     SelfTraining.fit_sgd_pixel(
-        model_new, dataloader_new, 10, 0.05, loss_function, model_path
+        model_new, dataloader_new, 10, 0.05, loss_function, model_path, device=device
     )
     # model_test_new = UNet(3, 1).to(device)
     # model_test_new.load_state_dict(torch.load(f"{model_path}"))
