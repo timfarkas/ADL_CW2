@@ -88,17 +88,15 @@ class OxfordPetDataset(Dataset):
         self.cached_images = {}
         self.cached_masks = {}
 
-        
         # Prepare the dataset (download, extract, setup mappings)
         self.prepare_dataset()
-        
+
         # Get all data
         data_labels = self.get_all_data_labels()
-        
+
         # Validate split parameter
         if split not in ["train", "val", "test"]:
             raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'")
-            
 
         # Split the dataset
         train_data, val_data, test_data = self._split_dataset(
@@ -113,7 +111,6 @@ class OxfordPetDataset(Dataset):
         elif split == "test":
             self.data_items = test_data
 
-            
         # If caching is enabled, preload images for the selected split only
         if self.cache_in_memory:
             print(f"Preloading images for {split} split into memory cache...")
@@ -384,16 +381,13 @@ class OxfordPetDataset(Dataset):
             if self.cache_in_memory and cache_key in self.cached_masks:
                 return self.cached_masks[cache_key]
 
-                
             # Load segmentation mask from trimaps directory
             base_name = os.path.splitext(os.path.basename(img_path))[0].lower()
             seg_path = os.path.join(self.root_dir, 'annotations/trimaps', base_name + '.png')
-            
+
             try:
                 mask = Image.open(seg_path)
-                
 
-                
                 # Apply target transform if provided
                 if self.target_transform:
                     mask = self.target_transform(mask)
@@ -430,7 +424,6 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
     Returns:
         tuple: (train_data, val_data, test_data) lists
     """
-
     random.seed(random_seed)
 
     # retrieve and shuffle all data
@@ -489,8 +482,7 @@ def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_si
 def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
                        test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
                        normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False, lazy_loading=True):
-
-  """Create PyTorch DataLoaders for training, validation, and testing.
+    """Create PyTorch DataLoaders for training, validation, and testing.
 
     Args:
         batch_size: Batch size for DataLoaders
@@ -507,7 +499,6 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     Returns:
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
     """
-
     if use_augmentation:
         train_transform = transforms.Compose([
             transforms.Resize(256),
@@ -556,7 +547,6 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         random_seed=random_seed
     )
 
-    
     val_dataset = OxfordPetDataset(
         root_dir=data_directory,
         transform=val_test_transform,
@@ -564,7 +554,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         normalize_bbox=normalize_bbox,
         target_transform=target_transform,
         cache_in_memory=not lazy_loading,
-        split="val", 
+        split="val",
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
@@ -578,7 +568,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         normalize_bbox=normalize_bbox,
         target_transform=target_transform,
         cache_in_memory=not lazy_loading,
-        split="test", 
+        split="test",
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
@@ -614,7 +604,7 @@ if __name__ == "__main__":
     # Get all data for training
     all_data = dataset.get_all_data_labels()
     print(f"Dataset contains {len(all_data)} images")
-    
+
     # test example
     if all_data:
         print("\nTest example assessing and processing item:")
@@ -628,7 +618,6 @@ if __name__ == "__main__":
         image = dataset.load_image(img_path)
         print(f"Image size (x, y): {image.size}")
         print(f"Bounding box (xmin, ymin, xmax, ymax): {bbox}")
-
 
     # Create dataloaders
     train_loader, val_loader, test_loader = create_dataloaders(
@@ -698,4 +687,3 @@ if __name__ == "__main__":
     plt.title(title)
     plt.axis('off')
     plt.show()
-

@@ -190,3 +190,6 @@ cython_debug/
 
 #data
 /data
+
+#checkpoints
+/checkpoints
