@@ -172,6 +172,165 @@ class BasicCAMWrapper(nn.Module):
         plt.show()
 
 
+class CAMManager:
+    """
+    Class that manages different CAM methods based on the grad-cam package. It allows to visualise CAMs and can prepare outputs for self-training.
+    """
+
+    def __init__(self, model, method="gradCAM", target_layer=None):
+        """
+
+        Args:
+            model: The model to generate CAMs for
+            method: CAM method ('GradCAM', 'HiResCAM', etc. naming based on grad-cam package)
+            target_layer: Target layer for CAM methods, if None will be auto-detected
+        """
+        self.model = model
+        self.method = method
+
+        # Auto-detect target layers if not specified
+        if target_layer is None:
+            if hasattr(model, "features") and hasattr(model.features, "__getitem__"):
+                if isinstance(model, ResNetBackbone):
+                    self.target_layers = [
+                        model.features[-1][-1]
+                    ]  # Last block of layer4 in ResNet
+                else:  # CNN
+                    self.target_layers = [
+                        model.features[-2]
+                    ]  # Last conv layer before GAP in CNN
+            else:
+                raise ValueError(
+                    "Unsupported model type for CAM, could not detect target layers."
+                )
+        else:
+            self.target_layers = [target_layer]
+
+        # Initialise the appropriate CAM method
+        if method == "GradCAM":
+            from pytorch_grad_cam import GradCAM
+
+            self.cam = GradCAM(model=model, target_layers=self.target_layers)
+        # TO-DO: add other CAM methods
+        else:
+            raise ValueError(f"Unsupported CAM method: {method}")
+
+    def generate_cams(self, images, labels=None, threshold=0.2):
+        """
+        Generate CAMs for input images.
+
+        Args:
+            images: Input images tensor [B, C, H, W]
+            labels: Optional target labels
+            threshold: Threshold to filter out low confidence areas
+
+        Returns:
+            Dictionary containing:
+            - cam_maps: Processed CAM maps [B, 1, H, W]. (CAM masks are typically grayscale (1 channel). This format matches the expected input shape for UNet) 
+            - images: Original images
+        """
+        device = next(self.model.parameters()).device
+        images = images.to(device)
+
+        # prepare targets if labels are provided
+        if labels is not None:
+            from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+
+            targets = [ClassifierOutputTarget(label.item()) for label in labels]
+        else:
+            targets = None
+
+        # Generate CAM maps
+        grayscale_cams = self.cam(input_tensor=images, targets=targets)
+
+        # Process CAMs to match what (i think) self-training expects:
+        # - Convert to torch tensor
+        # - Add channel dimension
+        # - we also apply a threshold to filter low-confidence regions
+        processed_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
+        filtered_cams = processed_cams * (processed_cams > threshold).float()
+
+        return {"images": images.cpu(), "cam_maps": filtered_cams}
+
+    def visualize_batch(self, images, labels=None, num_images=4):
+        """
+        Visualise CAMs for a batch of images
+
+        Args:
+            images: Batch of images [B, C, H, W]
+            labels: Optional ground truth labels
+            num_images: Number of images to visualise
+        """
+        # Limit number of images
+        images = images[:num_images]
+        labels = labels[:num_images] if labels is not None else None
+
+        # Generate CAMs
+        result = self.generate_cams(images, labels)
+        cam_maps = result["cam_maps"].squeeze(1).numpy()  # [B, H, W]
+
+        # figure
+        _, axes = plt.subplots(nrows=2, ncols=num_images, figsize=(4 * num_images, 8))
+
+        for i in range(num_images):
+            # Original image
+            img = images[i].permute(1, 2, 0).cpu().numpy()
+            img = np.clip(img, 0, 1)
+            axes[0][i].imshow(img)
+            class_label = labels[i].item() if labels is not None else "predicted"
+            axes[0][i].set_title(f"Original - Class {class_label}")
+            axes[0][i].axis("off")
+
+            # CAM visualisation. Create heatmap overlay
+            cam_resized = cam_maps[i]
+
+            # Create heatmap
+            heatmap = cv2.applyColorMap(np.uint8(255 * cam_resized), cv2.COLORMAP_JET)
+            heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
+            heatmap = heatmap.astype(np.float32) / 255
+
+            # Create overlay
+            overlay = 0.5 * img + 0.5 * heatmap
+            overlay = np.clip(overlay, 0, 1)
+
+            axes[1][i].imshow(overlay)
+            axes[1][i].set_title(
+                f"{self.method.capitalize()}-CAM - Class {class_label}"
+            )
+            axes[1][i].axis("off")
+
+        plt.tight_layout()
+        plt.show()
+
+    def generate_cam_dataset(self, dataloader, threshold=0.2):
+        """
+        Generate a dataset with CAM masks for self-training.
+        (TO-DO: The output of this needs to exactly agree with format expected by the recent version of thed self-training pipeline.)
+
+        Args:
+            dataloader: DataLoader with images
+            threshold: Threshold for filtering low confidence areas
+
+        Returns:
+            TensorDataset: Contains (images, masks) where masks are [B, 1, H, W].
+        """
+        from torch.utils.data import TensorDataset
+
+        all_images = []
+        all_masks = []
+
+        for batch_images, batch_labels in dataloader:
+            result = self.generate_cams(batch_images, batch_labels, threshold)
+            all_images.append(result["images"])
+            all_masks.append(result["cam_maps"])
+
+        # Concatenate all batches
+        images_tensor = torch.cat(all_images, dim=0)
+        masks_tensor = torch.cat(all_masks, dim=0)
+
+        return TensorDataset(images_tensor, masks_tensor)
+
+
 class BboxHead(nn.Module):
     def __init__(self, adapter="CNN"):
         super().__init__()
