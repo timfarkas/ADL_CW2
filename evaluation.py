@@ -48,6 +48,7 @@ def load_test_pet_data(batch_size: int,resize_size: int = 256) -> torch.utils.da
     return test_loader
 
 
+
 def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> tuple:
     """
     Computes IoU and F1 score for a batch of predictions and true masks.
@@ -90,47 +91,8 @@ def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> t
     
     return total_iou, total_f1
 
-def compute_iou_and_f1_non_binary(predictions: torch.Tensor, true_masks: torch.Tensor, threshold=0.5) -> tuple:
-    """
-    Computes IoU and F1 score for a batch of predictions and true masks.
-    Thresholds prediction probabilities into binary masks.
-
-    Args:
-        predictions: Tensor of shape (batch_size, 1, H, W) with values in [0,1]
-        true_masks: Tensor of shape (batch_size, 1, H, W) with binary labels
-        threshold: Threshold to binarize predictions
-
-    Returns:
-        tuple: (total_iou, total_f1) over the batch
-    """
-    preds_bin = (predictions > threshold).bool()
-    true_bin = true_masks.bool()
-
-    batch_size = predictions.shape[0]
-    total_iou = 0.0
-    total_f1 = 0.0
-
-    for j in range(batch_size):
-        pred = preds_bin[j]
-        truth = true_bin[j]
-
-        intersection = (pred & truth).sum().float()
-        union = (pred | truth).sum().float()
-
-        iou = intersection / union if union > 0 else torch.tensor(1.0)
-        total_iou += iou.item()
-
-        # F1 = 2 * precision * recall / (precision + recall)
-        tp = intersection
-        fp = pred.sum().float() - tp
-        fn = truth.sum().float() - tp
-
-        precision = tp / (tp + fp + 1e-8)
-        recall = tp / (tp + fn + 1e-8)
-        f1 = 2 * precision * recall / (precision + recall + 1e-8)
-        total_f1 += f1.item()
-
-    return total_iou, total_f1
+def binarise_predictions(predictions: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
+    return (predictions > threshold).bool()
 
 def evaluate_model(
     model: torch.nn.Module,
@@ -198,8 +160,8 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
     for i, (images, masks, masks_gt) in enumerate(dataloader):
         masks = masks.to(device)
         masks_gt = masks_gt.to(device)
-
-        batch_iou, batch_f1 = compute_iou_and_f1_non_binary(masks, masks_gt)
+        masks_binary=binarise_predictions(masks)
+        batch_iou, batch_f1 = compute_iou_and_f1(masks_binary, masks_gt)
         total_IoU += batch_iou
         total_f1_score += batch_f1
         num_samples += images.size(0)
@@ -214,3 +176,4 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
 
     print(f"Mean IoU: {total_IoU / num_samples:.4f}")
     print(f"Mean F1 Score: {total_f1_score / num_samples:.4f}")
+
