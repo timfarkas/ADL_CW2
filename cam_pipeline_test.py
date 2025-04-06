@@ -1,15 +1,9 @@
 import os
-
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
-from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam.utils.image import show_cam_on_image
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
-import custom_loader
 from CAM.cam_model import CNN, ResNetBackbone, fit_sgd, visualize_cam
-from custom_data import OxfordPetDataset
+from data import OxfordPetDataset, create_dataloaders
+from models import CAMManager
 
 # Hyperparameters
 classification_mode = "breed"
@@ -33,8 +27,8 @@ minibatch_size = 32
 # Data loading
 try:
     dataset = OxfordPetDataset().prepare_dataset()
-    train_loader, val_loader, test_loader = custom_loader.create_dataloaders(
-        dataset, target_type=classification_mode
+    train_loader, val_loader, test_loader = create_dataloaders(
+        batch_size=batch_size, target_type=classification_mode
     )
     print("Data loaders created successfully.")
 except Exception as e:
@@ -90,9 +84,11 @@ except Exception as e:
     exit(1)
 
 
-def visualize_gradcam(model, dataloader, model_mode, device, num_images=4):
+def visualize_with_cam_manager(
+    model, dataloader, model_mode, device, cam_method="GradCAM", num_images=4
+):
     """
-    Visualise Grad-CAM for a batch of images.
+    Visualise CAMs using the CAMManager class.
     """
     try:
         # Get a batch of images
@@ -101,51 +97,12 @@ def visualize_gradcam(model, dataloader, model_mode, device, num_images=4):
         images = images[:num_images].to(device)
         labels = labels[:num_images].to(device)
 
-        # target layers for Grad-CAM
-        if isinstance(model, ResNetBackbone):
-            target_layers = [model.features[-1][-1]]  # last block of layer4 in ResNet
-        elif isinstance(model, CNN):
-            target_layers = [model.features[-2]]  # last conv layer before GAP in CNN
-        else:
-            raise ValueError("Unsupported model type for Grad-CAM")
-
-        # Initialise Grad-CAM
-        cam = GradCAM(model=model, target_layers=target_layers)
-        targets = [ClassifierOutputTarget(label.item()) for label in labels]
-
-        # Compute Grad-CAM
-        grayscale_cams = cam(input_tensor=images, targets=targets)
-        print(f"Grad-CAM computed for {num_images} images.")
-
-        # Visualise
-        _, axes = plt.subplots(nrows=2, ncols=num_images, figsize=(4 * num_images, 8))
-        for i in range(num_images):
-            # Original image
-            img = images[i].permute(1, 2, 0).cpu().numpy()
-            img = np.clip(img, 0, 1)  # Ensure range [0, 1]
-            axes[0][i].imshow(img)
-            axes[0][i].set_title(f"Original - Class {labels[i].item()}")
-            axes[0][i].axis("off")
-
-            # Grad-CAM overlay
-            grayscale_cam = grayscale_cams[i, :]
-            visualization = show_cam_on_image(img, grayscale_cam, use_rgb=True)
-            axes[1][i].imshow(visualization)
-            axes[1][i].set_title(f"Grad-CAM - Class {labels[i].item()}")
-            axes[1][i].axis("off")
-
-        plt.tight_layout()
-        plt.show()
+        # Initialise CAM Manager and visualise CAM
+        cam_manager = CAMManager(model, method=cam_method)
+        cam_manager.visualize_batch(images, labels, num_images)
 
     except Exception as e:
-        print(f"Error in Grad-CAM visualization: {e}")
-        print("Debug info:")
-        print(
-            f"Input tensor shape: {images.shape if 'images' in locals() else 'Not available'}"
-        )
-        print(
-            f"Target layers: {target_layers if 'target_layers' in locals() else 'Not defined'}"
-        )
+        print(f"Error in CAM visualization: {e}")
         raise
 
 
@@ -153,5 +110,13 @@ def visualize_gradcam(model, dataloader, model_mode, device, num_images=4):
 print("Visualizing standard CAM...")
 visualize_cam(model_test, train_loader, model_mode, device)
 
-print("Visualizing Grad-CAM...")
-visualize_gradcam(model_test, train_loader, model_mode, device)
+print("Visualizing CAM with manager...")
+visualize_with_cam_manager(
+    model_test, train_loader, model_mode, device, cam_method="GradCAM"
+)
+
+# generate cam dataset for self-training
+print("Generating CAM dataset for self-training...")
+cam_manager = CAMManager(model_test, method='GradCAM')
+cam_dataset = cam_manager.generate_cam_dataset(train_loader)
+print(f"Generated CAM dataset with {len(cam_dataset)} samples")
