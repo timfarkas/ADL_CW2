@@ -556,7 +556,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         random_seed=random_seed
     )
 
-    
+
     val_dataset = OxfordPetDataset(
         root_dir=data_directory,
         transform=val_test_transform,
@@ -564,7 +564,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         normalize_bbox=normalize_bbox,
         target_transform=target_transform,
         cache_in_memory=not lazy_loading,
-        split="val", 
+        split="val",
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
@@ -578,7 +578,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         normalize_bbox=normalize_bbox,
         target_transform=target_transform,
         cache_in_memory=not lazy_loading,
-        split="test", 
+        split="test",
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
