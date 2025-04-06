@@ -137,15 +137,19 @@ def fit_sgd(model_train: torch.nn.Module,
     model_train.to(device)
     optimizer = optim.SGD(model_train.parameters(), lr=learning_rate,
                           momentum=0.9)
-    batch_count = 0
+
     for epoch in range(number_epoch):
+        batch_count = 0
         correct_count = 0
         sample_count = 0
         loss_sum = 0
-        for images, labels in trainloader:
+        total_batches=len(trainloader)
+        for images, targets in trainloader:
             images = images.to(device)
-            labels = labels.to(device)
+            labels = targets["breed"].to(device)
             batch_count += 1
+            if batch_count%10==0:
+                print(f"Batch: {batch_count}/{total_batches}")
             # images, breeds = images.to(device), breeds.to(device)  # Move data to GPU
             optimizer.zero_grad()
             outputs = model_train(images) 
@@ -197,12 +201,9 @@ def show_cam_on_image(img_tensor, cam, title='CAM'):
     plt.show()
 
 def unnormalize(img_tensor):
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    img = img_tensor.cpu().numpy().transpose((1, 2, 0))  # CxHxW -> HxWxC
-    img = std * img + mean
-    img = np.clip(img, 0, 1)
-    return img
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+    return (img_tensor * std + mean).clamp(0, 1)
 
 def visualize_cam(model, dataset, label_select, device=None):
     # Get a batch of test images
@@ -272,7 +273,6 @@ def get_labels_from_cam(model, image_batch, device="cpu"):
 
     cam_masks = []
     predicted_classes = []
-
     with torch.no_grad():
         logits, feature_maps = model(image_batch, return_features=True)
         weights = model.classifier.weight.data  # shape: (num_classes, channels)
@@ -283,56 +283,70 @@ def get_labels_from_cam(model, image_batch, device="cpu"):
             predicted_classes.append(pred_class.item())
 
             class_weights = weights[pred_class].unsqueeze(1).unsqueeze(2)  # shape: (C, 1, 1)
-            cam = torch.sum(class_weights * feature_map, dim=0)  # shape: (H, W)
-            cam = cam.detach().cpu().numpy()
-            cam = np.maximum(cam, 0)  # Apply ReLU
+            cam = torch.sum(class_weights * feature_map, dim=0, keepdim=True).unsqueeze(0)  # shape: (1, 1, H, W)
+            cam = F.relu(cam)  # Apply ReLU
             cam = cam - cam.min()
             cam = cam / (cam.max() + 1e-8)  # Normalize to [0, 1]
-
-            # Resize to match image dimensions (assumed 256x256, modify if needed)
-            cam_resized = cv2.resize(cam, (image_batch.shape[3], image_batch.shape[2]))
-            cam_masks.append(cam_resized)
+            cam_resized = F.interpolate(cam, size=(image_batch.shape[2], image_batch.shape[3]), mode='bilinear',
+                                        align_corners=False)
+            cam_masks.append(cam_resized.squeeze(0).squeeze(0).cpu())  # shape: (H, W), move to CPU
 
     return cam_masks, predicted_classes
 
-def generate_cam_label_dataset(model, dataloader, device="cpu"):
+def generate_cam_label_dataset(model, dataloader, device="cuda"):
     """
-    Generate a new dataset using get_labels_from_cam, where input is the original image
-    and label is the CAM (pixel-level pseudo label).
-
-    Args:
-        model (nn.Module): Trained CNN or ResNetBackbone model.
-        dataloader (DataLoader): DataLoader yielding (images, labels) batches.
-        device (str): 'cuda' or 'cpu'.
-
-    Returns:
-        TensorDataset: New dataset (image, CAM_mask) pairs.
+    Faster CAM label dataset generation using batch-wise tensor operations and GPU.
+    Returns: TensorDataset with (images, CAMs, GT masks)
     """
-    all_inputs = []
-    all_cam_masks = []
-
     model.eval()
     model.to(device)
 
-    for image_batch, _ in dataloader:
+    all_images = []
+    all_cams = []
+    all_masks = []
+    batch_count=0
+
+    for image_batch, targets in dataloader:
         image_batch = image_batch.to(device)
-        cam_masks, _ = get_labels_from_cam(model, image_batch, device)
+        batch_count+=1
+        print("Batch:",batch_count)
 
-        for i in range(len(cam_masks)):
-            image_tensor = image_batch[i].cpu()
-            cam_tensor = torch.tensor(cam_masks[i], dtype=torch.float32).unsqueeze(0)  # (1, H, W)
+        if isinstance(targets, dict):
+            gt_masks = targets["segmentation"].to(device)
+        else:
+            raise ValueError("Expected dict with key 'segmentation'")
 
-            all_inputs.append(image_tensor)
-            all_cam_masks.append(cam_tensor)
+        with torch.no_grad():
+            logits, feature_maps = model(image_batch, return_features=True)  # logits: (B, C), fmap: (B, C, H, W)
+            weights = model.classifier.weight.data  # shape: (num_classes, C)
 
-    input_tensor = torch.stack(all_inputs)  # (N, 3, H, W)
-    cam_tensor = torch.stack(all_cam_masks)  # (N, 1, H, W)
+            pred_classes = logits.argmax(dim=1)  # (B,)
+            batch_cams = []
 
-    print(f"Created CAM-labeled dataset with {len(input_tensor)} samples.")
-    return TensorDataset(input_tensor, cam_tensor)
+            for i in range(image_batch.size(0)):
+                fmap = feature_maps[i]  # (C, H, W)
+                cls_idx = pred_classes[i]
+                weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
 
+                cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(0)  # (1, 1, H, W)
+                cam = F.relu(cam)
+                cam = cam - cam.min()
+                cam = cam / (cam.max() + 1e-8)
+                cam_resized = F.interpolate(cam, size=(256, 256), mode='bilinear', align_corners=False)
+                batch_cams.append(cam_resized)
 
+            cams_batch = torch.cat(batch_cams, dim=0)  # (B, 1, 256, 256)
 
+        all_images.append(image_batch.cpu())
+        all_cams.append(cams_batch.cpu())
+        all_masks.append(gt_masks.cpu())
+
+    input_tensor = torch.cat(all_images, dim=0)
+    cam_tensor = torch.cat(all_cams, dim=0)
+    mask_tensor = torch.cat(all_masks, dim=0)
+
+    print(f"✅ Created CAM-labeled dataset with {len(input_tensor)} samples.")
+    return TensorDataset(input_tensor, cam_tensor, mask_tensor)
 
 # if __name__ == "__main__":
 #
