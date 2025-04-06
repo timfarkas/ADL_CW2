@@ -40,7 +40,7 @@ class OxfordPetDataset(Dataset):
     def __init__(self, root_dir="oxford_pet_data", transform=None, target_type=["class"],
                  normalize_bbox=True, target_transform=None, cache_in_memory=False,
                  split="train", train_ratio=0.7, val_ratio=0.15,
-                 test_ratio=0.15, random_seed=RANDOM_SEED):
+                 test_ratio=0.15, random_seed=RANDOM_SEED,resize_size=256):
         """Initialize dataset with directory structure and PyTorch adapter settings.
 
         Args:
@@ -68,12 +68,11 @@ class OxfordPetDataset(Dataset):
         # Paths to downloaded files
         self.images_tar_path = self.root_dir / "images.tar.gz"
         self.annotations_tar_path = self.root_dir / "annotations.tar.gz"
-
+        self.resize_size = resize_size
         # Class mappings
         self.class_names = None
         self.class_to_idx = None
         self.class_to_species = None
-
         # PyTorch adapter settings
         self.transform = transform
         if isinstance(target_type, str):
@@ -88,17 +87,17 @@ class OxfordPetDataset(Dataset):
         self.cached_images = {}
         self.cached_masks = {}
 
-        
+
         # Prepare the dataset (download, extract, setup mappings)
         self.prepare_dataset()
-        
+
         # Get all data
         data_labels = self.get_all_data_labels()
-        
+
         # Validate split parameter
         if split not in ["train", "val", "test"]:
             raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'")
-            
+
 
         # Split the dataset
         train_data, val_data, test_data = self._split_dataset(
@@ -113,7 +112,7 @@ class OxfordPetDataset(Dataset):
         elif split == "test":
             self.data_items = test_data
 
-            
+
         # If caching is enabled, preload images for the selected split only
         if self.cache_in_memory:
             print(f"Preloading images for {split} split into memory cache...")
@@ -367,14 +366,14 @@ class OxfordPetDataset(Dataset):
                     xmin, ymin, xmax, ymax,
                     orig_w=original_width,
                     orig_h=original_height,
-                    final_size=256
+                    final_size=self.resize_size
                 )
 
                 if self.normalize_bbox:
-                    new_xmin /= 256.0
-                    new_ymin /= 256.0
-                    new_xmax /= 256.0
-                    new_ymax /= 256.0
+                    new_xmin /= self.resize_size
+                    new_ymin /= self.resize_size
+                    new_xmax /= self.resize_size
+                    new_ymax /= self.resize_size
 
                 bbox_tensor = torch.tensor([new_xmin, new_ymin, new_xmax, new_ymax], dtype=torch.float32)
             return bbox_tensor
@@ -384,16 +383,16 @@ class OxfordPetDataset(Dataset):
             if self.cache_in_memory and cache_key in self.cached_masks:
                 return self.cached_masks[cache_key]
 
-                
+
             # Load segmentation mask from trimaps directory
             base_name = os.path.splitext(os.path.basename(img_path))[0].lower()
             seg_path = os.path.join(self.root_dir, 'annotations/trimaps', base_name + '.png')
-            
+
             try:
                 mask = Image.open(seg_path)
-                
 
-                
+
+
                 # Apply target transform if provided
                 if self.target_transform:
                     mask = self.target_transform(mask)
@@ -411,7 +410,7 @@ class OxfordPetDataset(Dataset):
                 blank_mask = torch.zeros((1, original_height, original_width), dtype=torch.float32)
                 if self.target_transform:
                     # Resize blank mask to match target transform expectations
-                    blank_mask = torch.zeros((1, 256, 256), dtype=torch.float32)
+                    blank_mask = torch.zeros((1, self.resize_size, self.resize_size), dtype=torch.float32)
                 return blank_mask
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
@@ -452,7 +451,7 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
     return train_data, val_data, test_data
 
 
-def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_size=256):
+def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_size):
     # determine the scale factor used by transform.Resize(256)
     shorter_side = min(orig_w, orig_h)
     scale = final_size / float(shorter_side)
@@ -487,16 +486,15 @@ def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_si
 
 
 def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                       test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
-                       normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False, lazy_loading=True):
+                       test_ratio=0.15,resize_size=256, random_seed=RANDOM_SEED, target_type=["class"],
+                       normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False, lazy_loading=True,shuffle=True):
+    '''Create PyTorch DataLoaders for training, validation, and testing.
 
-    """Create PyTorch DataLoaders for training, validation, and testing.
-
-    Args:
-        batch_size: Batch size for DataLoaders
-        train_ratio: Proportion for training set
-        val_ratio: Proportion for validation set
-        test_ratio: Proportion for test set
+        Args:
+            batch_size: Batch size for DataLoaders
+            train_ratio: Proportion for training set
+            val_ratio: Proportion for validation set
+            test_ratio: Proportion for test set
         random_seed: Seed for reproducible splitting
         target_type: Target type for the model ("class", "species", "bbox", or "segmentation")
         normalize_bbox: Whether to normalize bounding box coordinates
@@ -506,12 +504,12 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     Returns:
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
-    """
+    '''
 
     if use_augmentation:
         train_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(resize_size),
+            transforms.CenterCrop(resize_size),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             transforms.RandomGrayscale(p=0.2),
             transforms.ToTensor(),
@@ -519,15 +517,15 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         ])
     else:
         train_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(resize_size),
+            transforms.CenterCrop(resize_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
     val_test_transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(256),
+        transforms.Resize(resize_size),
+        transforms.CenterCrop(resize_size),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -536,8 +534,8 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     target_transform = None
     if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
         target_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(resize_size),
+            transforms.CenterCrop(resize_size),
             transforms.ToTensor(),
         ])
 
@@ -553,10 +551,11 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
-        random_seed=random_seed
+        random_seed=random_seed,
+        resize_size=resize_size
     )
 
-    
+
     val_dataset = OxfordPetDataset(
         root_dir=data_directory,
         transform=val_test_transform,
@@ -564,11 +563,12 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         normalize_bbox=normalize_bbox,
         target_transform=target_transform,
         cache_in_memory=not lazy_loading,
-        split="val", 
+        split="val",
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
-        random_seed=random_seed
+        random_seed=random_seed,
+        resize_size = resize_size
     )
 
     test_dataset = OxfordPetDataset(
@@ -578,17 +578,18 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         normalize_bbox=normalize_bbox,
         target_transform=target_transform,
         cache_in_memory=not lazy_loading,
-        split="test", 
+        split="test",
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
-        random_seed=random_seed
+        random_seed=random_seed,
+        resize_size = resize_size
     )
 
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=shuffle,
         # num_workers=8,
         pin_memory=True,
         # persistent_workers=True
@@ -614,7 +615,7 @@ if __name__ == "__main__":
     # Get all data for training
     all_data = dataset.get_all_data_labels()
     print(f"Dataset contains {len(all_data)} images")
-    
+
     # test example
     if all_data:
         print("\nTest example assessing and processing item:")
