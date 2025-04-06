@@ -233,6 +233,7 @@ class CAMManager:
             case _:
                 raise ValueError(f"Unsupported CAM method: {method}")
 
+        self.cam.batch_size = dataloader.batch_size
         self.dataset = self._generate_cam_dataset(
             dataloader=dataloader, target_type=target_type, smooth=smooth
         )
@@ -289,119 +290,6 @@ class CAMManager:
         masks_tensor = torch.cat(all_masks, dim=0)
 
         return TensorDataset(images_tensor, cams_tensor, masks_tensor)
-
-
-class CAMtools:
-    @staticmethod
-    def generate_cam_label_dataset(model, dataloader, device="cuda"):
-        """
-        Faster CAM label dataset generation using batch-wise tensor operations and GPU.
-        Returns: TensorDataset with (images, CAMs, GT masks)
-        """
-        model.eval()
-        model.to(device)
-
-        all_images = []
-        all_cams = []
-        all_masks = []
-        batch_count = 0
-        total_batches = len(dataloader)
-        for image_batch, targets in dataloader:
-            image_batch = image_batch.to(device)
-            batch_count += 1
-            if batch_count % 10 == 0:
-                print(f"Batch: {batch_count}/{total_batches}")
-            if isinstance(targets, dict):
-                gt_masks = targets["segmentation"].to(device)
-            else:
-                raise ValueError("Expected dict with key 'segmentation'")
-            _, _, H, W = gt_masks.shape
-            with torch.no_grad():
-                logits, feature_maps = model(
-                    image_batch, return_features=True
-                )  # logits: (B, C), fmap: (B, C, H, W)
-                weights = model.classifier.weight.data  # shape: (num_classes, C)
-
-                pred_classes = logits.argmax(dim=1)  # (B,)
-                batch_cams = []
-
-                for i in range(image_batch.size(0)):
-                    fmap = feature_maps[i]  # (C, H, W)
-                    cls_idx = pred_classes[i]
-                    weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
-                    cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(
-                        0
-                    )  # (1, 1, H, W)
-                    cam = F.relu(cam)
-                    cam = cam - cam.min()
-                    cam = cam / (cam.max() + 1e-8)
-                    cam_resized = F.interpolate(
-                        cam, size=(H, W), mode="bilinear", align_corners=False
-                    )
-                    batch_cams.append(cam_resized)
-
-                cams_batch = torch.cat(batch_cams, dim=0)  # (B, 1, 256, 256)
-
-            all_images.append(image_batch.cpu())
-            all_cams.append(cams_batch.cpu())
-            all_masks.append(gt_masks.cpu())
-
-        input_tensor = torch.cat(all_images, dim=0)
-        cam_tensor = torch.cat(all_cams, dim=0)
-        mask_tensor = torch.cat(all_masks, dim=0)
-
-        print(f"Created CAM-labeled dataset with {len(input_tensor)} samples.")
-        return TensorDataset(input_tensor, cam_tensor, mask_tensor)
-
-    @staticmethod
-    def get_labels_from_cam(model, image_batch, device="cpu"):
-        """
-        Generate pixel-level label maps using Class Activation Maps (CAM) for a batch of images.
-
-        Args:
-            model: Trained CNN or ResNetBackbone model
-            image_batch: Tensor of shape (B, C, H, W)
-            device: 'cpu' or 'cuda'
-
-        Returns:
-            cam_masks: List of 2D numpy arrays (one per image), resized to match image dimensions
-            predicted_classes: List of predicted class indices for each image
-        """
-        model.eval()
-        model.to(device)
-        image_batch = image_batch.to(device)
-
-        cam_masks = []
-        predicted_classes = []
-        with torch.no_grad():
-            logits, feature_maps = model(image_batch, return_features=True)
-            weights = model.classifier.weight.data  # shape: (num_classes, channels)
-
-            for i in range(image_batch.size(0)):
-                feature_map = feature_maps[i]  # shape: (C, H, W)
-                _, pred_class = torch.max(logits[i], dim=0)
-                predicted_classes.append(pred_class.item())
-
-                class_weights = (
-                    weights[pred_class].unsqueeze(1).unsqueeze(2)
-                )  # shape: (C, 1, 1)
-                cam = torch.sum(
-                    class_weights * feature_map, dim=0, keepdim=True
-                ).unsqueeze(0)  # shape: (1, 1, H, W)
-                cam = F.relu(cam)  # Apply ReLU
-                cam = cam - cam.min()
-                cam = cam / (cam.max() + 1e-8)  # Normalize to [0, 1]
-                cam_resized = F.interpolate(
-                    cam,
-                    size=(image_batch.shape[2], image_batch.shape[3]),
-                    mode="bilinear",
-                    align_corners=False,
-                )
-                cam_masks.append(
-                    cam_resized.squeeze(0).squeeze(0).cpu()
-                )  # shape: (H, W), move to CPU
-
-        return cam_masks, predicted_classes
 
 
 class BboxHead(nn.Module):
