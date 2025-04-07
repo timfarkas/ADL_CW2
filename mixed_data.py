@@ -5,7 +5,7 @@ import os
 import torch
 import random
 from torchvision import transforms
-from data import OxfordPetDataset, create_dataloaders
+from data import OxfordPetDataset, create_dataloaders, SegmentationToTensor
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -268,7 +268,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         target_transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(256),
-            transforms.ToTensor(),
+            SegmentationToTensor(),
         ])
 
     # Create Oxford Pet datasets
