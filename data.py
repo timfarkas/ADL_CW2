@@ -3,6 +3,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from torchvision.transforms.functional import InterpolationMode
 import random
 import os
 from PIL import Image
@@ -570,7 +571,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     target_transform = None
     if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
         target_transform = transforms.Compose([
-            transforms.Resize(resize_size),
+            transforms.Resize(resize_size, interpolation=InterpolationMode.NEAREST),
             transforms.CenterCrop(resize_size),
             SegmentationToTensor(),
         ])
