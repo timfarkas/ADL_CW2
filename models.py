@@ -716,3 +716,79 @@ class SelfTraining:
 
         plt.tight_layout()
         plt.show()
+
+
+class UNetBackbone(nn.Module):
+    def __init__(
+        self,
+        in_channels=3,  # 3 channels for RGB images
+        n_classes=3,  # 3 class for segmentation - foreground, background, unknown
+        depth=3,  # 3 encoding layers, 2 decoding layers
+        wf=5,  # 2^5 = 32 channels
+        padding=True,  # equivalent to padding=1 in Bruce's implementation
+        batch_norm=True,  # use batch normalization after layers with activation function
+        up_mode="upconv",
+    ):
+        """
+        Implementation of
+        U-Net: Convolutional Networks for Biomedical Image Segmentation
+        (Ronneberger et al., 2015)
+        https://arxiv.org/abs/1505.04597
+
+        Using the default arguments will yield the exact version used
+        in the original paper
+
+        Args:
+            in_channels (int): number of input channels
+            n_classes (int): number of output channels
+            depth (int): depth of the network
+            wf (int): number of filters in the first layer is 2**wf
+            padding (bool): if True, apply padding such that the input shape
+                            is the same as the output.
+                            This may introduce artifacts
+            batch_norm (bool): Use BatchNorm after layers with an
+                               activation function
+            up_mode (str): one of 'upconv' or 'upsample'.
+                           'upconv' will use transposed convolutions for
+                           learned upsampling.
+                           'upsample' will use bilinear upsampling.
+        """
+        super(UNetBackbone, self).__init__()
+        assert up_mode in ("upconv", "upsample")
+        self.padding = padding
+        self.depth = depth
+        prev_channels = in_channels
+        self.input_batchnorm = nn.BatchNorm2d(in_channels)
+
+        # Encoding
+        self.down_path = nn.ModuleList()
+        for i in range(depth):
+            self.down_path.append(
+                UNetConvBlock(prev_channels, 2 ** (wf + i), padding, batch_norm)
+            )
+            prev_channels = 2 ** (wf + i)
+
+        # Partial decode
+        self.up_path = nn.ModuleList()
+        for i in reversed(range(depth - 1)):
+            self.up_path.append(
+                UNetUpBlock(prev_channels, 2 ** (wf + i), up_mode, padding, batch_norm)
+            )
+            prev_channels = 2 ** (wf + i)
+
+        self.out_channels = prev_channels
+
+    def forward(self, x):
+        x = self.input_batchnorm(x)
+
+        blocks = []
+        for i, down in enumerate(self.down_path):
+            x = down(x)
+            if i != len(self.down_path) - 1:
+                blocks.append(x)
+                x = F.max_pool2d(x, 2)
+
+        for i, up in enumerate(self.up_path):
+            x = up(x, blocks[-i - 1])
+
+        return self.last(x)
