@@ -51,6 +51,13 @@ def load_test_pet_data(batch_size: int,resize_size: int = 256) -> torch.utils.da
 def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> tuple:
     """
     Computes IoU and F1 score for a batch of predictions and true masks.
+
+    Args:
+        predictions: Tensor of shape (batch_size, C, H, W) with model predictions
+        true_masks: Tensor of shape (batch_size, C, H, W) with ground truth masks
+
+    Returns:
+        tuple: (total_iou, total_f1) - sum of IoU and F1 scores for the batch
     """
     eps = 1e-6
     batch_size = predictions.shape[0]
@@ -58,25 +65,28 @@ def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> t
     total_f1 = 0
 
     for j in range(batch_size):
-        prediction = predictions[j].bool()
-        true_mask = true_masks[j].bool()
+        prediction = predictions[j]
+        true_mask = true_masks[j]
 
-        true_positive = (prediction & true_mask).sum().float()
-        false_positive = (prediction & ~true_mask).sum().float()
-        false_negative = (~prediction & true_mask).sum().float()
-        union = (prediction | true_mask).sum().float()
-
-        # Handle IoU
-        iou = true_positive / (union + eps)
+        # Calculate IoU
+        intersection = torch.logical_and(prediction, true_mask)
+        union = torch.logical_or(prediction, true_mask)
+        if torch.sum(union) == 0:
+            iou = torch.tensor(1.0)  # This seems to be a bug in the dataset
+        else:
+            iou = torch.sum(intersection) / torch.sum(union)
         total_iou += iou.item()
 
-        # Handle F1 Score
-        denominator = (2 * true_positive + false_positive + false_negative)
-        if denominator == 0:
-            # Case: both pred and gt are completely empty
-            f1_score = 1.0 if true_mask.sum() == 0 else 0.0
+        # Calculate precision and recall
+        true_positive = torch.sum(intersection)
+        false_positive = (prediction > 0).sum() - true_positive
+        false_negative = (true_mask > 0).sum() - true_positive
+        precision = true_positive / (true_positive + false_positive+eps)
+        recall = true_positive / (true_positive + false_negative+eps)
+        if precision.isnan() or recall.isnan():
+            f1_score = torch.tensor(0.0)
         else:
-            f1_score = 2 * true_positive / (denominator + eps)
+            f1_score = 2 * (precision * recall) / (precision + recall+eps)
 
         total_f1 += f1_score.item()
 
