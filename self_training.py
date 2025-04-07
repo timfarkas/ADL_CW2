@@ -50,7 +50,7 @@ num_epochs = 20
 model_type = "CNN"  ## CNN, Res
 model_dir = os.path.join("checkpoints", "CAM")
 os.makedirs(model_dir, exist_ok=True)
-train_mode = False # if False, will use trained local mode
+train_mode = True # if False, will use trained local mode
 
 loss_function = torch.nn.CrossEntropyLoss()
 device = torch.device(
@@ -102,7 +102,7 @@ model_test.to(device)
 
 ### USING CAM AS LABELS IN A NEW DATASET
 print("Generating datasets from CAM")
-get_new_cam = False
+get_new_cam = True
 
 if get_new_cam or not os.path.exists("cam_data/new_dataset.pt"):
     cam_instance = CAMManager(
