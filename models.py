@@ -760,7 +760,7 @@ class UNetBackbone(nn.Module):
         prev_channels = in_channels
         self.input_batchnorm = nn.BatchNorm2d(in_channels)
 
-        # Encoding
+        # Encoding path
         self.down_path = nn.ModuleList()
         for i in range(depth):
             self.down_path.append(
@@ -768,7 +768,7 @@ class UNetBackbone(nn.Module):
             )
             prev_channels = 2 ** (wf + i)
 
-        # Partial decode
+        # Partial decoding path
         self.up_path = nn.ModuleList()
         for i in reversed(range(depth - 1)):
             self.up_path.append(
@@ -781,6 +781,7 @@ class UNetBackbone(nn.Module):
     def forward(self, x):
         x = self.input_batchnorm(x)
 
+        # Encoding
         blocks = []
         for i, down in enumerate(self.down_path):
             x = down(x)
@@ -788,7 +789,20 @@ class UNetBackbone(nn.Module):
                 blocks.append(x)
                 x = F.max_pool2d(x, 2)
 
+        # Partial decode
         for i, up in enumerate(self.up_path):
             x = up(x, blocks[-i - 1])
 
-        return self.last(x)
+        return x
+
+
+class SegmentationHead(nn.module):
+    def __init__(self, in_channels, out_channels):
+        super(SegmentationHead, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.sigmoid(x)
+        return x
