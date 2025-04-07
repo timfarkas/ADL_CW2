@@ -446,6 +446,10 @@ class OxfordPetDataset(Dataset):
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
 
+class SegmentationToTensor:
+    def __call__(self, pic):
+        tensor = torch.as_tensor(np.array(pic), dtype=torch.long)
+        return tensor
 
 def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
     """Split the dataset into training, validation, and test sets.
@@ -568,7 +572,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         target_transform = transforms.Compose([
             transforms.Resize(resize_size),
             transforms.CenterCrop(resize_size),
-            transforms.ToTensor(),
+            SegmentationToTensor(),
         ])
 
     # Create dataset with all splits
