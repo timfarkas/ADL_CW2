@@ -41,7 +41,7 @@ class OxfordPetDataset(Dataset):
     def __init__(self, root_dir="oxford_pet_data", transform=None, target_type=["class"],
                  normalize_bbox=True, target_transform=None, cache_in_memory=False,
                  split="train", train_ratio=0.7, val_ratio=0.15,
-                 test_ratio=0.15, random_seed=RANDOM_SEED,resize_size=256):
+                 test_ratio=0.15, random_seed=RANDOM_SEED,resize_size=64):
         """Initialize dataset with directory structure and PyTorch adapter settings.
 
         Args:
@@ -522,7 +522,7 @@ def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_si
 
 
 def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                       test_ratio=0.15,resize_size=256, random_seed=RANDOM_SEED, target_type=["class"],
+                       test_ratio=0.15,resize_size=64, random_seed=RANDOM_SEED, target_type=["class"],
                        normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False, lazy_loading=True,shuffle=True):
     '''Create PyTorch DataLoaders for training, validation, and testing.
 
