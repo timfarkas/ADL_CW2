@@ -50,7 +50,7 @@ num_epochs = 20
 model_type = "CNN"  ## CNN, Res
 model_dir = os.path.join("checkpoints", "CAM")
 os.makedirs(model_dir, exist_ok=True)
-train_mode = True  # if False, will use trained local mode
+train_mode = True # if False, will use trained local mode
 
 loss_function = torch.nn.CrossEntropyLoss()
 device = torch.device(
@@ -126,8 +126,14 @@ dataloader_new = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 """
 SelfTraining.visualize_cam_samples(dataloader_new)
 """
-evaluate_dataset(new_dataset, 6, "test_image")
+threshold=0
+for i in range(6):
+    evaluate_dataset(new_dataset, 6, "cam_image",threshold=threshold)
+    threshold += 0.1
+
+
 BOOTSTRAP_ROUNDS = 3
+
 ### RUNNING BOOSTRAP AND UPDATE DATASET EACH ROUND
 for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     print(f"\nBootstrapping Round {round_num}")
@@ -135,7 +141,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     loss_function = nn.BCEWithLogitsLoss()
     model_path = os.path.join(model_dir, f"{model_type}_bootstrap_round_{round_num}.pt")
     SelfTraining.fit_sgd_pixel(
-        model_new, dataloader_new, 10, 0.05, loss_function, model_path, device=device
+        model_new, dataloader_new, 5, 0.05, loss_function, model_path, device=device
     )
     # model_test_new = UNet(3, 1).to(device)
     # model_test_new.load_state_dict(torch.load(f"{model_path}"))
@@ -144,10 +150,13 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     new_dataset_predict = SelfTraining.predict_pixel_classification_dataset(
         model_new, dataloader_train, threshold=min(0.95, 0.20 + 0.05 * round_num)
     )
-    evaluate_dataset(new_dataset_predict, 6, "new_image")
+    threshold = 0
+    for i in range(6):
+        evaluate_dataset(new_dataset, 6, f"bootstrap_round_{round_num}_image", threshold=threshold)
+        threshold += 0.1
     SelfTraining.visualize_predicted_masks(
         new_dataset_predict,
-        num_samples=4,
+        num_samples=6,
         save_path=f"visualizations/round_{round_num}.png",
     )
     all_images = torch.cat(
