@@ -795,6 +795,16 @@ class UNetBackbone(nn.Module):
 
         return x
 
+        def _init_weights(self):
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+                    nn.init.xavier_normal_(
+                        m.weight, gain=nn.init.calculate_gain("sigmoid")
+                    )  # xavier given sigmoid activation
+                elif isinstance(m, nn.BatchNorm2d):
+                    nn.init.constant_(m.weight, 1)  # gamma
+                    nn.init.constant_(m.bias, 0)  # beta
+
 
 class UNetConvBlock(nn.Module):
     def __init__(self, in_size, out_size, padding, batch_norm):
@@ -853,8 +863,19 @@ class SegmentationHead(nn.Module):
         super(SegmentationHead, self).__init__()
         self.conv = nn.Conv2d(in_channels, n_classes, kernel_size=1)
         self.sigmoid = nn.Sigmoid()
+        self.name = "SegmentationHead"
 
     def forward(self, x):
         x = self.conv(x)
         x = self.sigmoid(x)
         return x
+
+        def _init_weights(self):
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+                    nn.init.xavier_normal_(
+                        m.weight, gain=nn.init.calculate_gain("sigmoid")
+                    )  # xavier given sigmoid activation
+                elif isinstance(m, nn.BatchNorm2d):
+                    nn.init.constant_(m.weight, 1)  # gamma
+                    nn.init.constant_(m.bias, 0)  # beta
