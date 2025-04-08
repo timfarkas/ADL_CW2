@@ -25,7 +25,7 @@ train_loader, val_loader, test_loader = create_dataloaders(
 
 **Available Target Types**
 The dataset supports multiple target types that can be used individually or combined:
-"class" or "breed": Returns the breed class index (0-36)
+"class" or "breed": Returns the breed class index (0-36, -1 for background images)
 "species": Returns the species class (0 for cat, 1 for dog)
-"bbox": Returns the pet head bounding box coordinates
-"segmentation": Returns the segmentation mask
+"bbox": Returns the pet head bounding box coordinates. Normalised to values between 0 - 1.
+"segmentation": Returns the segmentation mask. Trimap segmentation: 1, 2, or 3.
