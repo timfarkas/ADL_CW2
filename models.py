@@ -452,6 +452,11 @@ class ResNetBackbone(nn.Module):
             base_model.layer4,
         )
 
+        # Adjust batch norm momentum for stronger normalization
+        for module in self.features.modules():
+            if isinstance(module, nn.BatchNorm2d):
+                module.momentum = 0.01 # Default is 0.1, lower value for "stronger" effect
+
     def forward(self, img, return_features=False):
         features = self.features(img)
         if return_features:
