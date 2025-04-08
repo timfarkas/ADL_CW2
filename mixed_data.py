@@ -15,6 +15,9 @@ import numpy as np
 
 RANDOM_SEED = 27
 
+# note if autodownload fails, please download dataset from the following URL:
+# https://www.kaggle.com/datasets/arnaud58/landscape-pictures
+# and place the images under a directory called landscape_data
 
 def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
 
