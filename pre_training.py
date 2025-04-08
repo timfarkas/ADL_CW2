@@ -689,7 +689,7 @@ if __name__ == "__main__":
                 trainer.set_model(backbone, run_dict['heads'], model_path+"_"+size)
                 trainer.set_optimizer(learning_rate, weight_decay)
                 print("Trainer set up successfully!")
-                trainer.fit_sgd(device=device)        
+                trainer.fit_sgd(device=device)
 
 
 

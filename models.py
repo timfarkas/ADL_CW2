@@ -17,6 +17,7 @@ from torchvision.models import (
 import os
 from utils import resize_images, unnormalize
 from torch.utils.data import TensorDataset
+from evaluation import get_categories_from_normalization
 
 ### Num Inputs:
 #       Breed:                  37
@@ -197,6 +198,7 @@ class CAMManager:
         """
         self.model = model
         self.method = method
+        self.classical=False
 
         # Auto-detect target layers if not specified
         if target_layer is None:
@@ -222,18 +224,24 @@ class CAMManager:
                 from pytorch_grad_cam import GradCAM
 
                 self.cam = GradCAM(model=model, target_layers=self.target_layers)
+                self.cam.batch_size = dataloader.batch_size
             case "ScoreCAM":
                 from pytorch_grad_cam import ScoreCAM
 
                 self.cam = ScoreCAM(model=model, target_layers=self.target_layers)
+                self.cam.batch_size = dataloader.batch_size
             case "AblationCAM":
                 from pytorch_grad_cam import AblationCAM
 
                 self.cam = AblationCAM(model=model, target_layers=self.target_layers)
+                self.cam.batch_size = dataloader.batch_size
+            case "Classical":
+                self.classical = True
+
             case _:
                 raise ValueError(f"Unsupported CAM method: {method}")
 
-        self.cam.batch_size = dataloader.batch_size
+
         self.dataset = self._generate_cam_dataset(
             dataloader=dataloader, target_type=target_type, smooth=smooth
         )
@@ -264,23 +272,70 @@ class CAMManager:
             images = batch_images.to(device)
 
             try:
-                labels = batch_targets[target_type].to(device)
-                gt_masks = batch_targets["segmentation"].to(device)
+                # If batch_targets is a dict
+                if isinstance(batch_targets, dict):
+                    print("dict")
+                    labels = batch_targets[target_type].to(device)
+                    gt_masks = batch_targets["segmentation"].to(device)
+                # If it's a tuple of (label, mask)
+                elif isinstance(batch_targets, (tuple, list)):
+                    print("tuple")
+                    labels = batch_targets[0].to(device)
+                    gt_masks = batch_targets[1].to(device)
+                # If it's just the label tensor
+                else:
+                    labels = batch_targets.to(device)
+                    gt_masks = labels
+                    # gt_masks = get_categories_from_normalization(labels)
+                    #
+                    # print("labels shape:", labels.shape)
+                    # print("labels unique values:", torch.unique(labels))
+                    # print("gt_masks shape:", gt_masks.shape)
+                    # print("gt_masks unique values:", torch.unique(gt_masks))
+                    # for i in range(min(4, gt_masks.shape[0])):
+                    #     plt.figure(figsize=(4, 4))
+                    #     plt.imshow(gt_masks[i].squeeze().cpu().numpy(), cmap='gray')
+                    #     plt.title(f"Mask {i}")
+                    #     plt.axis('off')
+                    #     plt.show()
             except ValueError or KeyError:
                 raise ValueError(
                     f"Expected dict with keys '{target_type}' and 'segmentation'"
                 )
 
-            targets = [ClassifierOutputTarget(label.item()) for label in labels]
+            if self.classical:
+                with torch.no_grad():
+                    logits, feature_maps = self.model(batch_images,
+                                                      return_features=True)  # logits: (B, C), fmap: (B, C, H, W)
+                    weights = self.model.classifier.weight.data  # shape: (num_classes, C)
 
-            grayscale_cams = self.cam(
-                input_tensor=images,
-                targets=targets,
-                aug_smooth=smooth,
-                eigen_smooth=smooth,
-            )
-            tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
+                    pred_classes = logits.argmax(dim=1)  # (B,)
+                    batch_cams = []
 
+                    input_size = batch_images.shape[-2:]  # get (H, W) from input
+
+                    for i in range(batch_images.size(0)):
+                        fmap = feature_maps[i]  # (C, H, W)
+                        cls_idx = pred_classes[i]
+                        weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
+
+                        cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(0)  # (1, 1, H, W)
+                        cam = F.relu(cam)
+                        cam = cam - cam.min()
+                        cam = cam / (cam.max() + 1e-8)
+                        cam_resized = F.interpolate(cam, size=input_size, mode='bilinear', align_corners=False)
+                        batch_cams.append(cam_resized)
+
+                    tensor_cams = torch.cat(batch_cams, dim=0)  # (B, 1, H, W)
+            else:
+                targets = [ClassifierOutputTarget(label.item()) for label in labels]
+                grayscale_cams = self.cam(
+                    input_tensor=images,
+                    targets=targets,
+                    aug_smooth=smooth,
+                    eigen_smooth=smooth,
+                )
+                tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
             all_cams.append(tensor_cams)
             all_masks.append(gt_masks.cpu())
 
@@ -290,7 +345,6 @@ class CAMManager:
         masks_tensor = torch.cat(all_masks, dim=0)
 
         return TensorDataset(images_tensor, cams_tensor, masks_tensor)
-
 
 class BboxHead(nn.Module):
     def __init__(self, adapter="CNN"):
@@ -543,7 +597,7 @@ class SelfTraining:
             correct_pixels = 0
             total_pixels = 0
             total_loss = 0
-            # batch_count = 0
+
             total_batches = len(dataloader_new)
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
@@ -566,6 +620,33 @@ class SelfTraining:
                 total_pixels += masks.numel()
                 total_loss += loss.item() * images.size(0)
 
+                '''checking batch by visualization'''
+                # if batch_count == 80:  # only visualize one batch per epoch
+                #     images_vis = images[:4].detach().cpu()
+                #     masks_vis = masks[:4].detach().cpu()
+                #     preds_vis = probs[:4].float().detach().cpu()
+                #
+                #     for i in range(images_vis.size(0)):
+                #         fig, axs = plt.subplots(1, 3, figsize=(10, 3))
+                #
+                #         img = images_vis[i].permute(1, 2, 0).numpy()
+                #         img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1] for visualization
+                #
+                #         axs[0].imshow(img)
+                #         axs[0].set_title("Input Image")
+                #         axs[0].axis("off")
+                #
+                #         axs[1].imshow(masks_vis[i].squeeze(), cmap='gray')
+                #         axs[1].set_title("Ground Truth Mask")
+                #         axs[1].axis("off")
+                #
+                #         axs[2].imshow(preds_vis[i].squeeze(), cmap='gray')
+                #         axs[2].set_title("Predicted Mask")
+                #         axs[2].axis("off")
+                #
+                #         plt.tight_layout()
+                #         plt.show()
+
             avg_loss = total_loss / len(dataloader_new.dataset)
             pixel_accuracy = correct_pixels / total_pixels
 
@@ -580,7 +661,7 @@ class SelfTraining:
         )
 
     @staticmethod
-    def predict_pixel_classification_dataset(
+    def predict_segmentation_dataset(
         model: nn.Module,
         dataloader: torch.utils.data.DataLoader,
         device: str = "cpu",

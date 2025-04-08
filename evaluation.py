@@ -2,6 +2,7 @@ import torch
 import torchvision
 import os
 from utils import store_images,unnormalize
+import matplotlib.pyplot as plt
 
 
 def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
@@ -102,40 +103,101 @@ def evaluate_model(
     test_loader: torch.utils.data.DataLoader,
     image_number: int,
     image_name: str,
-    device: str = None
+    device: str = None,
+    threshold:float = 0.5
 ) -> None:
     """
     Evaluates the model on the test data and stores the images.
     """
-    print("Evaluating model...")
+    print(f"Evaluating model with theshold:{threshold}")
     total_IoU = 0
     total_f1_score = 0
     num_samples = 0
+    output_dir = "evaluation_visualization"
+    os.makedirs(output_dir, exist_ok=True)
     
-    for i, (images, masks) in enumerate(test_loader):
+    for i, (images, masks_gt) in enumerate(test_loader):
         # TODO: When we have a model, ensure the prediction results are actually comparable
         images = images.to(device)
-        masks = masks.to(device)
-        predictions = model(images)
+        masks_pre=torch.sigmoid(model(images))
+        masks_pre_binary= binarise_predictions(masks_pre, threshold)
+        masks_gt = masks_gt.to(device)
+        masks_gt_binary = get_categories_from_normalization(masks_gt)
 
-        batch_iou, batch_f1 = compute_iou_and_f1(predictions, masks)
+        # masks_pre_vis = torch.sigmoid(masks_pre[:4].detach().cpu())
+        # images_vis = images[:4].cpu()  # (B, 3, H, W)
+        #
+        # for idx in range(images_vis.size(0)):
+        #     fig, axs = plt.subplots(1, 2, figsize=(6, 3))
+        #
+        #     # Show image
+        #     img = images_vis[idx]
+        #     img = img.permute(1, 2, 0).numpy()  # CHW → HWC
+        #     img = (img - img.min()) / (img.max() - img.min())  # Normalize for display
+        #     axs[0].imshow(img)
+        #     axs[0].set_title("Image")
+        #     axs[0].axis("off")
+        #
+        #     # Show predicted mask
+        #     mask = masks_pre_vis[idx].squeeze().detach().numpy()
+        #     axs[1].imshow(mask, cmap='gray')
+        #     axs[1].set_title("Predicted Mask")
+        #     axs[1].axis("off")
+        #
+        #     plt.tight_layout()
+        #     plt.show()
+
+
+        batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
         total_IoU += batch_iou
         total_f1_score += batch_f1
         num_samples += images.size(0)
 
         if i == 0:
-            images_to_store = images[:image_number]
-            masks_to_store = masks[:image_number]
-            predictions_to_store = predictions.unsqueeze(1)[:image_number]
-            store_images(images_to_store, image_name + "_images.jpg")
-            store_images(
-                masks_to_store, image_name + "_true_masks.jpg", is_segmentation=True
-            )
-            store_images(
-                predictions_to_store,
-                image_name + "_predictions.jpg",
-                is_segmentation=True,
-            )
+            images_to_store = unnormalize(images[:image_number])
+            masks_pre_to_store = masks_pre[:image_number]
+            masks_pre_binary_to_store = masks_pre_binary[:image_number]
+            masks_gt_to_store = masks_gt_binary[:image_number]
+            # print("Shape:", masks_pre_to_store.shape)
+            # print("Dtype:", masks_pre_to_store.dtype)
+            # print("Min value:", masks_pre_to_store.min().item())
+            # print("Max value:", masks_pre_to_store.max().item())
+
+
+            # n = min(image_number, images_to_store.size(0))
+            #
+            # for i in range(n):
+            #     fig, axs = plt.subplots(1, 4, figsize=(16, 4))
+            #
+            #     # Unnormalize and convert to NumPy image
+            #     image = images_to_store[i].permute(1, 2, 0).cpu().numpy()
+            #     image = (image * 255).astype('uint8')  # If already unnormalized
+            #
+            #     pred_mask = masks_pre_to_store[i].squeeze().detach().cpu().numpy()
+            #     pred_binary = masks_pre_binary_to_store[i].squeeze().detach().cpu().numpy()
+            #     gt_mask = masks_gt_to_store[i].squeeze().detach().cpu().numpy()
+            #
+            #     axs[0].imshow(image)
+            #     axs[0].set_title("Image")
+            #     axs[1].imshow(pred_mask, cmap='jet')
+            #     axs[1].set_title("Predicted Mask")
+            #     axs[2].imshow(pred_binary, cmap='gray')
+            #     axs[2].set_title("Binary Prediction")
+            #     axs[3].imshow(gt_mask, cmap='gray')
+            #     axs[3].set_title("Ground Truth")
+            #
+            #     for ax in axs:
+            #         ax.axis('off')
+            #     plt.tight_layout()
+            #     plt.show()
+            #
+
+
+            store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
+            store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
+            store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
+            store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
+
         else:
             break
 
@@ -164,27 +226,26 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
     os.makedirs(output_dir, exist_ok=True)
 
 
-    for i, (images, masks, masks_gt) in enumerate(dataloader):
-        masks = masks.to(device)
+    for i, (images, masks_pre, masks_gt) in enumerate(dataloader):
+        masks_pre = masks_pre.to(device)
+        masks_pre_binary=binarise_predictions(masks_pre,threshold)
         masks_gt = masks_gt.to(device)
         masks_gt_binary = get_categories_from_normalization(masks_gt)
-        masks_binary=binarise_predictions(masks,threshold)
-        batch_iou, batch_f1 = compute_iou_and_f1(masks_binary, masks_gt_binary)
+        batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
         total_IoU += batch_iou
         total_f1_score += batch_f1
         num_samples += images.size(0)
 
         if i == 0:
             images_to_store = unnormalize(images[:image_number])
-            masks_to_store = masks[:image_number]
-            masks_binary_to_store = masks_binary[:image_number]
-            gt_to_store = (masks_gt[:image_number] * 255).byte()
-
+            masks_pre_to_store = masks_pre[:image_number]
+            masks_pre_binary_to_store = masks_pre_binary[:image_number]
+            masks_gt_to_store = masks_gt_binary[:image_number]
 
             store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
-            store_images(masks_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
-            store_images(masks_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
-            store_images(gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
+            store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
+            store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
+            store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
 
     print(f"Mean IoU: {total_IoU / num_samples:.4f}")
     print(f"Mean F1 Score: {total_f1_score / num_samples:.4f}")
