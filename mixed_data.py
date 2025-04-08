@@ -2,6 +2,9 @@ from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 from PIL import Image
 import os
+import json
+import subprocess
+import zipfile
 import torch
 import random
 from torchvision import transforms
@@ -9,61 +12,102 @@ from data import OxfordPetDataset, create_dataloaders
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Instructions - before running the code below:
-# 1) Please download the dataset from https://drive.google.com/drive/folders/1ZBaMJxZtUNHIuGj8D8v3B9Adn8dbHwSS?usp=sharing
-# 2) Place BG-20k folder inside of the ADL_CW2 directory
 
 RANDOM_SEED = 27
 
 
-def create_virtual_splits(bg_base_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
-    """Create virtual splits of images using indices instead of physical copying.
+def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
+
+    # Check if dataset already exists
+    if os.path.exists(output_path):
+        image_files = list(Path(output_path).glob("**/*.jpg"))
+        if image_files:
+            print(f"Found existing dataset at {output_path} with {len(image_files)} images")
+            return output_path
+
+    os.makedirs(output_path, exist_ok=True)
+    print(f"Downloading {dataset_name} using curl...")
+
+    # Find and load kaggle.json credentials
+    kaggle_path = os.path.expanduser("~/.kaggle/kaggle.json")
+    if not os.path.exists(kaggle_path):
+        if os.path.exists("kaggle/kaggle.json"):
+            os.makedirs(os.path.dirname(kaggle_path), exist_ok=True)
+            with open("kaggle/kaggle.json", "r") as f:
+                credentials = json.load(f)
+        else:
+            raise FileNotFoundError("Kaggle credentials not found")
+    else:
+        with open(kaggle_path, "r") as f:
+            credentials = json.load(f)
+
+    zip_path = os.path.join(output_path, "dataset.zip")
+
+    # Build curl command
+    curl_cmd = [
+        "curl", "-L",
+        f"https://www.kaggle.com/api/v1/datasets/download/{dataset_name}",
+        "-o", zip_path,
+        "--header", f"Authorization: Basic {credentials['username']}:{credentials['key']}"
+    ]
+
+    try:
+        # Download
+        subprocess.run(curl_cmd, check=True)
+        print(f"Dataset downloaded to {zip_path}")
+
+        # Extract
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(output_path)
+        print(f"Dataset extracted to {output_path}")
+
+        # Remove zip file
+        os.remove(zip_path)
+        return output_path
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading dataset: {e}")
+        return None
+
+def create_virtual_splits_for_landscape(bg_base_dir, train_ratio=0.7, val_ratio=0.15,
+                                       test_ratio=0.15, random_seed=RANDOM_SEED):
+    """Create virtual splits for any directory containing images.
 
     Args:
-        bg_base_dir: Path to the base BG-20k directory
+        bg_base_dir: Path to the directory containing background images
         train_ratio: Proportion for training set
         val_ratio: Proportion for validation set
         test_ratio: Proportion for test set
-        random_seed: Random seed for reproducibility
+        random_seed: Random seed
 
     Returns:
         tuple: (train_indices, val_indices, test_indices) for the dataset
     """
-
     random.seed(random_seed)
-
     bg_path = Path(bg_base_dir)
 
     if not bg_path.exists():
         raise ValueError(f"Background folder {bg_path} does not exist.")
 
-    # Path to train directory
-    # Splitting the approx. 3000 images in the train directory
-    train_dir = bg_path / "train"
-
-    if not train_dir.exists():
-        raise ValueError(f"Train directory {train_dir} does not exist.")
-
-    # Find all image files
-    all_images = list(train_dir.glob("*.jpg"))
+    # Find all image files recursively
+    all_images = list(bg_path.glob("**/*.jpg"))
 
     if not all_images:
-        raise ValueError(f"No images found in directory {train_dir}")
+        raise ValueError(f"No images found in directory {bg_path}")
 
-    print(f"Found {len(all_images)} images in directory.")
+    print(f"Found {len(all_images)} images in {bg_path}.")
 
-    # Create indices for all images
+    # create indices
     all_indices = list(range(len(all_images)))
 
-    # Shuffle the indices
     random.shuffle(all_indices)
 
-    # Calculate split sizes
+    # calculate splits
     total_images = len(all_images)
     val_size = int(val_ratio * total_images)
     test_size = int(test_ratio * total_images)
 
-    # Create the splits
+    # create splits
     val_indices = all_indices[:val_size]
     test_indices = all_indices[val_size:val_size + test_size]
     train_indices = all_indices[val_size + test_size:]
@@ -76,7 +120,7 @@ def create_virtual_splits(bg_base_dir, train_ratio=0.7, val_ratio=0.15, test_rat
 
 
 class BackgroundDataset(Dataset):
-    """Dataset for BG-20K background images (without pets)."""
+    """Dataset for background images (without pets)."""
 
     def __init__(self, bg_dir, indices=None, transform=None, target_label=-1, target_type=["class"]):
         """Initialize the background dataset.
@@ -94,7 +138,7 @@ class BackgroundDataset(Dataset):
         self.target_type = target_type if isinstance(target_type, list) else [target_type]
 
         # Find all images
-        self.bg_files = list(self.bg_dir.glob("*.jpg"))
+        self.bg_files = list(self.bg_dir.glob("**/*.jpg"))
 
         if not self.bg_files:
             raise ValueError(f"No background images found in {self.bg_dir}")
@@ -316,8 +360,12 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     # Create background datasets
     try:
+
+        train_indices, val_indices, test_indices = create_virtual_splits_for_landscape(bg_directory)
+
         train_bg_dataset = BackgroundDataset(
             bg_dir=bg_directory,
+            indices=train_indices,
             transform=train_transform,
             target_label=bg_label,
             target_type=target_type
@@ -325,6 +373,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
         val_bg_dataset = BackgroundDataset(
             bg_dir=bg_directory,
+            indices=val_indices,
             transform=val_test_transform,
             target_label=bg_label,
             target_type=target_type
@@ -332,6 +381,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
         test_bg_dataset = BackgroundDataset(
             bg_dir=bg_directory,
+            indices=test_indices,
             transform=val_test_transform,
             target_label=bg_label,
             target_type=target_type
@@ -370,21 +420,30 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
 if __name__ == "__main__":
 
-    # test script
+    # Download the landscape pictures dataset
+    bg_directory = download_kaggle_dataset("arnaud58/landscape-pictures")
 
-    train_loader, val_loader, test_loader = create_mixed_dataloaders(
-        batch_size=32,
-        data_directory="oxford_pet_data",
-        bg_directory="bg-20k/train",
-        target_type=["class", "bbox"],
-        mixing_ratio=5,
-        use_augmentation=True,
-        lazy_loading=True
-    )
+    if bg_directory:
 
-    print(f"Training images: {len(train_loader.dataset)}")
-    print(f"Validation images: {len(val_loader.dataset)}")
-    print(f"Testing images: {len(test_loader.dataset)}")
+        # Check if images were downloaded properly
+        image_paths = list(Path(bg_directory).glob("**/*.jpg"))
+        image_count = len(image_paths)
+
+        if image_count > 0:
+            # Create the mixed dataloaders with the landscape images
+            train_loader, val_loader, test_loader = create_mixed_dataloaders(
+                batch_size=32,
+                data_directory="oxford_pet_data",
+                bg_directory=bg_directory,  # Use the downloaded landscape images
+                target_type=["class", "bbox"],
+                mixing_ratio=5,
+                use_augmentation=True,
+                lazy_loading=True
+            )
+
+            print(f"\nTraining images: {len(train_loader.dataset)}")
+            print(f"Validation images: {len(val_loader.dataset)}")
+            print(f"Testing images: {len(test_loader.dataset)}")
 
 
     def visualize_batch(dataloader, num_samples=5):
@@ -438,7 +497,7 @@ if __name__ == "__main__":
         plt.show()
 
 
-    print("Visualizing samples from the training set:")
+    print("\nVisualising samples from the training set:")
     visualize_batch(train_loader)
 
     print("\nTesting iteration through the training dataset:")
