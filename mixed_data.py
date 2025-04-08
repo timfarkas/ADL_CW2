@@ -376,7 +376,7 @@ if __name__ == "__main__":
         batch_size=32,
         data_directory="oxford_pet_data",
         bg_directory="bg-20k/train",
-        target_type=["class", "bbox", "segmentation"],
+        target_type=["species", "class", "bbox", "segmentation"],
         mixing_ratio=5,
         use_augmentation=True,
         lazy_loading=True
@@ -390,6 +390,8 @@ if __name__ == "__main__":
     def visualize_batch(dataloader, num_samples=5):
         # Get a batch
         images, targets = next(iter(dataloader))
+
+        print(targets)
 
         mask = targets["segmentation"][0]  # Get the first segmentation mask from the batch
 
