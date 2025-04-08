@@ -266,6 +266,7 @@ class CAMManager:
             TensorDataset: Contains (images, cam_mask, segmentation_masks),
                 where masks are [B, 1, H, W].
         """
+        from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
         self.model.eval()
 
@@ -287,12 +288,7 @@ class CAMManager:
                     f"Expected dict with keys '{target_type}' and 'segmentation'"
                 )
 
-            if target_type == "bbox":
-                targets = None
-            else:
-                from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-
-                targets = [ClassifierOutputTarget(label.item()) for label in labels]
+            targets = [ClassifierOutputTarget(label.item()) for label in labels]
 
             grayscale_cams = self.cam(
                 input_tensor=images,

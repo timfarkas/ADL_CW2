@@ -43,11 +43,6 @@ checkpoint_dicts = [
         "epoch": 2,
     },
     {
-        "model_path": "cnn_bbox",
-        "heads": [BboxHead(adapter="CNN")],
-        "epoch": 2,
-    },
-    {
         "model_path": "res_species",
         "size": 18,
         "heads": [ClassifierHead(NUM_SPECIES, adapter="Res")],
@@ -98,9 +93,20 @@ if __name__ == "__main__":
 
         for head_index, head in enumerate(trainer.heads):
             model = TrainedModel(backbone=trainer.backbone, head=head)
+            target_type = path_parts[head_index + 1]
+            
+            """
+            According to a quick research, and also the results of the CAMS
+            generated, the bbox head is not compatible with the CAMs methods
+            from the library; there are separate CAM methods for bounding boxes.
 
+            Do note this line is only here for the multi-head case, we should
+            just not include bbox single head models in checkpoint_dicts.
+            """
+            if target_type == "bbox":
+                continue
+        
             for cam in cam_types:
-                target_type = path_parts[head_index + 1]
 
                 print(f"Generating {cam} for {path} head {target_type}")
 
