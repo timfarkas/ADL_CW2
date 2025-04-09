@@ -764,7 +764,7 @@ if __name__ == "__main__":
             print("Trainer set up successfully!")
             trainer.fit_sgd(device=device)
         elif run_dict['backbone'] == "res":
-            for size in ['18', '50', '101']:
+            for size in ['18', '50']: # Excluding ResNet-101
                 backbone = ResNetBackbone(model_type=f"resnet"+size)
                 [head.change_adapter("res"+size) for head in run_dict['heads']] ## change adapter to match resnet size
                 trainer.set_model(backbone, run_dict['heads'], model_path+"_"+size)

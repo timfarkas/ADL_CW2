@@ -212,3 +212,6 @@ checkpoints/SEG/UNet_bootstrap_round_6.pt
 checkpoints/SEG/UNet_bootstrap_round_7.pt
 checkpoints/SEG/UNet_bootstrap_round_8.pt
 checkpoints/SEG/UNet_bootstrap_round_9.pt
+
+#checkpoints
+/checkpoints
