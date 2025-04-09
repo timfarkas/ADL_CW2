@@ -17,6 +17,8 @@ from torchvision.models import (
 import os
 from utils import resize_images, unnormalize
 from torch.utils.data import TensorDataset
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+
 
 ### Num Inputs:
 #       Breed:                  37
@@ -195,6 +197,9 @@ class CAMManager:
             method: CAM method ('GradCAM', 'HiResCAM', etc. naming based on grad-cam package)
             target_layer: Target layer for CAM methods, if None will be auto-detected
         """
+        self.dataloader = dataloader
+        self.target_type = target_type
+        self.smooth = smooth
         self.model = model
         self.method = method
 
@@ -234,39 +239,25 @@ class CAMManager:
                 raise ValueError(f"Unsupported CAM method: {method}")
 
         self.cam.batch_size = dataloader.batch_size
-        self.dataset = self._generate_cam_dataset(
+        
+        self.generator = self.get_cam_generator(
             dataloader=dataloader, target_type=target_type, smooth=smooth
         )
+    
+    def get_cam_dataset(self) -> torch.utils.data.TensorDataset:
+        self.dataset = self._generate_cam_dataset(self.dataloader, self.target_type, self.smooth)
+        return self.dataset
 
-    def _generate_cam_dataset(self, dataloader, target_type, smooth: bool):
-        """
-        Generate a dataset with CAM masks for self-training.
-
-        Args:
-            dataloader: DataLoader with images
-
-        Returns:
-            TensorDataset: Contains (images, cam_mask, segmentation_masks),
-                where masks are [B, 1, H, W].
-        """
-        from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-
-        self.model.eval()
-
-        all_images = []
-        all_cams = []
-        all_masks = []
-
+    def get_cam_generator(self, dataloader, target_type : str, smooth : bool = False):
         device = next(self.model.parameters()).device
 
         for batch_images, batch_targets in dataloader:
-            all_images.append(batch_images)
             images = batch_images.to(device)
-
+            
             try:
                 labels = batch_targets[target_type].to(device)
                 gt_masks = batch_targets["segmentation"].to(device)
-            except ValueError or KeyError:
+            except (ValueError, KeyError):
                 raise ValueError(
                     f"Expected dict with keys '{target_type}' and 'segmentation'"
                 )
@@ -281,8 +272,23 @@ class CAMManager:
             )
             tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
 
-            all_cams.append(tensor_cams)
-            all_masks.append(gt_masks.cpu())
+            yield batch_images, tensor_cams, gt_masks.cpu()
+
+    def _generate_cam_dataset(self, dataloader, target_type, smooth: bool):
+        """
+        Generate a dataset with CAM masks for self-training.
+
+        Args:
+            dataloader: DataLoader with images
+
+        Returns:
+            TensorDataset: Contains (images, cam_mask, segmentation_masks),
+                where masks are [B, 1, H, W].
+        """
+
+        self.model.eval()
+
+        all_images, all_cams, all_masks = zip(*self.get_cam_generator(dataloader, target_type, smooth))
 
         # Concatenate all batches
         images_tensor = torch.cat(all_images, dim=0)
@@ -290,7 +296,6 @@ class CAMManager:
         masks_tensor = torch.cat(all_masks, dim=0)
 
         return TensorDataset(images_tensor, cams_tensor, masks_tensor)
-
 
 class BboxHead(nn.Module):
     def __init__(self, adapter="CNN"):
