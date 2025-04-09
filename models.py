@@ -244,8 +244,8 @@ class CAMManager:
             dataloader=dataloader, target_type=target_type, smooth=smooth
         )
     
-    def get_cam_dataset(self) -> torch.utils.data.TensorDataset:
-        self.dataset = self._generate_cam_dataset(self.dataloader, self.target_type, self.smooth)
+    def get_cam_dataset(self, num_samples = None) -> torch.utils.data.TensorDataset:
+        self.dataset = self._generate_cam_dataset(self.dataloader, self.target_type, self.smooth, num_samples)
         return self.dataset
 
     def get_cam_generator(self, dataloader, target_type : str, smooth : bool = False):
@@ -274,7 +274,7 @@ class CAMManager:
 
             yield batch_images, tensor_cams, gt_masks.cpu()
 
-    def _generate_cam_dataset(self, dataloader, target_type, smooth: bool):
+    def _generate_cam_dataset(self, dataloader, target_type, smooth: bool, num_samples = None):
         """
         Generate a dataset with CAM masks for self-training.
 
@@ -288,7 +288,14 @@ class CAMManager:
 
         self.model.eval()
 
-        all_images, all_cams, all_masks = zip(*self.get_cam_generator(dataloader, target_type, smooth))
+        all_images, all_cams, all_masks = [], [], []
+        batch_size = dataloader.batch_size
+        for i, (images, cams, masks) in enumerate(self.get_cam_generator(dataloader, target_type, smooth)):
+            all_images.append(images)
+            all_cams.append(cams)
+            all_masks.append(masks)
+            if num_samples is not None and (i + 1) * batch_size >= num_samples:
+                break
 
         # Concatenate all batches
         images_tensor = torch.cat(all_images, dim=0)
