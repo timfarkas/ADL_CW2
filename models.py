@@ -174,6 +174,18 @@ class BasicCAMWrapper(nn.Module):
         plt.show()
 
 
+class TrainedModel(nn.Module):
+    def __init__(self, backbone: nn.Module, head: nn.Module, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.backbone = backbone
+        self.head = head
+
+    def forward(self, x):
+        features = self.backbone(x)
+        logits = self.head(features)
+        return logits
+
+
 class CAMManager:
     """
     Class that manages different CAM methods based on the grad-cam package.
@@ -205,7 +217,12 @@ class CAMManager:
 
         # Auto-detect target layers if not specified
         if target_layer is None:
-            if hasattr(model, "features") and hasattr(model.features, "__getitem__"):
+            if isinstance(model, TrainedModel):
+                if isinstance(model.backbone, ResNetBackbone):
+                    self.target_layers = [model.backbone.features[-1][-1]]
+                else:
+                    self.target_layers = [model.backbone.features[-2]]
+            elif hasattr(model, "features") and hasattr(model.features, "__getitem__"):
                 if isinstance(model, ResNetBackbone):
                     self.target_layers = [
                         model.features[-1][-1]
