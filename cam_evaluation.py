@@ -1,5 +1,17 @@
-from pre_training import Trainer
-from models import CAMManager, CNNBackbone, ClassifierHead
+from pre_training import (
+    Trainer,
+    NUM_SPECIES,
+    NUM_BREEDS,
+    checkpoints_dir,
+)
+from models import (
+    BboxHead,
+    CAMManager,
+    CNNBackbone,
+    ClassifierHead,
+    ResNetBackbone,
+    TrainedModel,
+)
 import torch
 import torch.nn as nn
 import data
@@ -7,6 +19,14 @@ import matplotlib.pyplot as plt
 import json
 import os
 from typing import List, Tuple, Optional, Union, Any
+
+#TODO: Set the right list of checkpoints to generate
+checkpoint_dicts = [
+    {
+        "model_path": "cnn_species",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
+        "epoch": 10,
+    }]
 
 def getConvLayers(model: nn.Module) -> List[nn.Conv2d]:
     """
@@ -20,8 +40,15 @@ def getConvLayers(model: nn.Module) -> List[nn.Conv2d]:
     """
     conv_layers = []
     
+    # Check if model is TrainedModel
+    if isinstance(model, TrainedModel):
+        # Get conv layers from backbone
+        conv_layers.extend(getConvLayers(model.backbone))
+        # Get conv layers from head if applicable
+        conv_layers.extend(getConvLayers(model.head))
+    
     # Check if model is Sequential
-    if isinstance(model, nn.Sequential):
+    elif isinstance(model, nn.Sequential):
         # Check each module in the sequential container
         for module in model:
             conv_layers.extend(getConvLayers(module))
@@ -31,6 +58,8 @@ def getConvLayers(model: nn.Module) -> List[nn.Conv2d]:
         for module in model.features:
             if isinstance(module, nn.Conv2d):
                 conv_layers.append(module)
+            elif isinstance(module, nn.Sequential) or hasattr(module, 'features'):
+                conv_layers.extend(getConvLayers(module))
     
     # Check if the model itself is a Conv2d
     elif isinstance(model, nn.Conv2d):
@@ -270,7 +299,7 @@ def findLayerCAMThresholdAndIOU(model: nn.Module, layer: nn.Conv2d,
     threshold, iou = find_optimal_threshold(dataset, num_samples=num_samples)
     return threshold, iou
 
-def _saveModelCAMSettingsToJson(model_name: str, cam_settings: List[Tuple[int, float, float]], 
+def _saveModelCAMSettingsToJson(model_name: str, settings_name: str, cam_settings: List[Tuple[int, float, float]], 
                                json_path: str = "logs/cam_stats.json") -> None:
     """
     Save the CAM settings for a model to a JSON file.
@@ -290,7 +319,10 @@ def _saveModelCAMSettingsToJson(model_name: str, cam_settings: List[Tuple[int, f
             data = json.load(f)
     
     # Add or update the model's CAM settings
-    data[model_name] = [
+    if model_name not in data:
+        data[model_name] = {}
+    
+    data[model_name][settings_name] = [
         {
             "layer_index": layer_idx,
             "threshold": threshold,
@@ -306,19 +338,58 @@ def _saveModelCAMSettingsToJson(model_name: str, cam_settings: List[Tuple[int, f
 
 
 if __name__ == "__main__":
-    trainer = Trainer()
-    backbone = CNNBackbone()
-    head = ClassifierHead()
-    trainer.set_model(backbone, [head], "checkpoints/cnn_species_checkpoint_epoch10.pt")
-    trainer.load_checkpoint("checkpoints/cnn_species_checkpoint_epoch10.pt")
-
     _, _ , loader  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
-    cam_type = "GradCAM" # Literal['GradCAM', 'ScoreCAM', 'AblationCAM']
     
-    model = nn.Sequential(backbone, head)
+    cam_types = ["GradCAM", "ScoreCAM", "AblationCAM"]
+    
+    print("\n------------------------ Generating CAMS ---------------------\n")
+    
+    ### Load model checkpoint
+    for checkpoint in checkpoint_dicts:
+        if not checkpoint.get("model_path"):
+            print("Checkpoint does not have a model path.")
+            continue
 
-    cam_settings = findOptimalCAMSettings(model, loader, cam_type, num_samples = 100)
-      
-    model_name = "cnn_species"
-    
-    _saveModelCAMSettingsToJson(model_name, cam_settings)
+        path = checkpoint["model_path"]
+        path_parts = path.split("_")
+        checkpoint_path = os.path.join(checkpoints_dir, path)
+
+        trainer = Trainer()
+        if path_parts[0] == "cnn":
+            backbone = CNNBackbone()
+            trainer.set_model(backbone, checkpoint["heads"], checkpoint_path)
+        elif path_parts[0] == "res":
+            size = checkpoint["size"]
+            backbone = ResNetBackbone(model_type=f"resnet" + size)
+            [head.change_adapter("res" + size) for head in checkpoint["heads"]]
+            trainer.set_model(
+                backbone, checkpoint["heads"], checkpoint_path + "_" + size
+            )
+
+        checkpoint_file_path = trainer.checkpoint_path(checkpoint["epoch"])
+        trainer.load_checkpoint(checkpoint_file_path)
+
+        ### enumerate through heads
+        for head_index, head in enumerate(trainer.heads):
+            model = TrainedModel(backbone=trainer.backbone, head=head)
+            target_type = path_parts[head_index + 1]
+            
+            """
+            According to a quick research, and also the results of the CAMS
+            generated, the bbox head is not compatible with the CAMs methods
+            from the library; there are separate CAM methods for bounding boxes.
+
+            Do note this line is only here for the multi-head case, we should
+            just not include bbox single head models in checkpoint_dicts.
+            """
+            if target_type == "bbox":
+                continue
+            
+            ### enumerate through cam types
+            for cam in cam_types:
+                model_name = checkpoint['model_path']
+                settings_name = f"{head.name}_{cam}" 
+
+                print(f"Generating {cam} for {path} head {target_type}")
+                cam_settings = findOptimalCAMSettings(model, loader, cam, num_samples = 100)
+                _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings)
