@@ -8,7 +8,7 @@ import zipfile
 import torch
 import random
 from torchvision import transforms
-from data import OxfordPetDataset, create_dataloaders
+from data import OxfordPetDataset, create_dataloaders, SegmentationToTensor
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -188,7 +188,7 @@ class BackgroundDataset(Dataset):
             return torch.zeros(4, dtype=torch.float32)
         # Return blank mask (1-channel, 256x256)
         elif target_type == "segmentation":
-            return torch.zeros((1, 256, 256), dtype=torch.float32)
+            return torch.zeros((64, 64), dtype=torch.float32)
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
 
@@ -288,8 +288,8 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     if use_augmentation:
         train_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(64),
+            transforms.CenterCrop(64),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             transforms.RandomGrayscale(p=0.2),
             transforms.ToTensor(),
@@ -297,15 +297,15 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         ])
     else:
         train_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
+            transforms.Resize(64),
+            transforms.CenterCrop(64),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
     val_test_transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(256),
+        transforms.Resize(64),
+        transforms.CenterCrop(64),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -313,9 +313,9 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     target_transform = None
     if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
         target_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
-            transforms.ToTensor(),
+            transforms.Resize(64),
+            transforms.CenterCrop(64),
+            SegmentationToTensor(),
         ])
 
     # Create Oxford Pet datasets
@@ -437,8 +437,8 @@ if __name__ == "__main__":
             train_loader, val_loader, test_loader = create_mixed_dataloaders(
                 batch_size=32,
                 data_directory="oxford_pet_data",
-                bg_directory=bg_directory,  # Use the downloaded landscape images
-                target_type=["class", "bbox"],
+                bg_directory=bg_directory,
+                target_type=["species", "class", "bbox", "segmentation"],
                 mixing_ratio=5,
                 use_augmentation=True,
                 lazy_loading=True
@@ -452,6 +452,17 @@ if __name__ == "__main__":
     def visualize_batch(dataloader, num_samples=5):
         # Get a batch
         images, targets = next(iter(dataloader))
+
+        print(targets)
+
+        mask = targets["segmentation"][0]  # Get the first segmentation mask from the batch
+
+        print(f"Mask tensor shape: {mask.shape}")
+        print(f"Mask tensor dtype: {mask.dtype}")
+        print(f"Unique values in mask: {torch.unique(mask)}")
+
+        print("Mask tensor values:")
+        print(mask)
 
         # Create a figure
         fig, axes = plt.subplots(1, num_samples, figsize=(15, 3))
@@ -479,14 +490,15 @@ if __name__ == "__main__":
 
                 # Draw bbox if available
                 if bbox is not None and not (bbox == 0).all():
-                    # Denormalize
-                    x, y, w, h = bbox.tolist()
-                    x1, y1 = x, y
-                    x2, y2 = x + w, y + h
+                    # Get bbox as (xmin, ymin, xmax, ymax)
+                    xmin, ymin, xmax, ymax = bbox.tolist()
+                    # Compute width and height
+                    width = xmax - xmin
+                    height = ymax - ymin
 
                     import matplotlib.patches as patches
                     rect = patches.Rectangle(
-                        (x1 * 256, y1 * 256), w * 256, h * 256,
+                        (xmin * 64, ymin * 64), width * 64, height * 64,
                         linewidth=2, edgecolor='r', facecolor='none'
                     )
                     axes[i].add_patch(rect)
@@ -499,8 +511,8 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.show()
 
-
     print("\nVisualising samples from the training set:")
+
     visualize_batch(train_loader)
 
     print("\nTesting iteration through the training dataset:")
