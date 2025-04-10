@@ -18,7 +18,7 @@ import data
 import matplotlib.pyplot as plt
 import json
 import os
-from typing import List, Tuple, Optional, Union, Any
+from typing import List, Tuple, Optional
 
 #TODO: Set the right list of checkpoints to generate
 checkpoint_dicts = [
@@ -276,7 +276,7 @@ def find_optimal_threshold(camDataset: torch.utils.data.TensorDataset,
             - float: The optimal threshold value that maximizes the mean IoU.
             - float: The IoU score at the optimal threshold.
     """
-    assert type(camDataset) == torch.utils.data.TensorDataset, f"Unexpected type for camDataset {type(camDataset)}"
+    assert type(camDataset) is torch.utils.data.TensorDataset, f"Unexpected type for camDataset {type(camDataset)}"
     
 
     optimal_threshold = 0
@@ -304,7 +304,16 @@ def find_optimal_threshold(camDataset: torch.utils.data.TensorDataset,
 
     ious = list(ious)
     print(f"Found optimal threshold: {optimal_threshold} with IoU mean: {max_iou_mean}")
-    return round(optimal_threshold.item(), 2), round(max_iou_mean.item(),2)
+    optimal_threshold_item = (
+        optimal_threshold.item()
+        if isinstance(optimal_threshold, torch.Tensor)
+        else optimal_threshold
+    )
+    max_iou_mean_item = (
+        max_iou_mean.item() if isinstance(max_iou_mean, torch.Tensor) else max_iou_mean
+    )
+
+    return round(optimal_threshold_item, 2), round(max_iou_mean_item, 2)
 
 def findOptimalCAMSettings(model: nn.Module, loader: torch.utils.data.DataLoader, 
                           cam_type: str, num_samples: int = 50) -> List[Tuple[int, float, float]]:
@@ -324,7 +333,10 @@ def findOptimalCAMSettings(model: nn.Module, loader: torch.utils.data.DataLoader
             - float: IoU score at the optimal threshold
     """
     optimal = []
-    for i, layer in enumerate(getConvLayers(model)):
+    # Classic CAM can only use one conv layer
+    conv_layers = getConvLayers(model)
+    layers = [conv_layers[0]] if cam_type == "ClassicCAM" else conv_layers
+    for i, layer in enumerate(layers):
         threshold, iou = findLayerCAMThresholdAndIOU(model, layer, loader, cam_type, num_samples=num_samples)
         optimal.append((i, threshold, iou))
     return optimal
@@ -351,6 +363,8 @@ def findLayerCAMThresholdAndIOU(model: nn.Module, layer: nn.Conv2d,
 
     dataset = manager.get_cam_dataset(num_samples=num_samples)
     threshold, iou = find_optimal_threshold(dataset, num_samples=num_samples)
+    del dataset
+    del manager
     return threshold, iou
 
 def _saveModelCAMSettingsToJson(model_name: str, settings_name: str, cam_settings: List[Tuple[int, float, float]], 
@@ -394,7 +408,7 @@ def _saveModelCAMSettingsToJson(model_name: str, settings_name: str, cam_setting
 if __name__ == "__main__":
     _, _ , loader  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
     
-    cam_types = ["GradCAM"]
+    cam_types = ["GradCAM", "ClassicCAM"]
     
     print("\n------------------------ Generating CAMS ---------------------\n")
     print(f"Iterating through {len(checkpoint_dicts)} checkpoints...") 
@@ -437,6 +451,7 @@ if __name__ == "__main__":
             just not include bbox single head models in checkpoint_dicts.
             """
             if target_type == "bbox":
+                del model
                 continue
             
             ### enumerate through cam types
@@ -447,3 +462,5 @@ if __name__ == "__main__":
                 print(f"Generating {cam} for {path} head {target_type}")
                 cam_settings = findOptimalCAMSettings(model, loader, cam, num_samples = 100)
                 _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings)
+                
+            del model
