@@ -1,8 +1,7 @@
 from pre_training import (
     Trainer,
     NUM_SPECIES,
-    NUM_BREEDS,
-    checkpoints_dir,
+    NUM_BREEDS, 
 )
 from models import (
     BboxHead,
@@ -19,9 +18,35 @@ import matplotlib.pyplot as plt
 import json
 import os
 from typing import List, Tuple, Optional, Union, Any
+import glob
 
 #TODO: Set the right list of checkpoints to generate
 checkpoint_dicts = [
+    {
+        "model_path": "cnn_species",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
+        "epoch": 10,
+    },
+    {
+        "model_path": "cnn_breed_species",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), ClassifierHead(NUM_SPECIES, adapter="CNN")],
+        "epoch": 20,
+    },
+    {
+        "model_path": "cnn_species_breed_bbox",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
+        "epoch": 15,
+    },
+    {
+        "model_path": "cnn_breed_bbox",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), BboxHead(adapter="CNN")],
+        "epoch": 20,
+    },
+    {
+        "model_path": "cnn_breed",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
+        "epoch": 20,
+    },
     {
         "model_path": "res_breed_species",
         "heads": [ClassifierHead(NUM_BREEDS, adapter="res18"), ClassifierHead(NUM_SPECIES, adapter="res18")],
@@ -117,6 +142,65 @@ checkpoint_dicts = [
         "size": "50",
     },
 ]
+
+def model_str_to_model_schema(model_str: str, epoch: int) -> dict:
+    """
+    Convert a model string to a model schema dictionary.
+    
+    Args:
+        model_str (str): String representation of the model (e.g., 'res_species_breed_bbox_50')
+        epoch (int): The epoch to use for the model
+        
+    Returns:
+        dict: A dictionary containing model configuration
+    """
+    # Parse the model string
+    parts = model_str.split('_')
+    
+    # Determine backbone type (CNN or ResNet)
+    backbone_type = parts[0]
+    
+    # Extract size if it's a ResNet model
+    size = None
+    if backbone_type == "res" and parts[-1].isdigit():
+        size = parts[-1]
+        parts = parts[:-1]  # Remove size from parts
+    
+    # Determine the model path (without size)
+    model_path = "_".join(parts)
+    
+    # Determine the adapter based on backbone and size
+    if backbone_type == "cnn":
+        adapter = "CNN"
+        backbone = CNNBackbone()
+    else:  # ResNet
+        adapter = f"res{size}"
+        backbone = ResNetBackbone(model_type=f"resnet{size}")
+    
+    # Create heads based on the model parts
+    heads = []
+    if "species" in parts:
+        heads.append(ClassifierHead(NUM_SPECIES, adapter=adapter))
+    if "breed" in parts:
+        heads.append(ClassifierHead(NUM_BREEDS, adapter=adapter))
+    if "bbox" in parts:
+        heads.append(BboxHead(adapter=adapter))
+    
+    # Create and return the schema
+    schema = {
+        "model_path": model_path,
+        "heads": heads,
+        "epoch": epoch,
+        "backbone": backbone
+    }
+    
+    # Add size if it's a ResNet model
+    if size:
+        schema["size"] = size
+    
+    return schema
+
+
 
 def getConvLayers(model: nn.Module) -> List[nn.Conv2d]:
     return [m for m in model.modules() if isinstance(m, nn.Conv2d)]
@@ -390,16 +474,80 @@ def _saveModelCAMSettingsToJson(model_name: str, settings_name: str, cam_setting
     
     print(f"CAM settings for {model_name} saved to {json_path}")
 
+def getBestCAMCheckpoints(num_best=5, json_path="logs/cam_stats.json") -> List[dict]:
+    """
+    Get the best performing CAM checkpoints based on IoU scores.
+    
+    Args:
+        num_best (int, optional): Number of best checkpoints to return. Defaults to 5.
+        json_path (str, optional): Path to the JSON file with CAM statistics. Defaults to "logs/cam_stats.json".
+        
+    Returns:
+        List[dict]: A list of dictionaries containing information about the best checkpoints:
+                    - model_name: Name of the model
+                    - settings_name: Name of the settings (typically CAM type)
+                    - layer_index: Index of the target layer
+                    - threshold: Optimal threshold value
+                    - iou: IoU score at the optimal threshold
+    """
+    if not os.path.exists(json_path):
+        print(f"Warning: CAM statistics file {json_path} not found.")
+        return []
+    
+    # Load the CAM statistics
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    
+    # Flatten the data structure to get all checkpoints with their IoU scores
+    all_checkpoints = []
+    for model_name, settings in data.items():
+        for settings_name, layers_info in settings.items():
+            for layer_info in layers_info:
+                all_checkpoints.append({
+                    "model_name": model_name,
+                    "settings_name": settings_name,
+                    "layer_index": layer_info["layer_index"],
+                    "threshold": layer_info["threshold"],
+                    "iou": layer_info["iou"]
+                })
+    
+    # Sort checkpoints by IoU score in descending order
+    sorted_checkpoints = sorted(all_checkpoints, key=lambda x: x["iou"], reverse=True)
+    
+    # Return the top N checkpoints
+    best_checkpoints = sorted_checkpoints[:num_best]
+    
+    if not best_checkpoints:
+        print("No checkpoints found in the CAM statistics file.")
+    else:
+        print(f"Found {len(best_checkpoints)} best checkpoints:")
+        for i, checkpoint in enumerate(best_checkpoints):
+            print(f"{i+1}. Model: {checkpoint['model_name']}, "
+                  f"Settings: {checkpoint['settings_name']}, "
+                  f"Layer: {checkpoint['layer_index']}, "
+                  f"IoU: {checkpoint['iou']:.4f}")
+    
+    return best_checkpoints
+
 
 if __name__ == "__main__":
-    _, _ , loader  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
+    _, loader , _  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
     
     cam_types = ["GradCAM"]
     
-    print("\n------------------------ Generating CAMS ---------------------\n")
+    checkpoint_dir = "checkpoints/run_1"
+    generate_only = True
+    num_best = 5
+    cam_stats_file = os.path.join("logs", "cam_stats.json")
+
+    print("\n------------------------ Evaluating CAMS ---------------------\n")
     print(f"Iterating through {len(checkpoint_dicts)} checkpoints...") 
     ### Load model checkpoint
     for checkpoint in checkpoint_dicts:
+        if generate_only:
+            print(f"Skipping CAM evaluation, moving on to CAM Dataset generation based on {cam_stats_file}")
+            break
+
         if not checkpoint.get("model_path"):
             print("Checkpoint does not have a model path.")
             continue
@@ -447,3 +595,65 @@ if __name__ == "__main__":
                 print(f"Generating {cam} for {path} head {target_type}")
                 cam_settings = findOptimalCAMSettings(model, loader, cam, num_samples = 100)
                 _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings)
+
+
+    print("\n------------------------ Generating CAM Datasets with best checkpoints ---------------------\n")
+    best_checkpoints = getBestCAMCheckpoints(num_best=num_best, json_path=cam_stats_file)
+    loader, _ , _  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32) ### use train_loader for this
+
+    for checkpoint in best_checkpoints: # dict_keys(['model_name', 'settings_name', 'layer_index', 'threshold', 'iou'])
+        path = checkpoint["model_name"]
+        path_parts = path.split("_")
+        checkpoint_path = os.path.join(checkpoint_dir, path)
+
+        trainer = Trainer()
+
+        model_schema = model_str_to_model_schema(checkpoint['model_name'], "")
+    
+        trainer.set_model(model_schema['backbone'], model_schema["heads"], checkpoint_path)
+        
+        
+        ## find checkpoint file and epoch using glob
+        checkpoint_pattern = os.path.join(os.path.dirname(checkpoint_path), f"{checkpoint['model_name']}*.pt")
+        checkpoint_files = glob.glob(checkpoint_pattern)
+        
+        assert len(checkpoint_files) == 1, f"Expected exactly one checkpoint file for {checkpoint['model_name']}, found {len(checkpoint_files)}"
+        
+        # Extract the epoch from the filename
+        checkpoint_file = checkpoint_files[0]
+        checkpoint["epoch"] = int(checkpoint_file.split("epoch")[-1].split(".")[0])
+        checkpoint_file_path = trainer.checkpoint_path(checkpoint["epoch"])
+        trainer.load_checkpoint(checkpoint_file_path)
+
+        # Extract the cam type and head setting
+        settings = checkpoint['settings_name']
+        head_name, cam_name = settings.split("_")
+        print(head_name, cam_name)
+        target_head = None
+        
+        ### find head reference
+        assert head_name in [head.name for head in trainer.heads], f"Head {head_name} not found in trainer.heads: {trainer.heads}"
+        for head in trainer.heads:
+            if head.name == head_name:
+                target_head = head
+
+
+        model = TrainedModel(backbone=trainer.backbone, head=target_head)
+        target_type = "species" if "2" in head_name or "3" in head_name else "breed"
+        
+        print(f"Generating {cam_name} dataset for {path} head {target_type}:") 
+        target_layer = findConvLayerByIndex(model, checkpoint['layer_index'])
+        manager = CAMManager(model, loader, target_type, cam_name, target_layer)
+        dataset = manager.get_cam_dataset()
+
+        # Create directory if it doesn't exist
+        os.makedirs('camdatasets', exist_ok=True)
+
+        target_path =  os.path.join("cam_datasets", checkpoint['model_name']+"_"+checkpoint['settings_name']+f"_idx{checkpoint['layer_index']}_cams.pt")
+
+        # Save the dataset
+        torch.save(dataset,target_path)
+
+        # Verify the dataset was saved and print its location
+        print(f"Dataset saved to: {os.path.abspath( os.path.join("cam_datasets", checkpoint['model_name']+"_"+checkpoint['settings_name']+f"_idx{checkpoint['layer_index']}_cams.pt"))}")
+        print(f"Dataset contains {len(dataset)}")
