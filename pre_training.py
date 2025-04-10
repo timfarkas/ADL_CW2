@@ -3,7 +3,7 @@ import data
 import json
 import os        
 
-from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead, AnimalClassifierHead
+from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
 import torch 
 import torch.nn as nn
 import sys
@@ -736,10 +736,10 @@ if __name__ == "__main__":
     
     print(f"Using {device}")
 
-    for i, run_dict in enumerate(run_dicts):
-        # Add AnimalClassifierHead to each configuration
+    for i, run_dict in enumerate(run_dicts):    
         adapter = "CNN" if run_dict["backbone"] == "cnn" else "Res"
-        run_dict["heads"].append(AnimalClassifierHead(adapter=adapter))
+        # Regular classifier head with num_classes = 2 instead of AnimalClassifierHead
+        run_dict["heads"].append(ClassifierHead(num_classes=2, adapter=adapter))
         run_dict["loss_functions"].append(cel_fn)
         run_dict["eval_functions"].append(compute_accuracy)
         run_dict["eval_function_names"].append("Acc")
