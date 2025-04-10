@@ -20,7 +20,7 @@ import os
 from typing import List, Tuple, Optional, Union, Any
 import glob
 
-# TODO: Set the right list of checkpoints to generate
+
 checkpoint_dicts = [
     # --- CNN-based models ---
     {"model_path": "cnn_bbox", "heads": [BboxHead(adapter="CNN")], "epoch": 5},
@@ -251,7 +251,7 @@ def model_str_to_model_schema(model_str: str, epoch: int) -> dict:
     size = None
     if backbone_type == "res" and parts[-1].isdigit():
         size = parts[-1]
-        parts = parts[:-1]  # Remove size from parts
+        parts = parts[1:-1]  # Remove size from parts
     
     # Determine the model path (without size)
     model_path = "_".join(parts)
@@ -266,12 +266,13 @@ def model_str_to_model_schema(model_str: str, epoch: int) -> dict:
     
     # Create heads based on the model parts
     heads = []
-    if "species" in parts:
-        heads.append(ClassifierHead(NUM_SPECIES, adapter=adapter))
-    if "breed" in parts:
-        heads.append(ClassifierHead(NUM_BREEDS, adapter=adapter))
-    if "bbox" in parts:
-        heads.append(BboxHead(adapter=adapter))
+    for part in parts:
+        if part == "bbox":
+            heads.append(BboxHead(adapter=adapter))
+        elif part == "species":
+            heads.append(ClassifierHead(NUM_SPECIES, adapter=adapter))
+        elif part == "breed":
+            heads.append(ClassifierHead(NUM_BREEDS, adapter=adapter))
     
     # Create and return the schema
     schema = {
@@ -680,85 +681,88 @@ if __name__ == "__main__":
     
     cam_types = ["GradCAM"]
     
-    checkpoint_dir = "checkpoints/run_1"
+    checkpoints_dir = "checkpoints/run_1"
     generate_only = True
-    num_best = 5
+    num_best = 10
     cam_stats_file = os.path.join("logs", "cam_stats.json")
 
     print("\n------------------------ Evaluating CAMS ---------------------\n")
     print(f"Iterating through {len(checkpoint_dicts)} checkpoints...") 
     ### Load model checkpoint
-    for checkpoint in checkpoint_dicts:
-        if generate_only:
-            print(f"Skipping CAM evaluation, moving on to CAM Dataset generation based on {cam_stats_file}")
-            break
+    if generate_only:
+        print(
+            f"Skipping CAM evaluation, moving on to CAM Dataset generation based on {cam_stats_file}"
+        )
+    else:
+        for checkpoint in checkpoint_dicts:
 
-        if not checkpoint.get("model_path"):
-            print("Checkpoint does not have a model path.")
-            continue
-
-        path = checkpoint["model_path"]
-        path_parts = path.split("_")
-        checkpoint_path = os.path.join(checkpoints_dir, path)
-
-        trainer = Trainer()
-        if path_parts[0] == "cnn":
-            backbone = CNNBackbone()
-            trainer.set_model(backbone, checkpoint["heads"], checkpoint_path)
-        elif path_parts[0] == "res":
-            size = checkpoint["size"]
-            backbone = ResNetBackbone(model_type=f"resnet" + size)
-            [head.change_adapter("res" + size) for head in checkpoint["heads"]]
-            trainer.set_model(
-                backbone, checkpoint["heads"], checkpoint_path + "_" + size
-            )
-
-        checkpoint_file_path = trainer.checkpoint_path(checkpoint["epoch"])
-        trainer.load_checkpoint(checkpoint_file_path)
-
-        ### enumerate through heads
-        for head_index, head in enumerate(trainer.heads):
-            model = TrainedModel(backbone=trainer.backbone, head=head)
-            target_type = path_parts[head_index + 1]
-
-            """
-            According to a quick research, and also the results of the CAMS
-            generated, the bbox head is not compatible with the CAMs methods
-            from the library; there are separate CAM methods for bounding boxes.
-
-            Do note this line is only here for the multi-head case, we should
-            just not include bbox single head models in checkpoint_dicts.
-            """
-            if target_type == "bbox":
-                del model
+            if not checkpoint.get("model_path"):
+                print("Checkpoint does not have a model path.")
                 continue
 
-            ### enumerate through cam types
-            for cam in cam_types:
-                model_name = (
-                    checkpoint["model_path"] + "_" + checkpoint["size"]
-                    if "size" in checkpoint
-                    else checkpoint["model_path"]
+            path = checkpoint["model_path"]
+            path_parts = path.split("_")
+            checkpoint_path = os.path.join(checkpoints_dir, path)
+
+            trainer = Trainer()
+            if path_parts[0] == "cnn":
+                backbone = CNNBackbone()
+                trainer.set_model(backbone, checkpoint["heads"], checkpoint_path)
+            elif path_parts[0] == "res":
+                size = checkpoint["size"]
+                backbone = ResNetBackbone(model_type=f"resnet" + size)
+                [head.change_adapter("res" + size) for head in checkpoint["heads"]]
+                trainer.set_model(
+                    backbone, checkpoint["heads"], checkpoint_path + "_" + size
                 )
-                settings_name = f"{head.name}_{cam}"
 
-                print(f"Generating {cam} for {path} head {target_type}")
-                cam_settings = findOptimalCAMSettings(
-                    model, loader, cam, num_samples=100
-                )
-                _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings)
+            checkpoint_file_path = trainer.checkpoint_path(checkpoint["epoch"])
+            trainer.load_checkpoint(checkpoint_file_path)
 
-            del model
+            ### enumerate through heads
+            for head_index, head in enumerate(trainer.heads):
+                model = TrainedModel(backbone=trainer.backbone, head=head)
+                target_type = path_parts[head_index + 1]
 
+                """
+                According to a quick research, and also the results of the CAMS
+                generated, the bbox head is not compatible with the CAMs methods
+                from the library; there are separate CAM methods for bounding boxes.
+
+                Do note this line is only here for the multi-head case, we should
+                just not include bbox single head models in checkpoint_dicts.
+                """
+                if target_type == "bbox":
+                    del model
+                    continue
+
+                ### enumerate through cam types
+                for cam in cam_types:
+                    model_name = (
+                        checkpoint["model_path"] + "_" + checkpoint["size"]
+                        if "size" in checkpoint
+                        else checkpoint["model_path"]
+                    )
+                    settings_name = f"{head.name}_{cam}"
+
+                    print(f"Generating {cam} for {path} head {target_type}")
+                    cam_settings = findOptimalCAMSettings(
+                        model, loader, cam, num_samples=100
+                    )
+                    _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings)
+
+                del model
 
     print("\n------------------------ Generating CAM Datasets with best checkpoints ---------------------\n")
     best_checkpoints = getBestCAMCheckpoints(num_best=num_best, json_path=cam_stats_file)
     loader, _ , _  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32) ### use train_loader for this
 
-    for checkpoint in best_checkpoints: # dict_keys(['model_name', 'settings_name', 'layer_index', 'threshold', 'iou'])
+    for idx, checkpoint in enumerate(best_checkpoints): # dict_keys(['model_name', 'settings_name', 'layer_index', 'threshold', 'iou'])
+        if idx < 2:
+            continue
         path = checkpoint["model_name"]
         path_parts = path.split("_")
-        checkpoint_path = os.path.join(checkpoint_dir, path)
+        checkpoint_path = os.path.join(checkpoints_dir, path)
 
         trainer = Trainer()
 
@@ -800,7 +804,7 @@ if __name__ == "__main__":
         dataset = manager.get_cam_dataset()
 
         # Create directory if it doesn't exist
-        os.makedirs('camdatasets', exist_ok=True)
+        os.makedirs('cam_datasets', exist_ok=True)
 
         target_path =  os.path.join("cam_datasets", checkpoint['model_name']+"_"+checkpoint['settings_name']+f"_idx{checkpoint['layer_index']}_cams.pt")
 

@@ -21,6 +21,13 @@
                 "threshold": 0.0,
                 "iou": 0.37
             }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.5
+            }
         ]
     },
     "cnn_breed_species": {
@@ -66,6 +73,20 @@
                 "layer_index": 3,
                 "threshold": 0.0,
                 "iou": 0.4
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.49
+            }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.47
             }
         ]
     },
@@ -113,6 +134,20 @@
                 "threshold": 0.0,
                 "iou": 0.37
             }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.47
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.49
+            }
         ]
     },
     "cnn_breed_bbox": {
@@ -137,6 +172,13 @@
                 "threshold": 0.0,
                 "iou": 0.36
             }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.5
+            }
         ]
     },
     "cnn_breed": {
@@ -160,6 +202,13 @@
                 "layer_index": 3,
                 "threshold": 0.0,
                 "iou": 0.38
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.5
             }
         ]
     },
@@ -365,6 +414,20 @@
             {
                 "layer_index": 19,
                 "threshold": 0.2,
+                "iou": 0.56
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.1,
+                "iou": 0.54
+            }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.35,
                 "iou": 0.56
             }
         ]
@@ -903,6 +966,20 @@
                 "threshold": 0.05,
                 "iou": 0.53
             }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.55
+            }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.59
+            }
         ]
     },
     "res_breed_18": {
@@ -1006,6 +1083,13 @@
                 "layer_index": 19,
                 "threshold": 0.0,
                 "iou": 0.2
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.15,
+                "iou": 0.54
             }
         ]
     },
@@ -1276,6 +1360,13 @@
                 "threshold": 0.0,
                 "iou": 0.29
             }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.56
+            }
         ]
     },
     "cnn_species_bbox": {
@@ -1299,6 +1390,13 @@
                 "layer_index": 3,
                 "threshold": 0.2,
                 "iou": 0.37
+            }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.52
             }
         ]
     },
@@ -1942,6 +2040,13 @@
                 "threshold": 0.0,
                 "iou": 0.32
             }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.51
+            }
         ]
     },
     "res_species_18": {
@@ -2044,6 +2149,13 @@
             {
                 "layer_index": 19,
                 "threshold": 0.0,
+                "iou": 0.53
+            }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
                 "iou": 0.53
             }
         ]
@@ -2149,6 +2261,13 @@
                 "layer_index": 19,
                 "threshold": 0.0,
                 "iou": 0.21
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.1,
+                "iou": 0.54
             }
         ]
     },
@@ -2419,6 +2538,13 @@
                 "threshold": 0.0,
                 "iou": 0.31
             }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.56
+            }
         ]
     },
     "res_species_breed_bbox_18": {
@@ -2624,6 +2750,20 @@
                 "layer_index": 19,
                 "threshold": 0.0,
                 "iou": 0.18
+            }
+        ],
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.35,
+                "iou": 0.56
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.54
             }
         ]
     },
@@ -3161,106 +3301,19 @@
                 "threshold": 0.0,
                 "iou": 0.31
             }
-        ]
-    }
-}{
-    "cnn_breed": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.5
-            }
-        ]
-    },
-    "cnn_breed_bbox": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.5
-            }
-        ]
-    },
-    "cnn_breed_species": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.49
-            }
-        ],
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.47
-            }
-        ]
-    },
-    "cnn_species": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.5
-            }
-        ]
-    },
-    "cnn_species_bbox": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.52
-            }
-        ]
-    },
-    "cnn_species_breed_bbox": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.47
-            }
-        ],
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.49
-            }
-        ]
-    },
-    "res_breed_species_18": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.1,
-                "iou": 0.54
-            }
-        ],
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.35,
-                "iou": 0.56
-            }
-        ]
-    },
-    "res_breed_species_50": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.05,
-                "iou": 0.55
-            }
         ],
         "ClassifierHead(2)_ClassicCAM": [
             {
                 "layer_index": 0,
                 "threshold": 0.05,
                 "iou": 0.59
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.54
             }
         ]
     },
@@ -3280,48 +3333,12 @@
             }
         ]
     },
-    "res_breed_18": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.15,
-                "iou": 0.54
-            }
-        ]
-    },
-    "res_breed_50": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.05,
-                "iou": 0.56
-            }
-        ]
-    },
     "res_breed_101": {
         "ClassifierHead(37)_ClassicCAM": [
             {
                 "layer_index": 0,
                 "threshold": 0.05,
                 "iou": 0.58
-            }
-        ]
-    },
-    "res_breed_bbox_18": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.1,
-                "iou": 0.54
-            }
-        ]
-    },
-    "res_breed_bbox_50": {
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.56
             }
         ]
     },
@@ -3334,62 +3351,12 @@
             }
         ]
     },
-    "res_species_18": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.05,
-                "iou": 0.53
-            }
-        ]
-    },
-    "res_species_50": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.0,
-                "iou": 0.51
-            }
-        ]
-    },
     "res_species_bbox_101": {
         "ClassifierHead(2)_ClassicCAM": [
             {
                 "layer_index": 0,
                 "threshold": 0.0,
                 "iou": 0.52
-            }
-        ]
-    },
-    "res_species_breed_bbox_18": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.35,
-                "iou": 0.56
-            }
-        ],
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.05,
-                "iou": 0.54
-            }
-        ]
-    },
-    "res_species_breed_bbox_50": {
-        "ClassifierHead(2)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.05,
-                "iou": 0.59
-            }
-        ],
-        "ClassifierHead(37)_ClassicCAM": [
-            {
-                "layer_index": 0,
-                "threshold": 0.05,
-                "iou": 0.54
             }
         ]
     },
