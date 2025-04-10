@@ -182,6 +182,7 @@ class TrainedModel(nn.Module):
 
     def forward(self, x):
         features = self.backbone(x)
+        self.feature_maps = features
         logits = self.head(features)
         return logits
 
@@ -240,6 +241,8 @@ class CAMManager:
 
         # Initialise the appropriate CAM method
         match method:
+            case "ClassicCAM":
+                self.cam = self._classic_cam(model)
             case "GradCAM":
                 from pytorch_grad_cam import GradCAM
 
@@ -256,21 +259,23 @@ class CAMManager:
                 raise ValueError(f"Unsupported CAM method: {method}")
 
         self.cam.batch_size = dataloader.batch_size
-        
+
         self.generator = self.get_cam_generator(
             dataloader=dataloader, target_type=target_type, smooth=smooth
         )
-    
-    def get_cam_dataset(self, num_samples = None) -> torch.utils.data.TensorDataset:
-        self.dataset = self._generate_cam_dataset(self.dataloader, self.target_type, self.smooth, num_samples)
+
+    def get_cam_dataset(self, num_samples=None) -> torch.utils.data.TensorDataset:
+        self.dataset = self._generate_cam_dataset(
+            self.dataloader, self.target_type, self.smooth, num_samples
+        )
         return self.dataset
 
-    def get_cam_generator(self, dataloader, target_type : str, smooth : bool = False):
+    def get_cam_generator(self, dataloader, target_type: str, smooth: bool = False):
         device = next(self.model.parameters()).device
 
         for batch_images, batch_targets in dataloader:
             images = batch_images.to(device)
-            
+
             try:
                 labels = batch_targets[target_type].to(device)
                 gt_masks = batch_targets["segmentation"].to(device)
@@ -287,11 +292,17 @@ class CAMManager:
                 aug_smooth=smooth,
                 eigen_smooth=smooth,
             )
-            tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
 
+            if self.method != "ClassicCAM":
+                tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
+            else:
+                tensor_cams = grayscale_cams
+            
             yield batch_images, tensor_cams, gt_masks.cpu()
 
-    def _generate_cam_dataset(self, dataloader, target_type, smooth: bool, num_samples = None):
+    def _generate_cam_dataset(
+        self, dataloader, target_type, smooth: bool, num_samples=None
+    ):
         """
         Generate a dataset with CAM masks for self-training.
 
@@ -307,7 +318,9 @@ class CAMManager:
 
         all_images, all_cams, all_masks = [], [], []
         batch_size = dataloader.batch_size
-        for i, (images, cams, masks) in enumerate(self.get_cam_generator(dataloader, target_type, smooth)):
+        for i, (images, cams, masks) in enumerate(
+            self.get_cam_generator(dataloader, target_type, smooth)
+        ):
             all_images.append(images)
             all_cams.append(cams)
             all_masks.append(masks)
@@ -320,6 +333,48 @@ class CAMManager:
         masks_tensor = torch.cat(all_masks, dim=0)
 
         return TensorDataset(images_tensor, cams_tensor, masks_tensor)
+
+    def _classic_cam(self, model: torch.nn.Module):
+        def _forward(
+            input_tensor,
+            targets,
+            aug_smooth,
+            eigen_smooth,
+        ):
+            """
+            Forward pass to get logits and feature maps.
+            """
+            model.eval()
+            logits = model(input_tensor)  # logits: (B, C)
+            feature_maps = model.feature_maps  # (B, C, H, W)
+            weights = model.head.head[2].weight
+
+            pred_classes = logits.argmax(dim=1)  # (B,)
+
+            input_size = input_tensor.shape[-2:]  # get (H, W) from input
+            batch_cams = []
+
+            for i in range(input_tensor.size(0)):
+                fmap = feature_maps[i]  # (C, H, W)
+                cls_idx = pred_classes[i]
+                weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
+
+                cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(
+                    0
+                )  # (1, 1, H, W)
+                cam = F.relu(cam)
+                cam = cam - cam.min()
+                cam = cam / (cam.max() + 1e-8)
+                cam_resized = F.interpolate(
+                    cam, size=input_size, mode="bilinear", align_corners=False
+                )
+                batch_cams.append(cam_resized)
+
+            batch_cams = torch.cat(batch_cams, dim=0)  # (B, 1, H, W)
+            return batch_cams
+
+        return _forward
+
 
 class BboxHead(nn.Module):
     def __init__(self, adapter="CNN"):
