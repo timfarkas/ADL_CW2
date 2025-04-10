@@ -23,49 +23,103 @@ from typing import List, Tuple, Optional, Union, Any
 #TODO: Set the right list of checkpoints to generate
 checkpoint_dicts = [
     {
-        "model_path": "cnn_species",
-        "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
+        "model_path": "res_breed_species",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="res18"), ClassifierHead(NUM_SPECIES, adapter="res18")],
+        "epoch": 20,
+        "size": "18"
+    },
+    {
+        "model_path": "res_breed_species",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="res50"), ClassifierHead(NUM_SPECIES, adapter="res50")],
+        "epoch": 20,
+        "size": "50"
+    },
+    {
+        "model_path": "res_breed",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
+        "epoch": 15,
+        "size": "18"
+    },
+    {
+        "model_path": "res_breed",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="res50")],
+        "epoch": 15,
+        "size": "50"
+    },
+    {
+        "model_path": "cnn_species_bbox",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), BboxHead(adapter="CNN")],
+        "epoch": 20,
+    },
+    {
+        "model_path": "res_species_bbox",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="res50"), BboxHead(adapter="res50")],
         "epoch": 10,
-    }]
+        "size": "50"
+    },
+    {
+        "model_path": "res_species_bbox",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="res18"), BboxHead(adapter="res18")],
+        "epoch": 10,
+        "size": "18"
+    },
+    {
+        "model_path": "res_species",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="res50")],
+        "epoch": 15,
+        "size": "50"
+    },
+    {
+        "model_path": "res_species",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="res18")],
+        "epoch": 10,
+        "size": "18"
+    },
+    {
+        "model_path": "cnn_bbox",
+        "heads": [BboxHead(adapter="CNN")],
+        "epoch": 5,
+    },
+    {
+        "model_path": "res_bbox",
+        "heads": [BboxHead(adapter="res50")],
+        "epoch": 5,
+        "size": "50",
+    },
+    {
+        "model_path": "res_bbox",
+        "heads": [BboxHead(adapter="res18")],
+        "epoch": 10,
+        "size": "18",
+    },
+    {
+        "model_path": "res_breed_bbox",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="res18"), BboxHead(adapter="res18")],
+        "epoch": 10,
+        "size": "18",
+    },
+    {
+        "model_path": "res_breed_bbox",
+        "heads": [ClassifierHead(NUM_BREEDS, adapter="res50"), BboxHead(adapter="res50")],
+        "epoch": 15,
+        "size": "50",
+    },
+    {
+        "model_path": "res_species_breed_bbox",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="res18"), ClassifierHead(NUM_BREEDS, adapter="res18"), BboxHead(adapter="res18")],
+        "epoch": 15,
+        "size": "18",
+    },
+    {
+        "model_path": "res_species_breed_bbox",
+        "heads": [ClassifierHead(NUM_SPECIES, adapter="res50"), ClassifierHead(NUM_BREEDS, adapter="res50"), BboxHead(adapter="res50")],
+        "epoch": 15,
+        "size": "50",
+    },
+]
 
 def getConvLayers(model: nn.Module) -> List[nn.Conv2d]:
-    """
-    Get a list of all convolutional layers in a model.
-    
-    Args:
-        model (nn.Module): The model to search through
-        
-    Returns:
-        List[nn.Conv2d]: A list of all convolutional layers found
-    """
-    conv_layers = []
-    
-    # Check if model is TrainedModel
-    if isinstance(model, TrainedModel):
-        # Get conv layers from backbone
-        conv_layers.extend(getConvLayers(model.backbone))
-        # Get conv layers from head if applicable
-        conv_layers.extend(getConvLayers(model.head))
-    
-    # Check if model is Sequential
-    elif isinstance(model, nn.Sequential):
-        # Check each module in the sequential container
-        for module in model:
-            conv_layers.extend(getConvLayers(module))
-    
-    # Check if model has features attribute (like our backbone)
-    elif hasattr(model, 'features') and isinstance(model.features, nn.Sequential):
-        for module in model.features:
-            if isinstance(module, nn.Conv2d):
-                conv_layers.append(module)
-            elif isinstance(module, nn.Sequential) or hasattr(module, 'features'):
-                conv_layers.extend(getConvLayers(module))
-    
-    # Check if the model itself is a Conv2d
-    elif isinstance(model, nn.Conv2d):
-        conv_layers.append(model)
-    
-    return conv_layers
+    return [m for m in model.modules() if isinstance(m, nn.Conv2d)]
 
 def findConvLayerByIndex(model: nn.Module, index: int = -1) -> Optional[nn.Conv2d]:
     """
@@ -340,10 +394,10 @@ def _saveModelCAMSettingsToJson(model_name: str, settings_name: str, cam_setting
 if __name__ == "__main__":
     _, _ , loader  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
     
-    cam_types = ["GradCAM", "ScoreCAM", "AblationCAM"]
+    cam_types = ["GradCAM"]
     
     print("\n------------------------ Generating CAMS ---------------------\n")
-    
+    print(f"Iterating through {len(checkpoint_dicts)} checkpoints...") 
     ### Load model checkpoint
     for checkpoint in checkpoint_dicts:
         if not checkpoint.get("model_path"):
@@ -387,7 +441,7 @@ if __name__ == "__main__":
             
             ### enumerate through cam types
             for cam in cam_types:
-                model_name = checkpoint['model_path']
+                model_name = checkpoint['model_path']+"_"+checkpoint["size"] if "size" in checkpoint else checkpoint['model_path']
                 settings_name = f"{head.name}_{cam}" 
 
                 print(f"Generating {cam} for {path} head {target_type}")
