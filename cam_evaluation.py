@@ -677,7 +677,7 @@ def getBestCAMCheckpoints(num_best=5, json_path="logs/cam_stats.json") -> List[d
 
 
 if __name__ == "__main__":
-    _, loader , _  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
+    train_loader, loader , _  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32)
     
     cam_types = ["GradCAM"]
     
@@ -755,10 +755,9 @@ if __name__ == "__main__":
 
     print("\n------------------------ Generating CAM Datasets with best checkpoints ---------------------\n")
     best_checkpoints = getBestCAMCheckpoints(num_best=num_best, json_path=cam_stats_file)
-    loader, _ , _  = data.create_dataloaders(target_type=["species", "segmentation"], batch_size=32) ### use train_loader for this
 
     for idx, checkpoint in enumerate(best_checkpoints): # dict_keys(['model_name', 'settings_name', 'layer_index', 'threshold', 'iou'])
-        if idx < 2:
+        if idx < 4:
             continue
         path = checkpoint["model_name"]
         path_parts = path.split("_")
@@ -800,7 +799,7 @@ if __name__ == "__main__":
         
         print(f"Generating {cam_name} dataset for {path} head {target_type}:") 
         target_layer = findConvLayerByIndex(model, checkpoint['layer_index'])
-        manager = CAMManager(model, loader, target_type, cam_name, target_layer)
+        manager = CAMManager(model, train_loader, target_type, cam_name, target_layer)
         dataset = manager.get_cam_dataset()
 
         # Create directory if it doesn't exist
