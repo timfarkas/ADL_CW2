@@ -3,7 +3,7 @@ import data
 import json
 import os        
 
-from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
+from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead, AnimalClassifierHead
 import torch 
 import torch.nn as nn
 import sys
@@ -11,6 +11,7 @@ import io
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from utils import compute_accuracy, computeBBoxIoU, convertVOCBBoxFormatToAnchorFormat
+import mixed_data
 
 ### Num Inputs:
 #       Breed:                  37
@@ -736,22 +737,31 @@ if __name__ == "__main__":
     print(f"Using {device}")
 
     for i, run_dict in enumerate(run_dicts):
+        # Add AnimalClassifierHead to each configuration
+        adapter = "CNN" if run_dict["backbone"] == "cnn" else "Res"
+        run_dict["heads"].append(AnimalClassifierHead(adapter=adapter))
+        run_dict["loss_functions"].append(cel_fn)
+        run_dict["eval_functions"].append(compute_accuracy)
+        run_dict["eval_function_names"].append("Acc")
+        run_dict["loader_targets"].append("is_animal")
+
         model_path = run_dict['model_path']        
         print(f"Starting training run {i+1}, {os.path.basename(model_path)}...")
 
         print("Setting up trainer...")
 
-
         trainer = Trainer(log_dir="logs", log_file="pretraining.json")
 
-        trainer.set_eval_functions(run_dict["eval_functions"],run_dict["eval_function_names"])
+        trainer.set_eval_functions(run_dict["eval_functions"], run_dict["eval_function_names"])
        
-        train_loader, val_loader, _ = data.create_dataloaders(
-            batch_size, 
-            target_type=run_dict["loader_targets"], 
-            lazy_loading=False,
-            use_augmentation=True # Enable augmentation
-        ) 
+        train_loader, val_loader, _ = mixed_data.create_mixed_dataloaders(
+            batch_size=batch_size,
+            target_type=run_dict["loader_targets"],
+            bg_directory="bg-20k/train",
+            mixing_ratio=5,
+            use_augmentation=True,
+            lazy_loading=False
+        )
         trainer.set_loaders(train_loader, val_loader) 
         trainer.set_loss_functions(run_dict['loss_functions'])
 
@@ -759,7 +769,7 @@ if __name__ == "__main__":
 
         if run_dict["backbone"] == "cnn":
             backbone = CNNBackbone()
-            trainer.set_model(backbone ,run_dict['heads'], model_path)
+            trainer.set_model(backbone, run_dict['heads'], model_path)
             trainer.set_optimizer(learning_rate, weight_decay)
             print("Trainer set up successfully!")
             trainer.fit_sgd(device=device)
@@ -771,7 +781,3 @@ if __name__ == "__main__":
                 trainer.set_optimizer(learning_rate, weight_decay)
                 print("Trainer set up successfully!")
                 trainer.fit_sgd(device=device)        
-
-
-
-        
