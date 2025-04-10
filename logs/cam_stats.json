@@ -186,5 +186,62 @@
                 "iou": 0.51
             }
         ]
+    },
+    "res_species_bbox_101": {
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.0,
+                "iou": 0.52
+            }
+        ]
+    },
+    "res_species_breed_bbox_18": {
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.35,
+                "iou": 0.56
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.54
+            }
+        ]
+    },
+    "res_species_breed_bbox_50": {
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.59
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.54
+            }
+        ]
+    },
+    "res_species_breed_bbox_101": {
+        "ClassifierHead(2)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.6
+            }
+        ],
+        "ClassifierHead(37)_ClassicCAM": [
+            {
+                "layer_index": 0,
+                "threshold": 0.05,
+                "iou": 0.58
+            }
+        ]
     }
 }
