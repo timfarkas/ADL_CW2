@@ -215,3 +215,6 @@ checkpoints/SEG/UNet_bootstrap_round_9.pt
 
 #checkpoints
 /checkpoints
+
+#bg-20k (mixed data)
+/bg-20k
