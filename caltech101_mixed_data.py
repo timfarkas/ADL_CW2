@@ -397,7 +397,7 @@ def visualize_mixed_batch(dataloader, num_samples=5):
 # Example usage
 if __name__ == "__main__":
     # Selected classes from Caltech101
-    selected_classes = ['umbrella', 'chair', 'elephant']
+    selected_classes = ['umbrella', 'chair', 'elephant', 'anchor', 'camera', 'cup', 'ferry', 'lamp', 'sunflower']
 
     # Create mixed dataloaders with Caltech101 and OxfordPet images
     train_loader, val_loader, test_loader = create_mixed_caltech_pet_dataloaders(
