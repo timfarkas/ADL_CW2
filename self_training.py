@@ -102,7 +102,7 @@ else:
     save_tensor_dataset(new_dataset, "cam_data/new_dataset.pt")
 
 SelfTraining.visualize_predicted_masks(
-    new_dataset, num_samples=6, save_path=f"visualizations/round_0.png"
+    new_dataset, num_samples=8, save_path=f"visualizations/round_0.png"
 )
 dataloader_new = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 
@@ -190,29 +190,32 @@ new_gt_dataset = cam_sample.dataset
 threshold=0
 for i in range(7):
     evaluate_dataset(new_gt_dataset, 8, f"test", threshold=threshold)
-    threshold += 0.1
+    threshold = round(threshold+0.1,2)
 
 """
 SelfTraining.visualize_cam_samples(dataloader_new)
 """
 
-use_bootstrap_models=True #if ture, will used saved models in bootstrap
+use_bootstrap_models=False #if ture, will used saved models in bootstrap
+add_on_dataset=False #if ture, new dataset will be added on original dataset and passed to the next round altogether
 
-BOOTSTRAP_ROUNDS = 3
-filter=0.2
+BOOTSTRAP_ROUNDS = 10
+epochs=3
+filter=0.3
 ### RUNNING BOOSTRAP AND UPDATE DATASET EACH ROUND
 for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     print(f"\nBootstrapping Round {round_num}")
     model_new = UNet(3, 1).to(device)
-    loss_function = nn.BCEWithLogitsLoss()
-    model_path = os.path.join(model_dir, f"{model_type}_bootstrap_round_{round_num}_with_filter:{filter}.pt")
+    # loss_function = nn.BCEWithLogitsLoss()
+    loss_function = nn.MSELoss()
+    model_path = os.path.join(model_dir, f"{model_type}_filter{filter}_epoch{epochs}_addon{add_on_dataset}_bootstrap_round{round_num}_.pt")
     if use_bootstrap_models and os.path.exists(model_path) :
         model_new = UNet(3, 1).to(device)
         model_new.load_state_dict(torch.load(f"{model_path}"))
         print("Model loaded successfully.")
     else:
         SelfTraining.fit_sgd_pixel(
-            model_new, dataloader_new, 10, 0.05, loss_function, model_path, device=device
+            model_new, dataloader_new, epochs, 0.05, loss_function, model_path, device=device
         )
 
     model_new.eval()
@@ -252,30 +255,38 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
             # break  # only show first batch
 
     threshold = 0
-    for i in range(6):
-        evaluate_model(model_new,gt_sample_loader, 6, f"bootstrap_round_{round_num}", threshold=threshold)
-        threshold += 0.1
+    for i in range(7):
+        evaluate_model(model_new,gt_sample_loader, 8, f"bootstrap_round_{round_num}", threshold=threshold)
+        threshold = round(threshold+0.1,2)
     print("Generating new dataset from prediction")
-    new_dataset_predict = SelfTraining.predict_segmentation_dataset(
-        model_new, dataloader_train, threshold=filter)
+    # new_dataset_predict = SelfTraining.predict_segmentation_dataset(
+    #     model_new, dataloader_train, threshold=filter)
+
+    new_dataset_predict = SelfTraining.predict_segmentation_dataset_on_current_loader(
+        model_new, dataloader_new, threshold=filter)
+
 
     SelfTraining.visualize_predicted_masks(
         new_dataset_predict,
         num_samples=8,
         save_path=f"visualizations/round_{round_num}.png",
     )
-    all_images = torch.cat(
-        [dataloader_new.dataset.tensors[0], new_dataset_predict.tensors[0]], dim=0
-    )
-    all_labels = torch.cat(
-        [dataloader_new.dataset.tensors[1], new_dataset_predict.tensors[1]], dim=0
-    )
-    all_masks = torch.cat(
-        [dataloader_new.dataset.tensors[2], new_dataset_predict.tensors[2]], dim=0
-    )
-    combined_dataset = TensorDataset(all_images, all_labels, all_masks)
-    print(f"Dataset size after round {round_num}: {len(combined_dataset)} samples")
-    dataloader_new = DataLoader(combined_dataset, batch_size=batch_size, shuffle=False)
+    if add_on_dataset:
+        all_images = torch.cat(
+            [dataloader_new.dataset.tensors[0], new_dataset_predict.tensors[0]], dim=0
+        )
+        all_labels = torch.cat(
+            [dataloader_new.dataset.tensors[1], new_dataset_predict.tensors[1]], dim=0
+        )
+        all_masks = torch.cat(
+            [dataloader_new.dataset.tensors[2], new_dataset_predict.tensors[2]], dim=0
+        )
+        new_dataset = TensorDataset(all_images, all_labels, all_masks)
+    else:
+        new_dataset=new_dataset_predict
+
+    print(f"New dataset from round {round_num}: {len(new_dataset_predict)} samples")
+    dataloader_new = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
     # Visualize results
     print(f"Visualizing predicted masks from Round {round_num}")
 

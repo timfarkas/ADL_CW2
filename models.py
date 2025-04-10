@@ -286,8 +286,8 @@ class CAMManager:
                 else:
                     labels = batch_targets.to(device)
                     gt_masks = labels
-                    # gt_masks = get_categories_from_normalization(labels)
-                    #
+
+                    '''checking by visualization'''
                     # print("labels shape:", labels.shape)
                     # print("labels unique values:", torch.unique(labels))
                     # print("gt_masks shape:", gt_masks.shape)
@@ -298,6 +298,7 @@ class CAMManager:
                     #     plt.title(f"Mask {i}")
                     #     plt.axis('off')
                     #     plt.show()
+
             except ValueError or KeyError:
                 raise ValueError(
                     f"Expected dict with keys '{target_type}' and 'segmentation'"
@@ -614,7 +615,8 @@ class SelfTraining:
                 optimizer.step()
 
                 # Calculate pixel-wise accuracy
-                probs = torch.sigmoid(outputs)
+                # probs = torch.sigmoid(outputs)
+                probs= outputs
                 preds = probs > 0.5  # threshold logits
                 correct_pixels += (preds == masks.bool()).sum().item()
                 total_pixels += masks.numel()
@@ -706,7 +708,75 @@ class SelfTraining:
         return TensorDataset(all_images, all_probs, all_gts)
 
     @staticmethod
-    def visualize_predicted_masks(dataset, num_samples=6, save_path=None):
+    def predict_segmentation_dataset_on_current_loader(
+        model: nn.Module,
+        dataloader: torch.utils.data.DataLoader,
+        device: str = "cpu",
+        threshold: float = 0.2,
+    ):
+        """
+        Run inference on a dataset and return a new dataset with images and filtered predicted pixel-level probabilities.
+        Args:
+            model: Trained segmentation model (e.g., UNet).
+            dataloader: DataLoader containing input images.
+            device: 'cuda', 'mps', or 'cpu'.
+            threshold: Minimum confidence threshold; values below will be set to 0.
+        Returns:
+            TensorDataset: Dataset containing (images, filtered_probs) where probs ∈ [0,1]
+        """
+        model.eval()
+        model.to(device)
+
+        image_list = []
+        prob_mask_list = []
+        gt_mask_list = []
+
+        with (torch.no_grad()):
+            for images, probs,gt_masks in dataloader:
+                images = images.to(device)
+                logits = model(images)  # [B, 1, H, W]
+                # new_probs = torch.sigmoid(logits)  # ∈ [0,1]
+                new_probs =logits
+
+
+                # Threshold percentage
+                threshold_percentage = threshold  # Set your desired percentage
+                num_pixels = new_probs.numel()  # Total number of pixels in the batch
+
+                # Flatten the tensor and sort
+                flattened_probs = new_probs.view(-1)
+                sorted_probs, _ = torch.sort(flattened_probs, descending=False)
+                # print("sort",sorted_probs[0],sorted_probs[-1],"len",len(sorted_probs))
+                # print("num",num_pixels)
+
+                # Get the value of the pixel at the threshold percentage
+                threshold_value_low = sorted_probs[int(num_pixels * threshold_percentage)]
+                threshold_value_high = sorted_probs[int(num_pixels * (1-threshold_percentage))]
+
+                # threshold_value_low = threshold_percentage
+                # threshold_value_high = 1 - threshold_percentage
+
+                # Apply the threshold: set all pixels below the threshold to 0
+                add_probs = (new_probs >= threshold_value_high).float() * 1.0
+                filtered_probs = torch.maximum(
+                    add_probs,
+                    probs
+                ).float()
+                filtered_probs = (new_probs >= threshold_value_low).float() * filtered_probs
+
+                image_list.append(images.cpu())
+                prob_mask_list.append(filtered_probs.cpu())
+                gt_mask_list.append(gt_masks.cpu())
+
+        all_images = torch.cat(image_list, dim=0)
+        all_probs = torch.cat(prob_mask_list, dim=0)
+        all_gts = torch.cat(gt_mask_list, dim=0)
+
+        print(f"Generated filtered probability masks for {len(all_images)} samples.")
+        return TensorDataset(all_images, all_probs, all_gts)
+
+    @staticmethod
+    def visualize_predicted_masks(dataset, num_samples=8, save_path=None):
         """
         Visualize predicted masks and ground-truth masks with 3xN layout:
         Row 1: Input images
