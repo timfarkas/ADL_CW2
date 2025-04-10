@@ -19,9 +19,75 @@ import matplotlib.pyplot as plt
 from pre_training import Trainer, convert_and_get_IoU
 
 class SegmentationTrainer(Trainer):
+    """Adapted from pre_training.py with some segmentation-specific changes."""
     def __init__(self, log_dir="logs", log_file="segmentation_training.json"):
         super().__init__(log_dir, log_file)
+        
+    def visualisation(self, images, masks):
+        # Print shape information
+        print(f"Image batch shape: {images.shape}")
+        print(f"Mask batch shape: {masks.shape}")
+        print(f"Unique values in masks: {torch.unique(masks)}")
 
+        # Display a few samples
+        fig, axes = plt.subplots(2, 4, figsize=(12, 6))
+        for i in range(min(4, len(images))):
+            # Show image (denormalize if needed)
+            img = images[i].cpu().permute(1, 2, 0)  # CHW -> HWC
+            axes[0, i].imshow(img)
+        axes[0, i].set_title(f"Image {i}")
+        axes[0, i].axis("off")
+        # Show segmentation mask
+        mask = masks[i].cpu()[0]  # Remove channel dimension
+        axes[1, i].imshow(mask, cmap="tab20")
+        axes[1, i].set_title(f"Mask {i} - Classes: {torch.unique(mask).tolist()}")
+        axes[1, i].axis("off")
+
+        plt.tight_layout()
+        plt.savefig("sample_batch.png")
+        plt.close()
+        print("Sample visualization saved to 'sample_batch.png'")
+
+    def visualize_predictions(self, backbone: nn.Module, head: nn.Module, loader, device, save_path):
+        """Visualize model predictions alongside ground truth masks"""
+        backbone.eval()
+        head.eval()
+        images, masks = next(iter(loader))
+        images = images.to(device)
+        
+        # Generate predictions
+        with torch.no_grad():
+            features = backbone(images)
+            predictions = head(features)
+            pred_masks = predictions.argmax(dim=1).cpu()
+        
+        # Move everything to CPU for visualization
+        images = images.cpu()
+        masks = masks.cpu()
+        
+        # Create visualization with three columns: image, ground truth, prediction
+        fig, axes = plt.subplots(min(4, len(images)), 3, figsize=(12, 10))
+        for i in range(min(4, len(images))):
+            # Original image
+            axes[i, 0].imshow(images[i].permute(1, 2, 0))
+            axes[i, 0].set_title("Input Image")
+            axes[i, 0].axis("off")
+            
+            # Ground truth
+            axes[i, 1].imshow(masks[i].squeeze(0), cmap="tab20")
+            axes[i, 1].set_title("Ground Truth")
+            axes[i, 1].axis("off")
+            
+            # Prediction
+            axes[i, 2].imshow(pred_masks[i], cmap="tab20")
+            axes[i, 2].set_title("Prediction")
+            axes[i, 2].axis("off")
+        
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()
+        print(f"Predictions visualization saved to '{save_path}'")    
+    
 
 class SegCrossEntropyLoss(nn.Module):
     """
@@ -42,6 +108,7 @@ class SegCrossEntropyLoss(nn.Module):
         targets = targets.squeeze(1) - 1
         targets = targets.long()
         return self.loss_fn(inputs, targets)
+
 
 
 if __name__ == "__main__":
@@ -138,4 +205,8 @@ if __name__ == "__main__":
             trainer.set_model(backbone, run_dict["heads"], model_path)
             trainer.set_optimizer(learning_rate, weight_decay)
             print("Trainer set up successfully!")
-            trainer.fit_sgd(device=device, num_epochs=100)
+            
+            trainer.fit_sgd(device=device, num_epochs=1)
+            trainer.visualize_predictions(
+                trainer.backbone, trainer.heads[0], val_loader, device, save_path="baseline_predictions.png"
+            )
