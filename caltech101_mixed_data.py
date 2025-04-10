@@ -128,8 +128,7 @@ def create_mixed_caltech_pet_dataloaders(
         test_ratio=0.15, random_seed=42, target_type=["class"],
         normalize_bbox=True, pet_data_directory="oxford_pet_data",
         caltech_data_directory="caltech_101", selected_caltech_classes=None,
-        mixing_ratio=5, caltech_label=-1, use_original_caltech_labels=False,
-        use_augmentation=False, lazy_loading=True):
+        mixing_ratio=5, use_augmentation=False, lazy_loading=True):
     """Create PyTorch DataLoaders with Caltech101 and OxfordPet integration.
 
     Args:
@@ -144,8 +143,6 @@ def create_mixed_caltech_pet_dataloaders(
         caltech_data_directory: Directory containing Caltech101 dataset
         selected_caltech_classes: List of Caltech101 classes to include (None for all)
         mixing_ratio: Insert a Caltech image every n images (e.g., 5 means every 5th image)
-        caltech_label: Class label to use for Caltech images (use -1 for "other" or None to keep original)
-        use_original_caltech_labels: Whether to keep original Caltech class labels
         use_augmentation: Whether to use data augmentation for training
         lazy_loading: Whether to load images on-demand (True) or preload into memory (False)
 
@@ -272,19 +269,16 @@ def create_mixed_caltech_pet_dataloaders(
         train_caltech_adapter = Caltech101Adapter(
             train_caltech_dataset,
             target_type=target_type,
-            target_label=caltech_label if not use_original_caltech_labels else None
         )
 
         val_caltech_adapter = Caltech101Adapter(
             val_caltech_dataset,
             target_type=target_type,
-            target_label=caltech_label if not use_original_caltech_labels else None
         )
 
         test_caltech_adapter = Caltech101Adapter(
             test_caltech_dataset,
             target_type=target_type,
-            target_label=caltech_label if not use_original_caltech_labels else None
         )
 
     except Exception as e:
@@ -300,21 +294,18 @@ def create_mixed_caltech_pet_dataloaders(
         train_pet_dataset,
         train_caltech_adapter,
         mixing_ratio,
-        use_original_labels=use_original_caltech_labels
     )
 
     val_mixed_dataset = MixedCaltechPetDataset(
         val_pet_dataset,
         val_caltech_adapter,
         mixing_ratio,
-        use_original_labels=use_original_caltech_labels
     )
 
     test_mixed_dataset = MixedCaltechPetDataset(
         test_pet_dataset,
         test_caltech_adapter,
         mixing_ratio,
-        use_original_labels=use_original_caltech_labels
     )
 
     # Create dataloaders
@@ -406,7 +397,7 @@ def visualize_mixed_batch(dataloader, num_samples=5):
 # Example usage
 if __name__ == "__main__":
     # Selected classes from Caltech101
-    selected_classes = ['airplanes', 'chair', 'elephant']
+    selected_classes = ['umbrella', 'chair', 'elephant']
 
     # Create mixed dataloaders with Caltech101 and OxfordPet images
     train_loader, val_loader, test_loader = create_mixed_caltech_pet_dataloaders(
@@ -416,8 +407,6 @@ if __name__ == "__main__":
         selected_caltech_classes=selected_classes,
         target_type=["species", "class", "bbox", "segmentation"],
         mixing_ratio=5,
-        caltech_label=-1,  # Use -1 for "other" or custom labels
-        use_original_caltech_labels=False,  # Set to True to keep original Caltech classes
         use_augmentation=True,
         lazy_loading=True
     )
