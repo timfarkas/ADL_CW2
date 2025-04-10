@@ -259,10 +259,10 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
         evaluate_model(model_new,gt_sample_loader, 8, f"bootstrap_round_{round_num}", threshold=threshold)
         threshold = round(threshold+0.1,2)
     print("Generating new dataset from prediction")
-    # new_dataset_predict = SelfTraining.predict_segmentation_dataset(
+    # new_dataset_predict = SelfTraining.predict_segmentation_dataset__basicfilter(
     #     model_new, dataloader_train, threshold=filter)
 
-    new_dataset_predict = SelfTraining.predict_segmentation_dataset_on_current_loader(
+    new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_mixlabel(
         model_new, dataloader_new, threshold=filter)
 
 

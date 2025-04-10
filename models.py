@@ -663,7 +663,7 @@ class SelfTraining:
         )
 
     @staticmethod
-    def predict_segmentation_dataset(
+    def predict_segmentation_dataset_with_basicfilter(
         model: nn.Module,
         dataloader: torch.utils.data.DataLoader,
         device: str = "cpu",
@@ -708,7 +708,7 @@ class SelfTraining:
         return TensorDataset(all_images, all_probs, all_gts)
 
     @staticmethod
-    def predict_segmentation_dataset_on_current_loader(
+    def predict_segmentation_dataset_with_mixlabel(
         model: nn.Module,
         dataloader: torch.utils.data.DataLoader,
         device: str = "cpu",
