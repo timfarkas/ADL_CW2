@@ -655,31 +655,6 @@ def create_sample_loader_from_existing_loader(loader, num_samples=20, batch_size
 
     # Return standard DataLoader
     return DataLoader(tensor_dataset, batch_size=batch_size, shuffle=False)
-def get_sample_gt_loader(self, num_samples=24, batch_size=24, shuffle=False):
-    """
-    Return a DataLoader containing a small subset of the dataset for inspection or debugging.
-
-    Args:
-        num_samples (int): Number of samples to include.
-        batch_size (int): Batch size for the DataLoader.
-        shuffle (bool): Whether to shuffle the samples.
-
-    Returns:
-        DataLoader: A DataLoader over the small subset.
-    """
-    if num_samples > len(self):
-        raise ValueError(f"Requested {num_samples} samples, but dataset only contains {len(self)} items.")
-
-    indices = list(range(len(self)))
-    if shuffle:
-        random.shuffle(indices)
-
-    selected_indices = indices[:num_samples]
-
-    subset = torch.utils.data.Subset(self, selected_indices)
-    sample_gt_loader = DataLoader(subset, batch_size=batch_size, shuffle=False)
-
-    return sample_gt_loader
 
 # Example usage:
 if __name__ == "__main__":

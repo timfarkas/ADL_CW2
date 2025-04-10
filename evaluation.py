@@ -1,7 +1,8 @@
 import torch
 import torchvision
 import os
-from utils import store_images,unnormalize
+from utils import store_images,unnormalize,save_image_grid
+import torch.nn as nn
 import matplotlib.pyplot as plt
 
 
@@ -113,17 +114,22 @@ def evaluate_model(
     total_IoU = 0
     total_f1_score = 0
     num_samples = 0
+    total_loss = 0.0
     output_dir = "evaluation_visualization"
     os.makedirs(output_dir, exist_ok=True)
-    
+    loss_funciton=nn.MSELoss()
     for i, (images, masks_gt) in enumerate(test_loader):
-        # TODO: When we have a model, ensure the prediction results are actually comparable
-        images = images.to(device)
-        masks_pre=torch.sigmoid(model(images))
+        logits = model(images)  # raw output
+        # print(f"[Logits] min: {logits.min().item():.4f}, max: {logits.max().item():.4f}")
+        # masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
+        masks_pre=logits
+        # print(f"[Sigmoid Output] min: {masks_pre.min().item():.4f}, max: {masks_pre.max().item():.4f}")
+        batch_loss=loss_funciton(masks_pre,masks_gt)
         masks_pre_binary= binarise_predictions(masks_pre, threshold)
         masks_gt = masks_gt.to(device)
         masks_gt_binary = get_categories_from_normalization(masks_gt)
 
+        '''checking by visualization'''
         # masks_pre_vis = torch.sigmoid(masks_pre[:4].detach().cpu())
         # images_vis = images[:4].cpu()  # (B, 3, H, W)
         #
@@ -151,6 +157,7 @@ def evaluate_model(
         batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
         total_IoU += batch_iou
         total_f1_score += batch_f1
+        total_loss += batch_loss.item() * images.size(0)
         num_samples += images.size(0)
 
         if i == 0:
@@ -158,12 +165,12 @@ def evaluate_model(
             masks_pre_to_store = masks_pre[:image_number]
             masks_pre_binary_to_store = masks_pre_binary[:image_number]
             masks_gt_to_store = masks_gt_binary[:image_number]
+
+            '''checking by visualization'''
             # print("Shape:", masks_pre_to_store.shape)
             # print("Dtype:", masks_pre_to_store.dtype)
             # print("Min value:", masks_pre_to_store.min().item())
             # print("Max value:", masks_pre_to_store.max().item())
-
-
             # n = min(image_number, images_to_store.size(0))
             #
             # for i in range(n):
@@ -192,18 +199,17 @@ def evaluate_model(
             #     plt.show()
             #
 
-
-            store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
-            store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
-            store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
-            store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
+            save_image_grid(images_to_store,masks_pre_to_store,masks_pre_binary_to_store,masks_gt_to_store,os.path.join(output_dir, f"{image_name}_thres_{threshold}.jpg"))
+            #
+            # store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
+            # store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
+            # store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
+            # store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
 
         else:
             break
-
-    print(f"Mean IoU: {total_IoU / num_samples}")
-    print(f"Mean F1 Score: {total_f1_score / num_samples}")
-
+    mean_loss = total_loss / num_samples
+    print(f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples}, CE Loss: {mean_loss}")
 
 def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = None,threshold: float=0.5):
     """
@@ -216,24 +222,27 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
         device (str): Device to use ('cuda', 'cpu', etc.)
     """
     print(f"Evaluating dataset with threshold:{threshold}" )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64, shuffle=False)
 
     total_IoU = 0
     total_f1_score = 0
     num_samples = 0
-
+    total_loss = 0.0
     output_dir = "evaluation_visualization"
     os.makedirs(output_dir, exist_ok=True)
-
+    loss_funciton=nn.MSELoss()
 
     for i, (images, masks_pre, masks_gt) in enumerate(dataloader):
         masks_pre = masks_pre.to(device)
         masks_pre_binary=binarise_predictions(masks_pre,threshold)
         masks_gt = masks_gt.to(device)
         masks_gt_binary = get_categories_from_normalization(masks_gt)
+        batch_loss=loss_funciton(masks_pre,masks_gt)
+
         batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
         total_IoU += batch_iou
         total_f1_score += batch_f1
+        total_loss += batch_loss.item() * images.size(0)
         num_samples += images.size(0)
 
         if i == 0:
@@ -241,12 +250,11 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
             masks_pre_to_store = masks_pre[:image_number]
             masks_pre_binary_to_store = masks_pre_binary[:image_number]
             masks_gt_to_store = masks_gt_binary[:image_number]
-
-            store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
-            store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
-            store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
-            store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
-
-    print(f"Mean IoU: {total_IoU / num_samples:.4f}")
-    print(f"Mean F1 Score: {total_f1_score / num_samples:.4f}")
-
+            save_image_grid(images_to_store,masks_pre_to_store,masks_pre_binary_to_store,masks_gt_to_store,os.path.join(output_dir, f"{image_name}_thres_{threshold}.jpg"))
+            #
+            # store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
+            # store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
+            # store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
+            # store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
+    mean_loss = total_loss / num_samples
+    print(f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples}, CE Loss: {mean_loss}")
