@@ -345,32 +345,32 @@ class CAMManager:
             Forward pass to get logits and feature maps.
             """
             model.eval()
-            logits = model(input_tensor)  # logits: (B, C)
-            feature_maps = model.feature_maps  # (B, C, H, W)
-            weights = model.head.head[2].weight
-
-            pred_classes = logits.argmax(dim=1)  # (B,)
-
-            input_size = input_tensor.shape[-2:]  # get (H, W) from input
             batch_cams = []
+            input_size = input_tensor.shape[-2:]  # get (H, W) from input
+            
+            with torch.no_grad():
+                logits = model(input_tensor)  # logits: (B, C)
+                feature_maps = model.feature_maps  # (B, C, H, W)
+                weights = model.head.head[2].weight
+                pred_classes = logits.argmax(dim=1)  # (B,)
+                
+                for i in range(input_tensor.size(0)):
+                    fmap = feature_maps[i]  # (C, H, W)
+                    cls_idx = pred_classes[i]
+                    weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
 
-            for i in range(input_tensor.size(0)):
-                fmap = feature_maps[i]  # (C, H, W)
-                cls_idx = pred_classes[i]
-                weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
+                    cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(
+                        0
+                    )  # (1, 1, H, W)
+                    cam = F.relu(cam)
+                    cam = cam - cam.min()
+                    cam = cam / (cam.max() + 1e-8)
+                    cam_resized = F.interpolate(
+                        cam, size=input_size, mode="bilinear", align_corners=False
+                    )
+                    batch_cams.append(cam_resized.cpu())
 
-                cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(
-                    0
-                )  # (1, 1, H, W)
-                cam = F.relu(cam)
-                cam = cam - cam.min()
-                cam = cam / (cam.max() + 1e-8)
-                cam_resized = F.interpolate(
-                    cam, size=input_size, mode="bilinear", align_corners=False
-                )
-                batch_cams.append(cam_resized)
-
-            batch_cams = torch.cat(batch_cams, dim=0)  # (B, 1, H, W)
+                batch_cams = torch.cat(batch_cams, dim=0)  # (B, 1, H, W)
             return batch_cams
 
         return _forward
