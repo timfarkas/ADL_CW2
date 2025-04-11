@@ -19,7 +19,7 @@ import json
 import os
 from typing import List, Tuple, Optional, Union, Any
 import glob
-
+from utils import downsample_image
 
 checkpoint_dicts = {
     "run_1": [
@@ -196,7 +196,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="CNN"),
                 BboxHead(adapter="CNN"),
             ],
-            "epoch": 15,
+            "epoch": 20,
         },
         {
             "model_path": "cnn_breed_species",
@@ -204,7 +204,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="CNN"),
                 ClassifierHead(NUM_SPECIES, adapter="CNN"),
             ],
-            "epoch": 20,
+            "epoch": 15,
         },
         {
             "model_path": "cnn_breed_bbox",
@@ -768,6 +768,7 @@ def find_optimal_threshold(
     optimal_threshold = 0
     max_iou_mean = 0
     ious = None
+    consecutive_worse_count = 0
 
     for threshold in torch.arange(0, 1, 0.05):
         ious = []
@@ -787,6 +788,12 @@ def find_optimal_threshold(
         if iou_mean > max_iou_mean:
             max_iou_mean = iou_mean
             optimal_threshold = threshold
+            consecutive_worse_count = 0
+        else:
+            consecutive_worse_count += 1
+            if consecutive_worse_count >= 3:
+                print("IoU got worse three times in a row, skipping remaining thresholds.")
+                break
 
     ious = list(ious)
     print(f"Found optimal threshold: {optimal_threshold} with IoU mean: {max_iou_mean}")
@@ -972,13 +979,13 @@ if __name__ == "__main__":
         target_type=["species", "segmentation"], batch_size=32
     )
 
-    cam_types = ["GradCAM"]
+    cam_types = ["GradCAM", "ScoreCAM", "AblationCAM"]
 
-    run_name = "run_1"
+    run_name = "run_2"
     checkpoints_dir = "checkpoints/" + run_name
-    generate_only = True
+    generate_only = False
     num_best = 10
-    cam_stats_file = os.path.join("logs", "cam_stats.json")
+    cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
 
     print("\n------------------------ Evaluating CAMS ---------------------\n")
     print(f"Iterating through {len(checkpoint_dicts[run_name])} checkpoints...")
@@ -1106,7 +1113,7 @@ if __name__ == "__main__":
         print(f"Generating {cam_name} dataset for {path} head {target_type}:")
         target_layer = findConvLayerByIndex(model, checkpoint["layer_index"])
         manager = CAMManager(model, train_loader, target_type, cam_name, target_layer)
-        dataset = manager.get_cam_dataset()
+        dataset = manager.get_cam_dataset(output_size=(64,64))
 
         # Create directory if it doesn't exist
         os.makedirs("cam_datasets", exist_ok=True)
