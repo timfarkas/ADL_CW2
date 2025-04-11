@@ -263,6 +263,8 @@ class CAMManager:
         for batch_images, batch_targets in dataloader:
             cam = None
             match self.method:
+                case "ClassicCAM":
+                    cam = self._classic_cam(model=self.model)
                 case "GradCAM":
                     cam = GradCAM(model=self.model, target_layers=self.target_layers)
                 case "ScoreCAM":
@@ -289,7 +291,6 @@ class CAMManager:
                 aug_smooth=smooth,
                 eigen_smooth=smooth,
             )
-            tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
 
             if self.method != "ClassicCAM":
                 tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
