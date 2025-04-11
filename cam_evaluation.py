@@ -791,8 +791,7 @@ def find_optimal_threshold(
             consecutive_worse_count = 0
         else:
             consecutive_worse_count += 1
-            if consecutive_worse_count >= 3:
-                print("IoU got worse three times in a row, skipping remaining thresholds.")
+            if consecutive_worse_count > 3:
                 break
 
     ious = list(ious)
