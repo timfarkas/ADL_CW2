@@ -1041,15 +1041,7 @@ if __name__ == "__main__":
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
                 model.to(torch.device("cuda"))
-                target_type = path_parts[head_index + 1]
-                
-                if not target_type in ['species', 'bbox', 'breed']:
-                    if use_mixed_loader:
-                        print(f"Got target type '{target_type} from path, assuming is_animal.'")
-                        target_type = ['is_animal']
-                    else:
-                        raise ValueError(f"Unexpected target type {target_type}")
-
+                target_type = path_parts[head_index]
 
                 """
                 According to a quick research, and also the results of the CAMS
