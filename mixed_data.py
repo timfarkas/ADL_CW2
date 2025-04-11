@@ -178,7 +178,9 @@ class BackgroundDataset(Dataset):
 
     def _get_target(self, target_type, original_width, original_height):
         """Generate appropriate targets for background images."""
-        if target_type in ["class", "breed"]:
+        if target_type == "is_animal":
+            return 0  # Background images have no animals
+        elif target_type in ["class", "breed"]:
             return self.target_label
         # No species for background images
         elif target_type == "species":
