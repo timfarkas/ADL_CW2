@@ -320,6 +320,7 @@ class Trainer():
             train_epoch_loss_sum = 0
             train_epoch_head_evals_sum = [0 for _ in self.heads]
             train_epoch_head_losses_sum = [0 for _ in self.heads]
+            train_bbox_sample_counts = [0 for _ in self.heads]  # Track samples with bboxes for each head
 
             print(f"\nTrain {epoch+1}/{num_epochs} ", end="")
             for i, (images, labels) in enumerate(self.train_loader):
@@ -338,7 +339,19 @@ class Trainer():
                 
                 head_outputs = self._forward_pass(images) 
                 
-                losses = [loss_fn(head_output, label) for loss_fn, head_output, label in zip(self.loss_functions, head_outputs, labels)]
+                # Compute losses with masking for BboxHead
+                losses = []
+                for head, loss_fn, head_output, label in zip(self.heads, self.loss_functions, head_outputs, labels):
+                    if isinstance(head, BboxHead):
+                        per_sample_loss = loss_fn(head_output, label).mean(dim=1)  # (batch_size,)
+                        mask = (label.sum(dim=1) != 0).float()  # 1 if bbox exists, 0 otherwise
+                        if mask.sum() > 0:
+                            loss = (per_sample_loss * mask).sum() / mask.sum()
+                        else:
+                            loss = torch.tensor(0.0, device=device)
+                    else:
+                        loss = loss_fn(head_output, label)
+                    losses.append(loss)
                 total_batch_loss = sum(losses)
                 total_batch_loss.backward()
                 
@@ -352,32 +365,58 @@ class Trainer():
                 running_loss = total_batch_loss.item() * batch_size
                 train_epoch_loss_sum += running_loss
                 
-                head_losses = [loss.item() * batch_size for loss in losses]
+                head_losses = []
+                for j, (head, loss) in enumerate(zip(self.heads, losses)):
+                    if isinstance(head, BboxHead):
+                        mask = (labels[j].sum(dim=1) != 0).float()
+                        head_losses.append(loss.item() * mask.sum().item())
+                        train_bbox_sample_counts[j] += mask.sum().item()
+                    else:
+                        head_losses.append(loss.item() * batch_size)
+                        train_bbox_sample_counts[j] += batch_size
                 train_epoch_head_losses_sum = [epoch_sum + batch_loss for epoch_sum, batch_loss in zip(train_epoch_head_losses_sum, head_losses)]
                 
                 ## Head specific eval functions (accuracy, etc)
-                ## Assumes averaging aggregation right now for all
                 if self.eval_functions is not None:
-                    batch_head_evals = [float(eval_fn(head_output, label)) * batch_size for eval_fn, head_output, label in zip(self.eval_functions, head_outputs, labels)]
+                    batch_head_evals = []
+                    for j, (eval_fn, head, head_output, label) in enumerate(zip(self.eval_functions, self.heads, head_outputs, labels)):
+                        if isinstance(head, BboxHead):
+                            mask = (label.sum(dim=1) != 0)
+                            if mask.any():
+                                head_output_masked = head_output[mask]
+                                label_masked = label[mask]
+                                eval_value = eval_fn(head_output_masked, label_masked)
+                                batch_eval = float(eval_value) * mask.sum().item()
+                            else:
+                                batch_eval = 0.0
+                        else:
+                            eval_value = eval_fn(head_output, label)
+                            batch_eval = float(eval_value) * batch_size
+                        batch_head_evals.append(batch_eval)
                     train_epoch_head_evals_sum = [epoch_sum + batch_eval for epoch_sum, batch_eval in zip(train_epoch_head_evals_sum, batch_head_evals)]
 
             # Log overall loss, head-specific losses and metrics for training
             print(f"\nEpoch:{epoch + 1}/{num_epochs}, Train Loss:{train_epoch_loss_sum / train_sample_count:.4f}")
             
-
             # Prepare metrics for logging
             metrics_to_log = [("train_loss", train_epoch_loss_sum / train_sample_count)]
             
             # Log individual head losses and evaluation metrics for training
             for i, head in enumerate(self.heads):
-                head_loss = train_epoch_head_losses_sum[i] / train_sample_count
+                if isinstance(head, BboxHead):
+                    head_loss = train_epoch_head_losses_sum[i] / train_bbox_sample_counts[i] if train_bbox_sample_counts[i] > 0 else 0.0
+                else:
+                    head_loss = train_epoch_head_losses_sum[i] / train_sample_count
                 log_str = f"   Train {head.name} Loss: {head_loss:.4f}"
                 metrics_to_log.append((f"train_{head.name}_loss", head_loss))
                 
                 # Add evaluation metric to the same log line if available
                 if self.eval_functions is not None and i < len(self.eval_fn_names):
                     metric_name = self.eval_fn_names[i]
-                    metric_value = train_epoch_head_evals_sum[i] / train_sample_count
+                    if isinstance(head, BboxHead):
+                        metric_value = train_epoch_head_evals_sum[i] / train_bbox_sample_counts[i] if train_bbox_sample_counts[i] > 0 else 0.0
+                    else:
+                        metric_value = train_epoch_head_evals_sum[i] / train_sample_count
                     log_str += f", {metric_name}: {metric_value:.4f}"
                     metrics_to_log.append((f"train_{head.name}_{metric_name}", metric_value))
                 
@@ -392,6 +431,7 @@ class Trainer():
             val_epoch_loss_sum = 0
             val_epoch_head_evals_sum = [0 for _ in self.heads]
             val_epoch_head_losses_sum = [0 for _ in self.heads]
+            val_bbox_sample_counts = [0 for _ in self.heads]  # Track samples with bboxes for each head
             
             with torch.no_grad():
                 for images, labels in self.val_loader:
@@ -404,8 +444,19 @@ class Trainer():
                     
                     head_outputs = self._forward_pass(images)
                     
-                    losses = [loss_fn(head_output, label) for loss_fn, head_output, label in 
-                              zip(self.loss_functions, head_outputs, labels)]
+                    # Compute losses with masking for BboxHead
+                    losses = []
+                    for head, loss_fn, head_output, label in zip(self.heads, self.loss_functions, head_outputs, labels):
+                        if isinstance(head, BboxHead):
+                            per_sample_loss = loss_fn(head_output, label).mean(dim=1)
+                            mask = (label.sum(dim=1) != 0).float()
+                            if mask.sum() > 0:
+                                loss = (per_sample_loss * mask).sum() / mask.sum()
+                            else:
+                                loss = torch.tensor(0.0, device=device)
+                        else:
+                            loss = loss_fn(head_output, label)
+                        losses.append(loss)
                     total_batch_loss = sum(losses)
                     
                     ## METRICS
@@ -416,14 +467,34 @@ class Trainer():
                     val_running_loss = total_batch_loss.item() * batch_size
                     val_epoch_loss_sum += val_running_loss
                     
-                    head_losses = [loss.item() * batch_size for loss in losses]
+                    head_losses = []
+                    for j, (head, loss) in enumerate(zip(self.heads, losses)):
+                        if isinstance(head, BboxHead):
+                            mask = (labels[j].sum(dim=1) != 0).float()
+                            head_losses.append(loss.item() * mask.sum().item())
+                            val_bbox_sample_counts[j] += mask.sum().item()
+                        else:
+                            head_losses.append(loss.item() * batch_size)
+                            val_bbox_sample_counts[j] += batch_size
                     val_epoch_head_losses_sum = [epoch_sum + batch_loss for epoch_sum, batch_loss in zip(val_epoch_head_losses_sum, head_losses)]
                     
                     ## Head specific eval functions (accuracy, etc)
                     if self.eval_functions is not None:
-                        val_batch_head_evals = [float(eval_fn(head_output, label)) * batch_size 
-                                              for eval_fn, head_output, label in 
-                                              zip(self.eval_functions, head_outputs, labels)]
+                        val_batch_head_evals = []
+                        for j, (eval_fn, head, head_output, label) in enumerate(zip(self.eval_functions, self.heads, head_outputs, labels)):
+                            if isinstance(head, BboxHead):
+                                mask = (label.sum(dim=1) != 0)
+                                if mask.any():
+                                    head_output_masked = head_output[mask]
+                                    label_masked = label[mask]
+                                    eval_value = eval_fn(head_output_masked, label_masked)
+                                    batch_eval = float(eval_value) * mask.sum().item()
+                                else:
+                                    batch_eval = 0.0
+                            else:
+                                eval_value = eval_fn(head_output, label)
+                                batch_eval = float(eval_value) * batch_size
+                            val_batch_head_evals.append(batch_eval)
                         val_epoch_head_evals_sum = [epoch_sum + batch_eval for epoch_sum, batch_eval in zip(val_epoch_head_evals_sum, val_batch_head_evals)]
             
             # Log overall loss, head-specific losses and metrics for validation
@@ -432,16 +503,21 @@ class Trainer():
             
             # Log individual head losses and evaluation metrics for validation
             for i, head in enumerate(self.heads):
-                head_loss = val_epoch_head_losses_sum[i] / val_sample_count
+                if isinstance(head, BboxHead):
+                    head_loss = val_epoch_head_losses_sum[i] / val_bbox_sample_counts[i] if val_bbox_sample_counts[i] > 0 else 0.0
+                else:
+                    head_loss = val_epoch_head_losses_sum[i] / val_sample_count
                 log_str = f"  Val {head.name} Loss: {head_loss:.4f}"
                 metrics_to_log.append((f"val_{head.name}_loss", head_loss))
                 
                 # Add evaluation metric to the same log line if available
                 if self.eval_functions is not None and i < len(self.eval_fn_names):
                     metric_name = self.eval_fn_names[i]
-                    metric_value = val_epoch_head_evals_sum[i] / val_sample_count
+                    if isinstance(head, BboxHead):
+                        metric_value = val_epoch_head_evals_sum[i] / val_bbox_sample_counts[i] if val_bbox_sample_counts[i] > 0 else 0.0
+                    else:
+                        metric_value = val_epoch_head_evals_sum[i] / val_sample_count
                     log_str += f", {metric_name}: {metric_value:.4f}"
-
                     metrics_to_log.append((f"val_{head.name}_{metric_name}", metric_value))
                 
                 print(log_str)
@@ -523,7 +599,7 @@ if __name__ == "__main__":
     print("\n\nPreparing pre-training sweep...")
 
     cel_fn = nn.CrossEntropyLoss()
-    mse_fn = nn.MSELoss()
+    mse_fn = nn.MSELoss(reduction='none') # Compute loss per element without reduction
 
     run_dicts = [
         {   ### cnn_species
@@ -550,7 +626,7 @@ if __name__ == "__main__":
             "backbone": "cnn",
             "eval_functions": [convert_and_get_IoU],
             "eval_function_names" : ["IoU"], 
-            "loss_functions": [mse_fn], 
+            "loss_functions": [mse_fn], # Updated to reduction='none'
             "loader_targets": ["bbox"]
         },
         {   ### cnn_breed_species
@@ -678,7 +754,12 @@ if __name__ == "__main__":
 
         trainer.set_eval_functions(run_dict["eval_functions"],run_dict["eval_function_names"])
        
-        train_loader, val_loader, _ = data.create_dataloaders(batch_size, target_type=run_dict["loader_targets"], lazy_loading=False)
+        train_loader, val_loader, _ = data.create_dataloaders(
+            batch_size, 
+            target_type=run_dict["loader_targets"], 
+            lazy_loading=False,
+            use_augmentation=True # Enable augmentation
+        ) 
         trainer.set_loaders(train_loader, val_loader) 
         trainer.set_loss_functions(run_dict['loss_functions'])
 
