@@ -290,15 +290,17 @@ class CAMManager:
                 eigen_smooth=smooth,
             )
             tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
-        
-            
 
             if self.method != "ClassicCAM":
                 tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
             else:
                 tensor_cams = grayscale_cams
-                        
-            yield downsample_image(batch_images,target_size= output_size), downsample_image(tensor_cams,target_size= output_size), downsample_image(gt_masks.cpu(),target_size= output_size,mode="nearest")
+            
+            # Convert gt_masks to float before downsampling to avoid the Long tensor error
+            gt_masks_float = gt_masks.cpu().float()
+            yield (downsample_image(batch_images, target_size=output_size), 
+                   downsample_image(tensor_cams, target_size=output_size), 
+                   downsample_image(gt_masks_float, target_size=output_size, mode="nearest").long())
 
 
     def _generate_cam_dataset(
