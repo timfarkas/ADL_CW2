@@ -230,35 +230,14 @@ checkpoint_dicts = {
         {
             "model_path": "cnn_species",
             "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
-            "epoch": 10,
+            "epoch": 20,
         },
         {
             "model_path": "cnn_bbox",
             "heads": [BboxHead(adapter="CNN")],
-            "epoch": 5,
+            "epoch": 10,
         },
         # --- ResNet Models ---
-        # res_species_breed_bbox
-        {
-            "model_path": "res_species_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="res18"),
-                ClassifierHead(NUM_BREEDS, adapter="res18"),
-                BboxHead(adapter="res18"),
-            ],
-            "epoch": 15,
-            "size": "18",
-        },
-        {
-            "model_path": "res_species_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="res50"),
-                ClassifierHead(NUM_BREEDS, adapter="res50"),
-                BboxHead(adapter="res50"),
-            ],
-            "epoch": 15,
-            "size": "50",
-        },
         # res_breed_species
         {
             "model_path": "res_breed_species",
@@ -354,6 +333,26 @@ checkpoint_dicts = {
             "heads": [BboxHead(adapter="res18")],
             "epoch": 10,
             "size": "18",
+        },
+        {
+            "model_path": "res_species_breed_bbox",
+            "heads": [
+                ClassifierHead(NUM_SPECIES, adapter="res18"),
+                ClassifierHead(NUM_BREEDS, adapter="res18"),
+                BboxHead(adapter="res18"),
+            ],
+            "epoch": 15,
+            "size": "18",
+        },
+        {
+            "model_path": "res_species_breed_bbox",
+            "heads": [
+                ClassifierHead(NUM_SPECIES, adapter="res50"),
+                ClassifierHead(NUM_BREEDS, adapter="res50"),
+                BboxHead(adapter="res50"),
+            ],
+            "epoch": 15,
+            "size": "50",
         },
     ],
     "run_3": [
@@ -726,13 +725,18 @@ def computeIoU(
     assert len(segment.shape) == 4, (
         f"Expected segment to be of shape B, 1, H, W (got {segment.shape})."
     )
-
+    # Assert that the height and width of cam and segment are identical
+    assert cam.shape[1:] == segment.shape[2:], (
+        f"Height and width of cam {cam.shape[1:]} and segment {segment.shape[2:]} must be identical"
+    )
     if len(unique_values) == 3:
         segment = segment == unique_values[:, None, None]  # (3, 256, 256)
         segment[:, 0] += segment[:, 2]
         segment = segment[:, 0]
     elif len(unique_values) == 1:
         segment = segment[:, 0]
+    else:
+        raise ValueError(f"Unexpected segmentation mask value count {len(unique_values)}")
 
     intersection = torch.logical_and(cam, segment).sum().item()
     union = torch.logical_or(cam, segment).sum().item()
@@ -867,7 +871,7 @@ def findLayerCAMThresholdAndIOU(
         model, loader, target_type="species", target_layer=layer, method=cam_type
     )
 
-    dataset = manager.get_cam_dataset(num_samples=num_samples)
+    dataset = manager.get_cam_dataset(num_samples=num_samples, output_size=(64,64))
     threshold, iou = find_optimal_threshold(dataset, num_samples=num_samples)
     del dataset
     del manager
@@ -978,7 +982,7 @@ if __name__ == "__main__":
         target_type=["species", "segmentation"], batch_size=32
     )
 
-    cam_types = ["GradCAM", "ScoreCAM", "AblationCAM"]
+    cam_types = ["GradCAM"]
 
     run_name = "run_2"
     checkpoints_dir = "checkpoints/" + run_name
@@ -1112,6 +1116,7 @@ if __name__ == "__main__":
         print(f"Generating {cam_name} dataset for {path} head {target_type}:")
         target_layer = findConvLayerByIndex(model, checkpoint["layer_index"])
         manager = CAMManager(model, train_loader, target_type, cam_name, target_layer)
+        dataset_size = len(train_loader.dataset) // 2
         dataset = manager.get_cam_dataset(output_size=(64,64))
 
         # Create directory if it doesn't exist

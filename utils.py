@@ -74,14 +74,14 @@ def resize_images(
     
     return img_resized
 
-def downsample_image(cam, target_size=(64, 64)):
+def downsample_image(cam, target_size=(64, 64), mode='bilinear'):
     """
     Downsamples a CAM tensor to a target size.
     
     Args:
         cam (torch.Tensor): The CAM tensor to downsample. Can be 2D (H, W) or 3D (B, H, W) or 4D (B, C, H, W).
-        original_size (tuple, optional): The original size of the CAM. Defaults to (256, 256).
         target_size (tuple, optional): The target size to downsample to. Defaults to (64, 64).
+        mode (str, optional): Interpolation mode. Options: 'bilinear', 'nearest', 'bicubic', 'area'. Defaults to 'bilinear'.
         
     Returns:
         torch.Tensor: The downsampled CAM tensor with the same number of dimensions as the input.
@@ -100,12 +100,15 @@ def downsample_image(cam, target_size=(64, 64)):
     # Ensure cam is in the expected 4D format (B, C, H, W) for F.interpolate
     assert len(cam.shape) == 4, f"Expected 4D tensor after reshaping, got {cam.shape}"
     
-    # Perform downsampling using bilinear interpolation
+    # Determine if we need align_corners based on mode
+    align_corners = None if mode == 'nearest' or mode == 'area' else False
+    
+    # Perform downsampling using specified interpolation mode
     downsampled_cam = F.interpolate(
         cam, 
         size=target_size, 
-        mode='bilinear', 
-        align_corners=False
+        mode=mode, 
+        align_corners=align_corners
     )
     
     # Restore original dimensions
