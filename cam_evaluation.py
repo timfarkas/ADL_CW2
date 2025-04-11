@@ -1049,7 +1049,7 @@ if __name__ == "__main__":
                     cam_settings = findOptimalCAMSettings(
                         model, loader, cam, num_samples=100
                     )
-                    _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings)
+                    _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings, os.path.join("logs", "cam_stats_"+run_name+".json"))
 
                 del model
 
