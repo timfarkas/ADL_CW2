@@ -19,7 +19,7 @@ from utils import resize_images, unnormalize
 from torch.utils.data import TensorDataset
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam import GradCAM, ScoreCAM, AblationCAM
-
+from utils import downsample_image
 
 ### Num Inputs:
 #       Breed:                  37
@@ -250,7 +250,7 @@ class CAMManager:
             dataloader=dataloader, target_type=target_type, smooth=smooth
         )
 
-    def get_cam_dataset(self, num_samples=None) -> torch.utils.data.TensorDataset:
+    def get_cam_dataset(self, num_samples=None, output_size=(64,64)) -> torch.utils.data.TensorDataset:
         self.dataset = self._generate_cam_dataset(
             self.dataloader, self.target_type, self.smooth, num_samples
         )
@@ -296,8 +296,9 @@ class CAMManager:
                 tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
             else:
                 tensor_cams = grayscale_cams
-            
-            yield batch_images, tensor_cams, gt_masks.cpu()
+                        
+            yield downsample_image(batch_images), downsample_image(tensor_cams), downsample_image(gt_masks.cpu())
+
 
     def _generate_cam_dataset(
         self, dataloader, target_type, smooth: bool, num_samples=None
