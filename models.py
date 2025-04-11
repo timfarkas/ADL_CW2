@@ -18,6 +18,7 @@ import os
 from utils import resize_images, unnormalize
 from torch.utils.data import TensorDataset
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam import GradCAM, ScoreCAM, AblationCAM
 
 
 ### Num Inputs:
@@ -239,23 +240,10 @@ class CAMManager:
             self.target_layers = [target_layer]
 
         # Initialise the appropriate CAM method
-        match method:
-            case "GradCAM":
-                from pytorch_grad_cam import GradCAM
+        self.cam_method = method
+        
 
-                self.cam = GradCAM(model=model, target_layers=self.target_layers)
-            case "ScoreCAM":
-                from pytorch_grad_cam import ScoreCAM
-
-                self.cam = ScoreCAM(model=model, target_layers=self.target_layers)
-            case "AblationCAM":
-                from pytorch_grad_cam import AblationCAM
-
-                self.cam = AblationCAM(model=model, target_layers=self.target_layers)
-            case _:
-                raise ValueError(f"Unsupported CAM method: {method}")
-
-        self.cam.batch_size = dataloader.batch_size
+        ## self.cam.batch_size = dataloader.batch_size
         
         self.generator = self.get_cam_generator(
             dataloader=dataloader, target_type=target_type, smooth=smooth
@@ -269,8 +257,17 @@ class CAMManager:
         device = next(self.model.parameters()).device
 
         for batch_images, batch_targets in dataloader:
+            cam = None
+            match self.method:
+                case "GradCAM":
+                    cam = GradCAM(model=self.model, target_layers=self.target_layers)
+                case "ScoreCAM":
+                    cam = ScoreCAM(model=self.model, target_layers=self.target_layers)
+                case "AblationCAM":
+                    cam = AblationCAM(model=self.model, target_layers=self.target_layers)
+                case _:
+                    raise ValueError(f"Unsupported CAM method: {self.method}")
             images = batch_images.to(device)
-            
             try:
                 labels = batch_targets[target_type].to(device)
                 gt_masks = batch_targets["segmentation"].to(device)
@@ -281,13 +278,16 @@ class CAMManager:
 
             targets = [ClassifierOutputTarget(label.item()) for label in labels]
 
-            grayscale_cams = self.cam(
+            
+            grayscale_cams = cam(
                 input_tensor=images,
                 targets=targets,
                 aug_smooth=smooth,
                 eigen_smooth=smooth,
             )
             tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
+        
+            
 
             yield batch_images, tensor_cams, gt_masks.cpu()
 
