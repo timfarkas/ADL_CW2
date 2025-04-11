@@ -441,7 +441,7 @@ class ClassifierHead(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),  # → (C,)
             nn.Linear(num_inputs, num_classes),
-            nn.Sigmoid(),
+            # nn.Sigmoid(), # Removed to output logits for CrossEntropyLoss
         )
 
         self.name = f"ClassifierHead({num_classes})"
@@ -462,7 +462,7 @@ class ClassifierHead(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),  # → (C,)
             nn.Linear(num_inputs, self.num_classes),
-            nn.Sigmoid(),
+            # nn.Sigmoid(), # Removed to output logits for CrossEntropyLoss
         )
 
     def forward(self, z):
