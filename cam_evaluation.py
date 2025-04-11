@@ -784,7 +784,7 @@ def find_optimal_threshold(
             
             segment = segment.unsqueeze(0).unsqueeze(0)  # (1,1,H,W)
 
-            iou = computeIoU(cam, segment, threshold, visualize=False)
+            iou = computeIoU(cam, segment.unsqueeze(1), threshold, visualize=False)
             ious.append(iou)
             if i + 1 == num_samples:
                 break
