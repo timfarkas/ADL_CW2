@@ -1067,7 +1067,7 @@ if __name__ == "__main__":
                         if "size" in checkpoint
                         else checkpoint["model_path"]
                     )
-                    settings_name = f"{head.name}_{cam}"
+                    settings_name = f"{head.name}-{head_index}_{cam}"
 
                     print(f"Generating {cam} for {path} head {target_type}")
                     cam_settings = findOptimalCAMSettings(
@@ -1127,9 +1127,15 @@ if __name__ == "__main__":
         assert head_name in [head.name for head in trainer.heads], (
             f"Head {head_name} not found in trainer.heads: {trainer.heads}"
         )
+        count = 1
         for head in trainer.heads:
-            if head.name == head_name:
+            if head.name in head_name:
+                print(f"Head name {head.name} matches {head_name}")
                 target_head = head
+                if head_name.split("-") and head_name.split("-")[-1] == str(count): 
+                    break
+                count += 1
+        print(f"Using {head_name} (number {count})")
 
         model = TrainedModel(backbone=trainer.backbone, head=target_head)
         target_type = "species" if "2" in head_name or "3" in head_name else "breed"
