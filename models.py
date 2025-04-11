@@ -204,6 +204,7 @@ class CAMManager:
         method: Literal["GradCAM", "ScoreCAM", "AblationCAM"] = "GradCAM",
         target_layer=None,
         smooth: bool = False,
+        output_size = (256, 256)
     ):
         """
         Args:
@@ -247,16 +248,16 @@ class CAMManager:
         ## self.cam.batch_size = dataloader.batch_size
         
         self.generator = self.get_cam_generator(
-            dataloader=dataloader, target_type=target_type, smooth=smooth
+            dataloader=dataloader, target_type=target_type, smooth=smooth, output_size=(256,256)
         )
 
-    def get_cam_dataset(self, num_samples=None, output_size=(64,64)) -> torch.utils.data.TensorDataset:
+    def get_cam_dataset(self, num_samples=None, output_size=(256,256)) -> torch.utils.data.TensorDataset:
         self.dataset = self._generate_cam_dataset(
-            self.dataloader, self.target_type, self.smooth, num_samples
+            self.dataloader, self.target_type, self.smooth, num_samples, output_size=output_size
         )
         return self.dataset
 
-    def get_cam_generator(self, dataloader, target_type: str, smooth: bool = False):
+    def get_cam_generator(self, dataloader, target_type: str, smooth: bool = False, output_size = (256, 256)):
         device = next(self.model.parameters()).device
 
         for batch_images, batch_targets in dataloader:
@@ -297,11 +298,11 @@ class CAMManager:
             else:
                 tensor_cams = grayscale_cams
                         
-            yield downsample_image(batch_images), downsample_image(tensor_cams), downsample_image(gt_masks.cpu())
+            yield downsample_image(batch_images,target_size= output_size), downsample_image(tensor_cams,target_size= output_size), downsample_image(gt_masks.cpu(),target_size= output_size,mode="nearest")
 
 
     def _generate_cam_dataset(
-        self, dataloader, target_type, smooth: bool, num_samples=None
+        self, dataloader, target_type, smooth: bool, num_samples=None, output_size=(256,256)
     ):
         """
         Generate a dataset with CAM masks for self-training.
@@ -319,7 +320,7 @@ class CAMManager:
         all_images, all_cams, all_masks = [], [], []
         batch_size = dataloader.batch_size
         for i, (images, cams, masks) in enumerate(
-            self.get_cam_generator(dataloader, target_type, smooth)
+            self.get_cam_generator(dataloader, target_type, smooth, output_size)
         ):
             all_images.append(images)
             all_cams.append(cams)
