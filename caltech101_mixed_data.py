@@ -94,9 +94,13 @@ class MixedCaltechPetDataset(Dataset):
 
         # Make sure there are enough Caltech images
         if caltech_insertions > len(caltech_indices):
-            # If required repeat Caltech indices
+            print(f"Warning: Not enough unique Caltech images selected. Need {caltech_insertions} but only have {len(caltech_indices)}.")
+            print(f"Some Caltech images will be repeated in the dataset.")
             multiplier = (caltech_insertions // len(caltech_indices)) + 1
             caltech_indices = caltech_indices * multiplier
+
+        else:
+            print(f"Sufficient Caltech images available: {len(caltech_indices)} unique images for {caltech_insertions} insertions.")
 
         caltech_indices = caltech_indices[:caltech_insertions]
         caltech_counter = 0
@@ -397,7 +401,9 @@ def visualize_mixed_batch(dataloader, num_samples=5):
 # Example usage
 if __name__ == "__main__":
     # Selected classes from Caltech101
-    selected_classes = ['umbrella', 'chair', 'elephant', 'anchor', 'camera', 'cup', 'ferry', 'lamp', 'sunflower']
+    selected_classes = ['umbrella', 'chair', 'elephant', 'anchor', 'camera', 'cup', 'ferry', 'lamp', 'sunflower',
+                        'rhino', 'starfish', 'laptop', 'flamingo', 'dolphin', 'helicopter', 'crocodile', 'scissors',
+                        'crab', 'stapler', 'scorpion', 'water_lilly', 'car_side', 'ceiling_fan', 'stop_sign', 'gramophone']
 
     # Create mixed dataloaders with Caltech101 and OxfordPet images
     train_loader, val_loader, test_loader = create_mixed_caltech_pet_dataloaders(
