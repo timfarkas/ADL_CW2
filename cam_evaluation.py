@@ -1006,7 +1006,7 @@ if __name__ == "__main__":
 
 
     print("\n------------------------ Evaluating CAMS ---------------------\n")
-    print(f"Iterating through {len(checkpoint_dicts[run_name])} checkpoints...")
+    print(f"{run_name}: Iterating through {len(checkpoint_dicts[run_name])} checkpoints...")
     ### Load model checkpoint
     if generate_only:
         print(
