@@ -1040,6 +1040,7 @@ if __name__ == "__main__":
             ### enumerate through heads
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
+                model.to(torch.device("cuda"))
                 target_type = path_parts[head_index + 1]
                 
                 if not target_type in ['species', 'bbox', 'breed']:
