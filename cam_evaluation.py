@@ -1041,6 +1041,11 @@ if __name__ == "__main__":
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
                 model.to(torch.device("cuda"))
+                
+                print(f"Evaluating {path} head {head.name} with {checkpoint['epoch']} epoch")
+                print(f"head_index: {head_index}")
+                print(f"{len(path_parts)} parts")
+                
                 target_type = path_parts[head_index]
 
                 """
