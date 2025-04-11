@@ -86,7 +86,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
             ],
-            "epoch": 5,
+            "epoch": 20,
             "size": "50",
         },
         # res_breed
@@ -983,12 +983,12 @@ def getBestCAMCheckpoints(num_best=5, json_path="logs/cam_stats.json") -> List[d
 
 if __name__ == "__main__":
     
-    cam_types = ["GradCAM"]
+    cam_types = ["ClassicCAM", "GradCAM"]
 
-    run_name = "run_2"
+    run_name = "run_1"
     checkpoints_dir = "checkpoints/" + run_name
     generate_only = False
-    num_best = 10
+    num_best = 5
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
     use_mixed_loader = False ## SET THIS TO TRUE IF USING MIXED LOADER
 
@@ -1087,8 +1087,6 @@ if __name__ == "__main__":
     for idx, checkpoint in enumerate(
         best_checkpoints
     ):  # dict_keys(['model_name', 'settings_name', 'layer_index', 'threshold', 'iou'])
-        if idx < 4:
-            continue
         path = checkpoint["model_name"]
         path_parts = path.split("_")
         checkpoint_path = os.path.join(checkpoints_dir, path)
@@ -1120,10 +1118,11 @@ if __name__ == "__main__":
         # Extract the cam type and head setting
         settings = checkpoint["settings_name"]
         head_name, cam_name = settings.split("_")
-        print(head_name, cam_name)
+        head_name = head_name.split("-")[0]
         target_head = None
 
         ### find head reference
+        print([head.name for head in trainer.heads])
         assert head_name in [head.name for head in trainer.heads], (
             f"Head {head_name} not found in trainer.heads: {trainer.heads}"
         )
