@@ -13,12 +13,13 @@ from models import (
 )
 import torch
 import torch.nn as nn
-import data
+import mixed_data
 import matplotlib.pyplot as plt
 import json
 import os
 from typing import List, Tuple, Optional, Union, Any
 import glob
+import data
 from utils import downsample_image
 
 checkpoint_dicts = {
@@ -85,7 +86,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
             ],
-            "epoch": 20,
+            "epoch": 5,
             "size": "50",
         },
         # res_breed
@@ -188,107 +189,107 @@ checkpoint_dicts = {
         },
     ],
     "run_2": [
-        # --- CNN Models ---
-        {
-            "model_path": "cnn_species_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
-                ClassifierHead(NUM_BREEDS, adapter="CNN"),
-                BboxHead(adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_breed_species",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
-            ],
-            "epoch": 15,
-        },
-        {
-            "model_path": "cnn_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="CNN"),
-                BboxHead(adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_species_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
-                BboxHead(adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_bbox",
-            "heads": [BboxHead(adapter="CNN")],
-            "epoch": 10,
-        },
-        # --- ResNet Models ---
-        # res_breed_species
-        {
-            "model_path": "res_breed_species",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res18"),
-                ClassifierHead(NUM_SPECIES, adapter="res18"),
-            ],
-            "epoch": 20,
-            "size": "18",
-        },
-        {
-            "model_path": "res_breed_species",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res50"),
-                ClassifierHead(NUM_SPECIES, adapter="res50"),
-            ],
-            "epoch": 20,
-            "size": "50",
-        },
+        # # --- CNN Models ---
+        # {
+        #     "model_path": "cnn_species_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="CNN"),
+        #         ClassifierHead(NUM_BREEDS, adapter="CNN"),
+        #         BboxHead(adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_breed_species",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="CNN"),
+        #         ClassifierHead(NUM_SPECIES, adapter="CNN"),
+        #     ],
+        #     "epoch": 15,
+        # },
+        # {
+        #     "model_path": "cnn_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="CNN"),
+        #         BboxHead(adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_breed",
+        #     "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_species_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="CNN"),
+        #         BboxHead(adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_species",
+        #     "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_bbox",
+        #     "heads": [BboxHead(adapter="CNN")],
+        #     "epoch": 10,
+        # },
+        # # --- ResNet Models ---
+        # # res_breed_species
+        # {
+        #     "model_path": "res_breed_species",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res18"),
+        #         ClassifierHead(NUM_SPECIES, adapter="res18"),
+        #     ],
+        #     "epoch": 20,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_breed_species",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res50"),
+        #         ClassifierHead(NUM_SPECIES, adapter="res50"),
+        #     ],
+        #     "epoch": 5,
+        #     "size": "50",
+        # },
         # res_breed_bbox
-        {
-            "model_path": "res_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res18"),
-                BboxHead(adapter="res18"),
-            ],
-            "epoch": 10,
-            "size": "18",
-        },
-        {
-            "model_path": "res_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res50"),
-                BboxHead(adapter="res50"),
-            ],
-            "epoch": 15,
-            "size": "50",
-        },
-        # res_breed
-        {
-            "model_path": "res_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
-            "epoch": 15,
-            "size": "18",
-        },
-        {
-            "model_path": "res_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="res50")],
-            "epoch": 5,
-            "size": "50",
-        },
+        # {
+        #     "model_path": "res_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res18"),
+        #         BboxHead(adapter="res18"),
+        #     ],
+        #     "epoch": 20,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res50"),
+        #         BboxHead(adapter="res50"),
+        #     ],
+        #     "epoch": 15,
+        #     "size": "50",
+        # },
+        # # res_breed
+        # {
+        #     "model_path": "res_breed",
+        #     "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
+        #     "epoch": 15,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_breed",
+        #     "heads": [ClassifierHead(NUM_BREEDS, adapter="res50")],
+        #     "epoch": 5,
+        #     "size": "50",
+        # },
         # res_species_bbox
         {
             "model_path": "res_species_bbox",
@@ -296,7 +297,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
                 BboxHead(adapter="res50"),
             ],
-            "epoch": 10,
+            "epoch": 15,
             "size": "50",
         },
         {
@@ -815,6 +816,7 @@ def find_optimal_threshold(
 def findOptimalCAMSettings(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
+    target_type : str,
     cam_type: str,
     num_samples: int = 50,
 ) -> List[Tuple[int, float, float]]:
@@ -839,7 +841,7 @@ def findOptimalCAMSettings(
     layers = [conv_layers[0]] if cam_type == "ClassicCAM" else conv_layers
     for i, layer in enumerate(layers):
         threshold, iou = findLayerCAMThresholdAndIOU(
-            model, layer, loader, cam_type, num_samples=num_samples
+            model, layer, loader, target_type, cam_type, num_samples=num_samples
         )
         optimal.append((i, threshold, iou))
     return optimal
@@ -849,6 +851,7 @@ def findLayerCAMThresholdAndIOU(
     model: nn.Module,
     layer: nn.Conv2d,
     loader: torch.utils.data.DataLoader,
+    target_type: str,
     cam_type: str,
     num_samples: int = 50,
 ) -> Tuple[float, float]:
@@ -868,7 +871,7 @@ def findLayerCAMThresholdAndIOU(
             - float: The IoU score at the optimal threshold
     """
     manager = CAMManager(
-        model, loader, target_type="species", target_layer=layer, method=cam_type
+        model, loader, target_type=target_type, target_layer=layer, method=cam_type
     )
 
     dataset = manager.get_cam_dataset(num_samples=num_samples, output_size=(64,64))
@@ -978,10 +981,7 @@ def getBestCAMCheckpoints(num_best=5, json_path="logs/cam_stats.json") -> List[d
 
 
 if __name__ == "__main__":
-    train_loader, loader, _ = data.create_dataloaders(
-        target_type=["species", "segmentation"], batch_size=32
-    )
-
+    
     cam_types = ["GradCAM"]
 
     run_name = "run_2"
@@ -989,6 +989,18 @@ if __name__ == "__main__":
     generate_only = False
     num_best = 10
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
+    use_mixed_loader = False ## SET THIS TO TRUE IF USING MIXED LOADER
+
+
+    if use_mixed_loader:
+        train_loader, loader, _ = mixed_data.create_mixed_dataloaders(
+        target_type=["species", "breed", "is_animal", "segmentation"], batch_size=32 ## fetch all types of data
+        )
+    else:
+        train_loader, loader, _ = data.create_dataloaders(
+        target_type=["species", "breed", "segmentation"], batch_size=32 ## fetch all types of data
+        )
+
 
     print("\n------------------------ Evaluating CAMS ---------------------\n")
     print(f"Iterating through {len(checkpoint_dicts[run_name])} checkpoints...")
@@ -1026,6 +1038,14 @@ if __name__ == "__main__":
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
                 target_type = path_parts[head_index + 1]
+                
+                if not target_type in ['species', 'bbox', 'breed']:
+                    if use_mixed_loader:
+                        print(f"Got target type '{target_type} from path, assuming is_animal.'")
+                        target_type = ['is_animal']
+                    else:
+                        raise ValueError(f"Unexpected target type {target_type}")
+
 
                 """
                 According to a quick research, and also the results of the CAMS
@@ -1050,7 +1070,7 @@ if __name__ == "__main__":
 
                     print(f"Generating {cam} for {path} head {target_type}")
                     cam_settings = findOptimalCAMSettings(
-                        model, loader, cam, num_samples=100
+                        model, loader, target_type, cam, num_samples=100
                     )
                     _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings, os.path.join("logs", "cam_stats_"+run_name+".json"))
 
@@ -1116,7 +1136,6 @@ if __name__ == "__main__":
         print(f"Generating {cam_name} dataset for {path} head {target_type}:")
         target_layer = findConvLayerByIndex(model, checkpoint["layer_index"])
         manager = CAMManager(model, train_loader, target_type, cam_name, target_layer)
-        dataset_size = len(train_loader.dataset) // 2
         dataset = manager.get_cam_dataset(output_size=(64,64))
 
         # Create directory if it doesn't exist
