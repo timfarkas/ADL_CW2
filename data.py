@@ -1,5 +1,3 @@
-# AI Usage Statement: AI assistance was used to help
-# assist docstrings for this code.
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
@@ -386,8 +384,9 @@ class OxfordPetDataset(Dataset):
         Raises:
             ValueError: If target_type is not recognized
         """
-        # Return appropriate target
-        if target_type in ["class", "breed"]:
+        if target_type == "is_animal":
+            return 1  # All images in OxfordPetDataset are animals
+        elif target_type in ["class", "breed"]:
             return class_idx
         elif target_type == "species":
             return species_idx
@@ -734,6 +733,7 @@ if __name__ == "__main__":
         plt.title(title, fontsize=8)
         plt.axis('off')
 
-    plt.tight_layout()
-    plt.show()
 
+    plt.title(title)
+    plt.axis('off')
+    plt.show()

@@ -201,5 +201,5 @@ cython_debug/
 #data
 /data
 test_dataloader.py
-checkpoints/
+checkpoints/*
 cam_datasets/
