@@ -248,7 +248,7 @@ class CAMManager:
         ## self.cam.batch_size = dataloader.batch_size
         
         self.generator = self.get_cam_generator(
-            dataloader=dataloader, target_type=target_type, smooth=smooth, output_size=(256,256)
+            dataloader=dataloader, target_type=target_type, smooth=smooth, output_size=output_size
         )
 
     def get_cam_dataset(self, num_samples=None, output_size=(256,256)) -> torch.utils.data.TensorDataset:
