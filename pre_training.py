@@ -149,16 +149,16 @@ class Trainer():
         checkpoint = torch.load(checkpoint_path)
         
         # Load backbone weights
-        self.backbone.load_state_dict(checkpoint['backbone_state_dict'])
+        self.backbone.load_state_dict(checkpoint['backbone_state_dict'], map_location='cuda') # avoid GPU RAM surge by loading to CPU first
         
         # Load head weights
         assert len(self.heads) == len(checkpoint['heads_state_dict']), "Number of heads doesn't match checkpoint"
         for head, state_dict in zip(self.heads, checkpoint['heads_state_dict']):
-            head.load_state_dict(state_dict)
+            head.load_state_dict(state_dict, map_location='cuda') # avoid GPU RAM surge by loading to CPU first
         
         # Load optimizer if available
         if self.optimizer is not None and 'optimizer_state_dict' in checkpoint:
-            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'], map_location='cuda')
         
         # Extract and return additional info
         additional_info = {k: v for k, v in checkpoint.items() 
