@@ -771,7 +771,6 @@ if __name__ == "__main__":
         train_loader, val_loader, _ = mixed_data.create_mixed_dataloaders(
             batch_size=batch_size,
             target_type=run_dict["loader_targets"],
-            gi
             mixing_ratio=5,
             use_augmentation=True,
             lazy_loading=False
