@@ -88,8 +88,12 @@ def downsample_image(cam, target_size=(64, 64), mode='nearest'):
     """
     import torch.nn.functional as F
     
-    # Save original shape to restore at the end
+    # Save original shape to restore at the end and convert dtype if needed
     original_shape = cam.shape
+    original_dtype = cam.dtype
+    needs_conversion = cam.dtype in (torch.long, torch.int64, torch.int32, torch.int16, torch.int8)
+    if needs_conversion:
+        cam = cam.float()
     
     # Handle different input dimensions
     if len(original_shape) == 2:  # (H, W)
@@ -116,7 +120,9 @@ def downsample_image(cam, target_size=(64, 64), mode='nearest'):
         downsampled_cam = downsampled_cam.squeeze(0).squeeze(0)  # Remove batch and channel dims
     elif len(original_shape) == 3:  # (B, H, W)
         downsampled_cam = downsampled_cam.squeeze(1)  # Remove channel dim
-    
+        # Convert back to original dtype if needed
+    if needs_conversion:
+        downsampled_cam = downsampled_cam.to(original_dtype)
     return downsampled_cam
 
 
