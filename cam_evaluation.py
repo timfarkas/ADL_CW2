@@ -517,7 +517,9 @@ checkpoint_dicts = {
 }
 
 
-def model_str_to_model_schema(model_str: str, epoch: int, device: str = None) -> dict:
+def model_str_to_model_schema(
+    model_str: str, epoch: int, device: str = None, uses_mixed_data: bool = False
+) -> dict:
     """
     Convert a model string to a model schema dictionary.
 
@@ -561,6 +563,9 @@ def model_str_to_model_schema(model_str: str, epoch: int, device: str = None) ->
             heads.append(ClassifierHead(NUM_SPECIES, adapter=adapter))
         elif part == "breed":
             heads.append(ClassifierHead(NUM_BREEDS, adapter=adapter))
+
+    if uses_mixed_data:
+        heads.append(ClassifierHead(2, adapter=adapter))
 
     # Create and return the schema
     schema = {
@@ -989,7 +994,7 @@ if __name__ == "__main__":
 
     run_name = "run_3"
     checkpoints_dir = "checkpoints/" + run_name
-    generate_only = False
+    generate_only = True
     num_best = 5
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
     use_mixed_loader = True ## SET THIS TO TRUE IF USING MIXED LOADER
@@ -1106,7 +1111,10 @@ if __name__ == "__main__":
         trainer = Trainer()
 
         model_schema = model_str_to_model_schema(
-            checkpoint["model_name"], epoch=None, device=device
+            checkpoint["model_name"],
+            epoch=None,
+            device=device,
+            uses_mixed_data=use_mixed_loader,
         )
 
         trainer.set_model(
