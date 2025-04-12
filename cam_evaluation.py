@@ -258,7 +258,7 @@ checkpoint_dicts = {
             "epoch": 5,
             "size": "50",
         },
-        #res_breed_bbox
+        # res_breed_bbox
         {
             "model_path": "res_breed_bbox",
             "heads": [
@@ -538,7 +538,7 @@ def model_str_to_model_schema(model_str: str, epoch: int, device : str = None) -
     else:  # ResNet
         adapter = f"res{size}"
         backbone = ResNetBackbone(model_type=f"resnet{size}")
-
+    
     # Create heads based on the model parts
     heads = []
     for part in parts:
@@ -548,6 +548,10 @@ def model_str_to_model_schema(model_str: str, epoch: int, device : str = None) -
             heads.append(ClassifierHead(NUM_SPECIES, adapter=adapter))
         elif part == "breed":
             heads.append(ClassifierHead(NUM_BREEDS, adapter=adapter))
+
+    if device:
+        backbone = backbone.to(device)
+        heads = [head.to(device) for head in heads]
 
     # Create and return the schema
     schema = {
@@ -973,17 +977,17 @@ if __name__ == "__main__":
     
     cam_types = ["ClassicCAM", "GradCAM"]
 
-    run_name = "run_1"
+    run_name = "run_3"
     checkpoints_dir = "checkpoints/" + run_name
     generate_only = False
     num_best = 5
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
-    use_mixed_loader = False ## SET THIS TO TRUE IF USING MIXED LOADER
+    use_mixed_loader = True ## SET THIS TO TRUE IF USING MIXED LOADER
     device = "mps"
 
     if use_mixed_loader:
         train_loader, loader, _ = mixed_data.create_mixed_dataloaders(
-        target_type=["species", "breed", "is_animal", "segmentation"], batch_size=32 ## fetch all types of data
+        target_type=["species", "breed", "is_animal", "segmentation"], bg_directory="landscapes", batch_size=32, mixing_ratio=99999999999 ## fetch all types of data but never show background
         )
     else:
         train_loader, loader, _ = data.create_dataloaders(
@@ -1008,6 +1012,13 @@ if __name__ == "__main__":
             path_parts = path.split("_")
             checkpoint_path = os.path.join(checkpoints_dir, path)
 
+            if run_name == "run_3":
+                assert use_mixed_loader, "Mixed loader must be set to true for run 3"
+                # Add is_animal classifier head to match the pre-training setup
+                adapter = "CNN" if path_parts[0] == "cnn" else f"res{checkpoint['size']}"
+                checkpoint["heads"].append(ClassifierHead(num_classes=2, adapter=adapter))
+
+
             trainer = Trainer()
             if path_parts[0] == "cnn":
                 backbone = CNNBackbone()
@@ -1026,12 +1037,13 @@ if __name__ == "__main__":
             ### enumerate through heads
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
-                target_type = path_parts[head_index + 1]
+
+                target_type = path_parts[head_index + 1] if (head_index + 1) < len(path_parts) else None
                 
                 if not target_type in ['species', 'bbox', 'breed']:
                     if use_mixed_loader:
                         print(f"Got target type '{target_type} from path, assuming is_animal.'")
-                        target_type = ['is_animal']
+                        target_type = 'is_animal'
                     else:
                         raise ValueError(f"Unexpected target type {target_type}")
 
@@ -1086,6 +1098,7 @@ if __name__ == "__main__":
         trainer.set_model(
             model_schema["backbone"], model_schema["heads"], checkpoint_path
         )
+        
 
         ## find checkpoint file and epoch using glob
         checkpoint_pattern = os.path.join(
@@ -1110,11 +1123,10 @@ if __name__ == "__main__":
         target_head = None
 
         ### find head reference
-        print([head.name for head in trainer.heads])
-        assert head_name in [head.name for head in trainer.heads], (
+        assert head_name in [head.name for head in trainer.heads] or any(head.name in head_name for head in trainer.heads), (
             f"Head {head_name} not found in trainer.heads: {trainer.heads}"
         )
-        count = 1
+        count = 0
         for head in trainer.heads:
             if head.name in head_name:
                 print(f"Head name {head.name} matches {head_name}")
