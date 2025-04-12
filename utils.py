@@ -74,7 +74,7 @@ def resize_images(
     
     return img_resized
 
-def downsample_image(cam, target_size=(64, 64), mode='bilinear'):
+def downsample_image(cam, target_size=(64, 64), mode='nearest'):
     """
     Downsamples a CAM tensor to a target size.
     
