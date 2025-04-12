@@ -750,7 +750,7 @@ if __name__ == "__main__":
     
     print(f"Using {device}")
 
-    for i, run_dict in enumerate(run_dicts):    
+    for i, run_dict in enumerate(run_dicts):
         adapter = "CNN" if run_dict["backbone"] == "cnn" else "Res"
         # Regular classifier head with num_classes = 2 instead of AnimalClassifierHead
         run_dict["heads"].append(ClassifierHead(num_classes=2, adapter=adapter))
