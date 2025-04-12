@@ -265,7 +265,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="res18"),
                 BboxHead(adapter="res18"),
             ],
-            "epoch": 20,
+            "epoch": 10,
             "size": "18",
         },
         {
@@ -274,14 +274,14 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 BboxHead(adapter="res50"),
             ],
-            "epoch": 15,
+            "epoch": 10,
             "size": "50",
         },
         # res_breed
         {
             "model_path": "res_breed",
             "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
-            "epoch": 15,
+            "epoch": 5,
             "size": "18",
         },
         {
@@ -313,7 +313,7 @@ checkpoint_dicts = {
         {
             "model_path": "res_species",
             "heads": [ClassifierHead(NUM_SPECIES, adapter="res18")],
-            "epoch": 10,
+            "epoch": 20,
             "size": "18",
         },
         {
@@ -322,19 +322,6 @@ checkpoint_dicts = {
             "epoch": 15,
             "size": "50",
         },
-        # res_bbox
-        {
-            "model_path": "res_bbox",
-            "heads": [BboxHead(adapter="res50")],
-            "epoch": 5,
-            "size": "50",
-        },
-        {
-            "model_path": "res_bbox",
-            "heads": [BboxHead(adapter="res18")],
-            "epoch": 10,
-            "size": "18",
-        },
         {
             "model_path": "res_species_breed_bbox",
             "heads": [
@@ -342,7 +329,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="res18"),
                 BboxHead(adapter="res18"),
             ],
-            "epoch": 15,
+            "epoch": 20,
             "size": "18",
         },
         {
@@ -352,7 +339,7 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 BboxHead(adapter="res50"),
             ],
-            "epoch": 15,
+            "epoch": 5,
             "size": "50",
         },
     ],
@@ -517,7 +504,7 @@ checkpoint_dicts = {
 }
 
 
-def model_str_to_model_schema(model_str: str, epoch: int) -> dict:
+def model_str_to_model_schema(model_str: str, epoch: int, device : str = None) -> dict:
     """
     Convert a model string to a model schema dictionary.
 
@@ -528,6 +515,7 @@ def model_str_to_model_schema(model_str: str, epoch: int) -> dict:
     Returns:
         dict: A dictionary containing model configuration
     """
+    print(f"Initializing model on {device}")
     # Parse the model string
     parts = model_str.split("_")
 
@@ -991,7 +979,7 @@ if __name__ == "__main__":
     num_best = 5
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
     use_mixed_loader = False ## SET THIS TO TRUE IF USING MIXED LOADER
-
+    device = "mps"
 
     if use_mixed_loader:
         train_loader, loader, _ = mixed_data.create_mixed_dataloaders(
@@ -1093,7 +1081,7 @@ if __name__ == "__main__":
 
         trainer = Trainer()
 
-        model_schema = model_str_to_model_schema(checkpoint["model_name"], "")
+        model_schema = model_str_to_model_schema(checkpoint["model_name"], epoch=None,device=device)
 
         trainer.set_model(
             model_schema["backbone"], model_schema["heads"], checkpoint_path
@@ -1137,6 +1125,7 @@ if __name__ == "__main__":
         print(f"Using {head_name} (number {count})")
 
         model = TrainedModel(backbone=trainer.backbone, head=target_head)
+        model.to(device)
         target_type = "species" if "2" in head_name or "3" in head_name else "breed"
 
         print(f"Generating {cam_name} dataset for {path} head {target_type}:")
