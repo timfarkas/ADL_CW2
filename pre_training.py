@@ -146,15 +146,15 @@ class Trainer():
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
         
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device("cuda"))
         
         # Load backbone weights
-        self.backbone.load_state_dict(checkpoint['backbone_state_dict'])
+        self.backbone.load_state_dict(checkpoint['backbone_state_dict']) # avoid GPU RAM surge by loading to CPU first
         
         # Load head weights
         assert len(self.heads) == len(checkpoint['heads_state_dict']), "Number of heads doesn't match checkpoint"
         for head, state_dict in zip(self.heads, checkpoint['heads_state_dict']):
-            head.load_state_dict(state_dict)
+            head.load_state_dict(state_dict) # avoid GPU RAM surge by loading to CPU first
         
         # Load optimizer if available
         if self.optimizer is not None and 'optimizer_state_dict' in checkpoint:
@@ -750,7 +750,7 @@ if __name__ == "__main__":
     
     print(f"Using {device}")
 
-    for i, run_dict in enumerate(run_dicts):    
+    for i, run_dict in enumerate(run_dicts):
         adapter = "CNN" if run_dict["backbone"] == "cnn" else "Res"
         # Regular classifier head with num_classes = 2 instead of AnimalClassifierHead
         run_dict["heads"].append(ClassifierHead(num_classes=2, adapter=adapter))
@@ -771,7 +771,6 @@ if __name__ == "__main__":
         train_loader, val_loader, _ = mixed_data.create_mixed_dataloaders(
             batch_size=batch_size,
             target_type=run_dict["loader_targets"],
-            bg_directory="bg-20k/train",
             mixing_ratio=5,
             use_augmentation=True,
             lazy_loading=False
@@ -794,4 +793,4 @@ if __name__ == "__main__":
                 trainer.set_model(backbone, run_dict['heads'], model_path+"_"+size)
                 trainer.set_optimizer(learning_rate, weight_decay)
                 print("Trainer set up successfully!")
-                trainer.fit_sgd(device=device)        
+                trainer.fit_sgd(device=device)

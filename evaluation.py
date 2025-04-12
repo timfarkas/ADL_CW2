@@ -42,7 +42,7 @@ def load_test_pet_data(batch_size: int,resize_size: int = 256) -> torch.utils.da
     )
 
     test_loader = torch.utils.data.DataLoader(
-        test_set, batch_size=batch_size, shuffle=False, num_workers=4
+        test_set, batch_size=batch_size, shuffle=False, num_workers=12
     )
 
     return test_loader
