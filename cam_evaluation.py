@@ -1043,7 +1043,7 @@ if __name__ == "__main__":
             ### enumerate through heads
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
-                
+                model.to(device)
                 
                 target_type = (
                     path_parts[head_index + 1]
