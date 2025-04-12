@@ -257,7 +257,7 @@ class MixedDataset(Dataset):
 
 
 def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                             test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
+                             test_ratio=0.15, resize_size=64, random_seed=RANDOM_SEED, target_type=["class"],
                              normalize_bbox=True, data_directory="oxford_pet_data",
                              bg_directory=None, mixing_ratio=5, bg_label=-1,
                              use_augmentation=False, lazy_loading=True):
@@ -284,7 +284,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     if bg_directory is None or not os.path.exists(bg_directory):
         print("Warning: Background directory not found or not specified. Using standard dataloaders.")
         return create_dataloaders(
-            batch_size, train_ratio, val_ratio, test_ratio, random_seed,
+            batch_size, train_ratio, val_ratio, test_ratio, resize_size, random_seed,
             target_type, normalize_bbox, data_directory, use_augmentation, lazy_loading
         )
 
