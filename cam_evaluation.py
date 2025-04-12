@@ -66,7 +66,6 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_SPECIES, adapter="CNN"),
                 ClassifierHead(NUM_BREEDS, adapter="CNN"),
                 BboxHead(adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
             ],
             "epoch": 15,
         },
@@ -352,7 +351,6 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_SPECIES, adapter="CNN"),
                 ClassifierHead(NUM_BREEDS, adapter="CNN"),
                 BboxHead(adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
             ],
             "epoch": 20,
         },
@@ -361,13 +359,12 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_BREEDS, adapter="CNN"),
                 ClassifierHead(NUM_SPECIES, adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
             ],
             "epoch": 20,
         },
         {
             "model_path": "cnn_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN"), ClassifierHead(NUM_SPECIES, adapter="CNN")],
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
             "epoch": 15,
         },
         {
@@ -375,7 +372,6 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_BREEDS, adapter="CNN"),
                 BboxHead(adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
             ],
             "epoch": 20,
         },
@@ -384,16 +380,15 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_SPECIES, adapter="CNN"),
                 BboxHead(adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
             ],
             "epoch": 20,
         },
         {
             "model_path": "cnn_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN"), ClassifierHead(NUM_SPECIES, adapter="CNN")],
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
             "epoch": 20,
         },
-        {"model_path": "cnn_bbox", "heads": [BboxHead(adapter="CNN"), ClassifierHead(NUM_SPECIES, "CNN")], "epoch": 20},
+        {"model_path": "cnn_bbox", "heads": [BboxHead(adapter="CNN")], "epoch": 20},
         # --- ResNet Models ---
         {
             "model_path": "res_species_breed_bbox",
@@ -401,7 +396,6 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_SPECIES, adapter="res18"),
                 ClassifierHead(NUM_BREEDS, adapter="res18"),
                 BboxHead(adapter="res18"),
-                ClassifierHead(NUM_SPECIES, adapter="res18")
             ],
             "epoch": 20,
             "size": "18",
@@ -411,7 +405,6 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_BREEDS, adapter="res18"),
                 ClassifierHead(NUM_SPECIES, adapter="res18"),
-                ClassifierHead(NUM_SPECIES, adapter="res18")
             ],
             "epoch": 5,
             "size": "18",
@@ -422,7 +415,6 @@ checkpoint_dicts = {
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 BboxHead(adapter="res50"),
-                ClassifierHead(NUM_SPECIES, adapter="res50")
             ],
             "epoch": 15,
             "size": "50",
@@ -432,7 +424,6 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
-                ClassifierHead(NUM_SPECIES, adapter="res50")
             ],
             "epoch": 15,
             "size": "50",
@@ -442,14 +433,13 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_BREEDS, adapter="res18"),
                 BboxHead(adapter="res18"),
-                ClassifierHead(NUM_SPECIES, adapter="res18")
             ],
             "epoch": 15,
             "size": "18",
         },
         {
             "model_path": "res_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="res18"),ClassifierHead(NUM_SPECIES, adapter="res50")],
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
             "epoch": 20,
             "size": "18",
         },
@@ -458,20 +448,19 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_BREEDS, adapter="res50"),
                 BboxHead(adapter="res50"),
-                ClassifierHead(NUM_SPECIES, adapter="res50")
             ],
             "epoch": 10,
             "size": "50",
         },
         {
             "model_path": "res_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="res50"), ClassifierHead(NUM_SPECIES, adapter="res50")],
+            "heads": [ClassifierHead(NUM_BREEDS, adapter="res50")],
             "epoch": 10,
             "size": "50",
         },
         {
             "model_path": "res_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="res18"), ClassifierHead(NUM_SPECIES, adapter="res18")],
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="res18")],
             "epoch": 10,
             "size": "18",
         },
@@ -480,14 +469,13 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_SPECIES, adapter="res18"),
                 BboxHead(adapter="res18"),
-                ClassifierHead(NUM_SPECIES, adapter="res18")
             ],
-            "epoch": 10,
+            "epoch": 15,
             "size": "18",
         },
         {
             "model_path": "res_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="res50"), ClassifierHead(NUM_SPECIES, adapter="res50")],
+            "heads": [ClassifierHead(NUM_SPECIES, adapter="res50")],
             "epoch": 15,
             "size": "50",
         },
@@ -496,20 +484,19 @@ checkpoint_dicts = {
             "heads": [
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
                 BboxHead(adapter="res50"),
-                ClassifierHead(NUM_SPECIES, adapter="res50")
             ],
-            "epoch": 15,
+            "epoch": 20,
             "size": "50",
         },
         {
             "model_path": "res_bbox",
-            "heads": [BboxHead(adapter="res18"),ClassifierHead(NUM_SPECIES, adapter="res18")],
+            "heads": [BboxHead(adapter="res18")],
             "epoch": 15,
             "size": "18",
         },
         {
             "model_path": "res_bbox",
-            "heads": [BboxHead(adapter="res50"), ClassifierHead(NUM_SPECIES, adapter="res50")],
+            "heads": [BboxHead(adapter="res50")],
             "epoch": 20,
             "size": "50",
         },
