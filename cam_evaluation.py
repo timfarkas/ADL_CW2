@@ -986,14 +986,13 @@ if __name__ == "__main__":
     
     cam_types = ["ClassicCAM", "GradCAM"]
 
-
     run_name = "run_3"
     checkpoints_dir = "checkpoints/" + run_name
     generate_only = False
     num_best = 5
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
     use_mixed_loader = False ## SET THIS TO TRUE IF USING MIXED LOADER
-    device = "mps"
+    device = "cuda"
 
     if use_mixed_loader:
         train_loader, loader, _ = mixed_data.create_mixed_dataloaders(
