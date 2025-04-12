@@ -18,6 +18,25 @@ def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
         torch.where(categories == 1, torch.zeros_like(categories), categories),
     )
 
+def get_binary_from_normalization(x: torch.Tensor) -> torch.Tensor:
+    """
+    Converts normalized [0,1] segmentation tensor into:
+    - 0.0039 (label 1) → 1 (foreground)
+    - 0.0078 (label 2) → 0 (background)
+    - 0.0118 (label 3) → 1 (boundary → treated as foreground)
+    """
+    categories = (x * 255 - 1).round().long()  # Convert to int labels: 0, 1, 2
+
+    # Map: 0 → 1, 1 → 0, 2 → 1
+    # categories = torch.where(
+    #     categories == 0, torch.tensor(1, device=x.device),
+    #     torch.where(categories == 1, torch.tensor(0, device=x.device), torch.tensor(1, device=x.device))
+    # )
+    categories = torch.where(
+        categories == 0, torch.tensor(1, device=x.device),  # 0 → 1 (foreground)
+        torch.tensor(0, device=x.device)  # else → 0 (background)
+    )
+    return categories
 
 def load_test_pet_data(batch_size: int,resize_size: int = 256) -> torch.utils.data.DataLoader:
     """
@@ -127,7 +146,7 @@ def evaluate_model(
         batch_loss=loss_funciton(masks_pre,masks_gt)
         masks_pre_binary= binarise_predictions(masks_pre, threshold)
         masks_gt = masks_gt.to(device)
-        masks_gt_binary = get_categories_from_normalization(masks_gt)
+        masks_gt_binary = get_binary_from_normalization(masks_gt)
 
         '''checking by visualization'''
         # masks_pre_vis = torch.sigmoid(masks_pre[:4].detach().cpu())
@@ -230,13 +249,13 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
     total_loss = 0.0
     output_dir = "evaluation_visualization"
     os.makedirs(output_dir, exist_ok=True)
-    loss_funciton=nn.MSELoss()
+    loss_funciton=nn.BCEWithLogitsLoss()
 
     for i, (images, masks_pre, masks_gt) in enumerate(dataloader):
         masks_pre = masks_pre.to(device)
         masks_pre_binary=binarise_predictions(masks_pre,threshold)
         masks_gt = masks_gt.to(device)
-        masks_gt_binary = get_categories_from_normalization(masks_gt)
+        masks_gt_binary = get_binary_from_normalization(masks_gt)
         batch_loss=loss_funciton(masks_pre,masks_gt)
 
         batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)

@@ -19,6 +19,11 @@ from utils import resize_images, unnormalize
 from torch.utils.data import TensorDataset
 from evaluation import get_categories_from_normalization
 
+import numpy as np
+# import pydensecrf.densecrf as dcrf
+# from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral, create_pairwise_gaussian
+#
+
 ### Num Inputs:
 #       Breed:                  37
 #       Species:                2
@@ -567,6 +572,8 @@ class UNet(nn.Module):
 
 
 class SelfTraining:
+
+
     @staticmethod
     def fit_sgd_pixel(
         model_train,
@@ -576,6 +583,7 @@ class SelfTraining:
         loss_function: torch.nn.Module,
         model_path: str,
         device: str = None,
+        threshold: int=0
     ) -> None:
         """
         Train a segmentation model using Stochastic Gradient Descent.
@@ -602,21 +610,21 @@ class SelfTraining:
             total_batches = len(dataloader_new)
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
-                if batch_count % 10 == 0:
-                    print(f"Batch: {batch_count}/{total_batches}")
+                # if batch_count % 10 == 0:
+                    # print(f"Batch: {batch_count}/{total_batches}")
                 images = images.to(device)
-                masks = masks.to(device).float()
+                masks =(masks >= threshold)*masks.to(device).float()
+                # masks_bin = (masks > threshold).float()
                 # masks_gt = masks_gt.to(device).float()
+
                 optimizer.zero_grad()
                 outputs = model_train(images)  # [B, num_classes, H, W]
-
                 loss = loss_function(outputs, masks)
                 loss.backward()
                 optimizer.step()
 
                 # Calculate pixel-wise accuracy
-                # probs = torch.sigmoid(outputs)
-                probs= outputs
+                probs = torch.sigmoid(outputs)
                 preds = probs > 0.5  # threshold logits
                 correct_pixels += (preds == masks.bool()).sum().item()
                 total_pixels += masks.numel()
@@ -661,13 +669,102 @@ class SelfTraining:
             "Model saved. Number of parameters:",
             sum(p.numel() for p in model_train.parameters()),
         )
+    @staticmethod
+    def fit_sgd_seed(
+        model_train,
+        dataloader_new,
+        number_epoch: int,
+        learning_rate: float,
+        loss_function: torch.nn.Module,
+        model_path: str,
+        device: str = None,
+        threshold:int=0.1
+    ) -> None:
+        """
+        Train a segmentation model using Stochastic Gradient Descent.
+        Args:
+            model_train: The neural network model to train
+            trainloader: DataLoader containing the training data
+            number_epoch: Number of epochs to train for
+            learning_rate: Learning rate for the optimizer
+            loss_function: Loss function to optimize (e.g., nn.CrossEntropyLoss for multi-class segmentation)
+            model_path: Path where the trained model will be saved
+            device: Device to run the training on ('cuda', 'cpu', etc.)
+        """
+        torch.autograd.set_detect_anomaly(True)
+        print("<Training Start>")
+        model_train.to(device)
+        optimizer = optim.SGD(model_train.parameters(), lr=learning_rate, momentum=0.9)
 
+        firsttime = True
+        for epoch in range(number_epoch):
+            batch_count = 0
+            correct_pixels = 0
+            total_pixels = 0
+            total_loss = 0
+
+            total_batches = len(dataloader_new)
+            for images, masks, masks_gt in dataloader_new:
+                batch_count += 1
+                # if batch_count % 10 == 0:
+                    # print(f"Batch: {batch_count}/{total_batches}")
+                images = images.to(device)
+                masks = masks.to(device).float()
+                masks_flat = masks.view(-1)
+                # Compute statsZZZ
+                # threshold_bg = 0.1
+                # threshold_fg = 0.7
+                threshold_bg = torch.quantile(masks_flat, threshold).item()
+                threshold_fg = torch.quantile(masks_flat, (1-threshold)).item()
+
+                if firsttime==True:
+                    min_val = masks_flat.min().item()
+                    max_val = masks_flat.max().item()
+                    print(f"masks stats → min: {min_val:.4f}, max: {max_val:.4f}, bg_thres: {threshold_bg:.4f}, fg_thres: {threshold_fg:.4f}")
+                    num_fg_seeds = (masks >= threshold_fg).sum().item()/(64*64*64)
+                    print(f"Foreground seeds (masks >= {threshold_fg}): {num_fg_seeds}")
+                    num_bg_seeds = (masks <= threshold_bg).sum().item()/(64*64*64)
+                    print(f"Background seeds (masks <= {threshold_bg}): {num_bg_seeds}")
+                    firsttime=False
+                seed_mask = ((masks >= threshold_fg) | (masks <= threshold_bg)).float()  # [B, H, W]
+                masks_bin = torch.zeros_like(masks)
+                masks_bin[masks >= threshold_fg] = 1  # Foreground
+                masks_bin[masks <= threshold_bg] = 0  # Background
+                # masks_gt = masks_gt.to(device).float()
+                optimizer.zero_grad()
+                outputs = model_train(images)  # [B, num_classes, H, W]
+
+                loss_raw = loss_function(outputs, masks_bin)
+                loss = (loss_raw * seed_mask).sum() / (seed_mask.sum() + 1e-6)
+
+
+                loss.backward()
+                optimizer.step()
+
+                # Calculate pixel-wise accuracy
+                probs = torch.sigmoid(outputs)
+                # probs= outputs
+                preds = probs > 0.5  # threshold logits
+                correct_pixels += (preds == masks.bool()).sum().item()
+                total_pixels += masks.numel()
+                total_loss += loss.item() * images.size(0)
+                avg_loss = total_loss / len(dataloader_new.dataset)
+                pixel_accuracy = correct_pixels / total_pixels
+            print(
+                f"Epoch {epoch + 1}/{number_epoch}, Pixel Accuracy: {pixel_accuracy:.4f}, Loss: {avg_loss:.4f}"
+            )
+
+        torch.save(model_train.state_dict(), model_path)
+        print(
+            "Model saved. Number of parameters:",
+            sum(p.numel() for p in model_train.parameters()),
+        )
     @staticmethod
     def predict_segmentation_dataset_with_basicfilter(
         model: nn.Module,
         dataloader: torch.utils.data.DataLoader,
         device: str = "cpu",
-        threshold: float = 0.2,
+        threshold: float = 0,
     ):
         """
         Run inference on a dataset and return a new dataset with images and filtered predicted pixel-level probabilities.
@@ -687,13 +784,12 @@ class SelfTraining:
         gt_mask_list = []
 
         with torch.no_grad():
-            for images, targets in dataloader:
+            for images, targets,gt_masks in dataloader:
                 images = images.to(device)
                 logits = model(images)  # [B, 1, H, W]
-                gt_masks = targets["segmentation"].to(device)
                 probs = torch.sigmoid(logits)  # ∈ [0,1]
                 filtered_probs = (
-                    probs * (probs > threshold).float()
+                    probs * (probs >= threshold).float()
                 )  # Zero out low-confidence pixels
 
                 image_list.append(images.cpu())
@@ -706,6 +802,97 @@ class SelfTraining:
 
         print(f"Generated filtered probability masks for {len(all_images)} samples.")
         return TensorDataset(all_images, all_probs, all_gts)
+
+
+    @staticmethod
+    def predict_segmentation_dataset_with_grabcut(
+        model: nn.Module,
+        dataloader: torch.utils.data.DataLoader,
+        device: str = "cpu",
+        threshold: float = 0.1,
+    ):
+        """
+        Run inference on a dataset and return a new dataset with images and filtered predicted pixel-level probabilities.
+        Args:
+            model: Trained segmentation model (e.g., UNet).
+            dataloader: DataLoader containing input images.
+            device: 'cuda', 'mps', or 'cpu'.
+            threshold: Minimum confidence threshold; values below will be set to 0.
+        Returns:
+            TensorDataset: Dataset containing (images, filtered_probs) where probs ∈ [0,1]
+        """
+        model.eval()
+        model.to(device)
+
+        image_list = []
+        mask_list = []
+        gt_mask_list = []
+
+        with torch.no_grad():
+            sample_count = 0
+            for images, targets,gt_masks in dataloader:
+                images = images.to(device)
+                logits = model(images)  # [B, 1, H, W]
+                probs = torch.sigmoid(logits)  # [B, 1, H, W]
+                batch_size = images.size(0)
+                for i in range(batch_size):
+                    sample_count+=1
+                    if sample_count%1000==0:
+                        print(sample_count)
+                    # Convert single image to NumPy (unnormalized if needed)
+                    img_np = images[i].cpu().permute(1, 2, 0).numpy()  # [H, W, C], float32
+                    img_np = (img_np * 255).clip(0, 255).astype(np.uint8)  # [H, W, C], uint8
+
+                    # Convert prob to NumPy mask
+                    prob_np = probs[i].squeeze().cpu().numpy()  # [H, W]
+                    # low_thresh = 0.3
+                    # high_thresh = 0.7
+                    low_thresh = np.percentile(prob_np, threshold*100)
+                    high_thresh = np.percentile(prob_np, (1-threshold)*100)
+                    # print(low_thresh)
+                    # print(high_thresh)
+                    # Initialize with 2 (probable background)
+                    grabcut_mask = np.full_like(prob_np, 3, dtype=np.uint8)
+
+                    # Assign confident FG and BG based on thresholds
+                    grabcut_mask[prob_np >= high_thresh] = 1  # definite foreground
+                    grabcut_mask[prob_np <= low_thresh] = 0  # definite background
+
+                    # print(grabcut_mask)
+
+                    refined_mask = SelfTraining.grabcut_from_mask(img_np, grabcut_mask)
+                    refined_mask= refined_mask.astype(np.float32)  # 0→-0.25, 1→+0.25
+                    combined_map = prob_np*0.3 + refined_mask*0.7
+                    # combined_map_clipped = np.clip(combined_map, 0.0, 1.0)
+                    refined_mask_tensor = torch.from_numpy(combined_map).unsqueeze(0).float()
+                    image_list.append(images[i].cpu())
+                    mask_list.append(refined_mask_tensor.squeeze(0))  # ensure [H, W]
+                    gt_mask_list.append(gt_masks[i].squeeze(0).cpu())  # ensure [H, W]
+
+                    # SelfTraining.visualize_grabcut(img_np, grabcut_mask.squeeze(), refined_mask)
+        # print(len(image_list))
+        # print(len(binary_mask_list))
+        # print(len(gt_mask_list))
+        #
+        # for i, (img, mask, gt) in enumerate(zip(image_list, binary_mask_list, gt_mask_list)):
+        #     if img.shape != image_list[0].shape:
+        #         print(f"❌ Image shape mismatch at index {i}: got {img.shape}, expected {image_list[0].shape}")
+        #     if mask.shape != binary_mask_list[0].shape:
+        #         print(
+        #             f"❌ Binary mask shape mismatch at index {i}: got {mask.shape}, expected {binary_mask_list[0].shape}")
+        #     if gt.shape != gt_mask_list[0].shape:
+        #         print(f"❌ Ground truth shape mismatch at index {i}: got {gt.shape}, expected {gt_mask_list[0].shape}")
+
+        all_images = torch.stack(image_list)  # [N, 3, H, W]
+        all_masks = torch.stack([mask.unsqueeze(0) for mask in mask_list])  # [N, 1, H, W]
+        all_gts = torch.stack([gt.unsqueeze(0) for gt in gt_mask_list])  # [N, 1, H, W]
+
+        # print(f"Image batch size: {all_images.shape}")
+        # print(f"Binary mask batch size: {all_masks.shape}")
+        # print(f"GT mask batch size: {all_gts.shape}")
+
+        print(f"Generated filtered probability masks for {len(all_images)} samples.")
+        return TensorDataset(all_images, all_masks, all_gts)
 
     @staticmethod
     def predict_segmentation_dataset_with_mixlabel(
@@ -750,11 +937,11 @@ class SelfTraining:
                 # print("num",num_pixels)
 
                 # Get the value of the pixel at the threshold percentage
-                threshold_value_low = sorted_probs[int(num_pixels * threshold_percentage)]
-                threshold_value_high = sorted_probs[int(num_pixels * (1-threshold_percentage))]
+                # threshold_value_low = sorted_probs[int(num_pixels * threshold_percentage)]
+                # threshold_value_high = sorted_probs[int(num_pixels * (1-threshold_percentage))]
 
-                # threshold_value_low = threshold_percentage
-                # threshold_value_high = 1 - threshold_percentage
+                threshold_value_low = 0.1
+                threshold_value_high = 0.5
 
                 # Apply the threshold: set all pixels below the threshold to 0
                 add_probs = (new_probs >= threshold_value_high).float() * 1.0
@@ -864,6 +1051,66 @@ class SelfTraining:
             axs[2, i].imshow(mask, cmap="gray")
             axs[2, i].set_title(f"GT Mask {i + 1}")
             axs[2, i].axis("off")
+
+        plt.tight_layout()
+        plt.show()
+
+    @staticmethod
+    def grabcut_from_mask(image, init_mask, iter_count=5):
+        """
+        Applies GrabCut using an initial seed mask.
+        Returns binary mask after GrabCut, or fallback based on confident seeds.
+        """
+        num_fg = np.sum(init_mask == cv2.GC_FGD)
+        num_bg = np.sum(init_mask == cv2.GC_BGD)
+
+        has_fg = num_fg > 0
+        has_bg = num_bg > 0
+
+        if not has_fg or not has_bg:
+            # print("⚠️ GrabCut skipped (no confident FG/BG seeds) → using fallback init_mask.")
+            # # Convert: 1 (FG) and 3 (probable FG) → 1, everything else → 0
+            return ((init_mask == cv2.GC_FGD) | (init_mask == cv2.GC_PR_FGD)).astype(np.uint8)
+
+        # Proceed with GrabCut if valid seeds exist
+        mask = init_mask.copy().astype('uint8')
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+
+        cv2.grabCut(image, mask, None, bgdModel, fgdModel, iter_count, mode=cv2.GC_INIT_WITH_MASK)
+
+        binary_mask = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype('uint8')
+        return binary_mask
+    @staticmethod
+    def visualize_grabcut(image, init_mask, binary_mask, title_prefix="Sample"):
+        """
+        Visualize image, seed mask, and result from GrabCut.
+
+        Args:
+        - image: np.ndarray [H, W, 3], uint8
+        - init_mask: np.ndarray [H, W], GrabCut labels {0,1,2,3}
+        - binary_mask: np.ndarray [H, W], final output mask {0,1}
+        """
+        # Colormap for init_mask
+        grabcut_vis = np.zeros_like(image)
+        grabcut_vis[init_mask == 0] = [0, 0, 255]  # definite background - red
+        grabcut_vis[init_mask == 1] = [0, 255, 0]  # definite foreground - green
+        grabcut_vis[init_mask == 2] = [255, 0, 0]  # probable background - blue
+        grabcut_vis[init_mask == 3] = [255, 255, 0]  # probable foreground - yellow
+
+        # Plot
+        fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+        axs[0].imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        axs[0].set_title(f"{title_prefix}: Original Image")
+        axs[0].axis("off")
+
+        axs[1].imshow(grabcut_vis)
+        axs[1].set_title(f"{title_prefix}: Init Mask (GrabCut Labels)")
+        axs[1].axis("off")
+
+        axs[2].imshow(binary_mask, cmap="gray")
+        axs[2].set_title(f"{title_prefix}: Final Mask (Binary)")
+        axs[2].axis("off")
 
         plt.tight_layout()
         plt.show()
