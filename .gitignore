@@ -3,8 +3,10 @@ oxford_pet_data
 
 
 *.png
+*.pt
 *.jpg
 CAM/data/
+checkpoints/
 visualizations/
 
 

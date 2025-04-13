@@ -135,13 +135,13 @@ gt_data_for_train = TensorDataset(
     torch.stack([x[2] for x in gt_data_for_train]),
 )
 
-'''Preparing for self-learning(bootstraping)'''
-Skip_first_round = False  # if true, will use the model"first_round_model.pt" saved at current folder to save time
+'''Preparing for selflearning(bootstraping)'''
+Skip_first_round = True # if true, will use the model"first_round_model.pt" saved at current folder to save time
 Use_Bootstrap_Models = False  # if true, will used saved models in bootstrap interations
-Addon_Dataset = False  # if true, new dataset will be added on original dataset and passed to the next round altogether
+Addon_Dataset = True  # if true, new dataset will be added on original dataset and passed to the next round altogether
 Add_Groundtruth = False  # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
 TrainSeed = False  # if true, will use seed-loss in training process (not quite work with Add_on)
-GrabCut = False  # if true, will use GrabCut in the process of generating new pseudo labels
+GrabCut = True # if true, will use GrabCut in the process of generating new pseudo labels
 Mixlabel = False  # if true, will use mixlabel in the process generating new pseudo labels
 filter = 0 # value of threshold for simple filter
 
