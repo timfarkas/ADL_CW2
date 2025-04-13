@@ -57,34 +57,34 @@ dataloader_train_triple = DataLoader(
     num_workers=0)
 
 #
-# images, masks, masks_gt = next(iter(dataloader_train_triple))
-#
-# # Plot the first N samples
-# images_vis = images[:8].detach().cpu()
-# masks_vis = masks[:8].detach().cpu()
-# preds_vis = masks_gt[:8].float().detach().cpu()
-#
-#
-# for i in range(images_vis.size(0)):
-#     fig, axs = plt.subplots(1, 3, figsize=(10, 3))
-#
-#     img = images_vis[i].permute(1, 2, 0).numpy()
-#     img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1] for visualization
-#
-#     axs[0].imshow(img)
-#     axs[0].set_title("Input Image")
-#     axs[0].axis("off")
-#
-#     axs[1].imshow(masks_vis[i].squeeze(), cmap='gray')
-#     axs[1].set_title("Ground Truth Mask")
-#     axs[1].axis("off")
-#
-#     axs[2].imshow(preds_vis[i].squeeze(), cmap='gray')
-#     axs[2].set_title("Predicted Mask")
-#     axs[2].axis("off")
-#
-#     plt.tight_layout()
-#     plt.show()
+images, masks, masks_gt = next(iter(dataloader_train_triple))
+
+# Plot the first N samples
+images_vis = images[:8].detach().cpu()
+masks_vis = masks[:8].detach().cpu()
+preds_vis = masks_gt[:8].float().detach().cpu()
+
+
+for i in range(images_vis.size(0)):
+    fig, axs = plt.subplots(1, 3, figsize=(10, 3))
+
+    img = images_vis[i].permute(1, 2, 0).numpy()
+    img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1] for visualization
+
+    axs[0].imshow(img)
+    axs[0].set_title("Input Image")
+    axs[0].axis("off")
+
+    axs[1].imshow(masks_vis[i].squeeze(), cmap='gray')
+    axs[1].set_title("Ground Truth Mask")
+    axs[1].axis("off")
+
+    axs[2].imshow(preds_vis[i].squeeze(), cmap='gray')
+    axs[2].set_title("Predicted Mask")
+    axs[2].axis("off")
+
+    plt.tight_layout()
+    plt.show()
 
 model_new = UNet(3, 1).to(device)
 

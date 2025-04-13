@@ -4,7 +4,6 @@ oxford_pet_data
 
 *.png
 *.jpg
-cam_data/
 CAM/data/
 visualizations/
 
