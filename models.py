@@ -404,7 +404,7 @@ class ClassifierHead(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),  # → (C,)
             nn.Linear(num_inputs, num_classes),
-            nn.Sigmoid(),
+            # nn.Sigmoid(), # Removed to output logits for CrossEntropyLoss
         )
 
         self.name = f"ClassifierHead({num_classes})"
@@ -425,7 +425,7 @@ class ClassifierHead(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1)),  # (C,H,W) → (C,1,1)
             nn.Flatten(),  # → (C,)
             nn.Linear(num_inputs, self.num_classes),
-            nn.Sigmoid(),
+            # nn.Sigmoid(), # Removed to output logits for CrossEntropyLoss
         )
 
     def forward(self, z):
@@ -499,6 +499,12 @@ class ResNetBackbone(nn.Module):
             base_model.layer3,
             base_model.layer4,
         )
+
+        # Adjust batch norm momentum for stronger normalization (deprecated)
+        # Instead, cutting out ResNet101 to save on training speed and positing that WD + augmentations + smaller ResNets will address overfitting
+        #for module in self.features.modules():
+        #    if isinstance(module, nn.BatchNorm2d):
+        #        module.momentum = 0.01 # Default is 0.1, lower value for "stronger" effect
 
     def forward(self, img, return_features=False):
         features = self.features(img)
@@ -979,6 +985,7 @@ class SelfTraining:
         plt.tight_layout()
         plt.show()
 
+
     @staticmethod
     def grabcut_from_mask(image,prob,threshold, iter_count=5):
         """
@@ -1058,3 +1065,4 @@ class SelfTraining:
 
         plt.tight_layout()
         plt.show()
+
