@@ -88,31 +88,6 @@ binarized_dataset = torch.utils.data.TensorDataset(
     torch.stack([x[2] for x in binarized_data]),
 )
 
-# '''Remap CAM as training labels and create dataloader'''
-# remapped_data = []
-# pivot = 0.2  # The CAM value you want to map to 0.5
-#
-# for image, cam, mask in resized_data:
-#     cam_np = cam.squeeze().numpy()  # [H, W]
-#
-#     # Apply piecewise linear remapping
-#     cam_remapped = np.where(
-#         cam_np <= pivot,
-#         0.5 * (cam_np / pivot),                  # Stretch [0, pivot] → [0, 0.5]
-#         0.5 + 0.5 * ((cam_np - pivot) / (1 - pivot))  # Stretch [pivot, 1] → [0.5, 1]
-#     )
-#
-#     cam_tensor = torch.from_numpy(cam_remapped).unsqueeze(0).float()  # [1, H, W]
-#
-#     remapped_data.append((image, cam_tensor, mask))
-#
-# # Convert to TensorDataset
-# remapped_dataset = torch.utils.data.TensorDataset(
-#     torch.stack([x[0] for x in remapped_data]),
-#     torch.stack([x[1] for x in remapped_data]),
-#     torch.stack([x[2] for x in remapped_data]),
-# )
-
 backup_dataset = binarized_dataset
 new_dataset = backup_dataset
 

@@ -154,31 +154,6 @@ def evaluate_model(
         masks_gt = masks_gt.to(device)
         masks_gt_binary = get_binary_from_normalization(masks_gt)
 
-        '''checking by visualization'''
-        # masks_pre_vis = torch.sigmoid(masks_pre[:4].detach().cpu())
-        # images_vis = images[:4].cpu()  # (B, 3, H, W)
-        #
-        # for idx in range(images_vis.size(0)):
-        #     fig, axs = plt.subplots(1, 2, figsize=(6, 3))
-        #
-        #     # Show image
-        #     img = images_vis[idx]
-        #     img = img.permute(1, 2, 0).numpy()  # CHW → HWC
-        #     img = (img - img.min()) / (img.max() - img.min())  # Normalize for display
-        #     axs[0].imshow(img)
-        #     axs[0].set_title("Image")
-        #     axs[0].axis("off")
-        #
-        #     # Show predicted mask
-        #     mask = masks_pre_vis[idx].squeeze().detach().numpy()
-        #     axs[1].imshow(mask, cmap='gray')
-        #     axs[1].set_title("Predicted Mask")
-        #     axs[1].axis("off")
-        #
-        #     plt.tight_layout()
-        #     plt.show()
-
-
         batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
         total_IoU += batch_iou
         total_f1_score += batch_f1
@@ -190,39 +165,6 @@ def evaluate_model(
             masks_pre_to_store = masks_pre[:image_number]
             masks_pre_binary_to_store = masks_pre_binary[:image_number]
             masks_gt_to_store = masks_gt_binary[:image_number]
-
-            '''checking by visualization'''
-            # print("Shape:", masks_pre_to_store.shape)
-            # print("Dtype:", masks_pre_to_store.dtype)
-            # print("Min value:", masks_pre_to_store.min().item())
-            # print("Max value:", masks_pre_to_store.max().item())
-            # n = min(image_number, images_to_store.size(0))
-            #
-            # for i in range(n):
-            #     fig, axs = plt.subplots(1, 4, figsize=(16, 4))
-            #
-            #     # Unnormalize and convert to NumPy image
-            #     image = images_to_store[i].permute(1, 2, 0).cpu().numpy()
-            #     image = (image * 255).astype('uint8')  # If already unnormalized
-            #
-            #     pred_mask = masks_pre_to_store[i].squeeze().detach().cpu().numpy()
-            #     pred_binary = masks_pre_binary_to_store[i].squeeze().detach().cpu().numpy()
-            #     gt_mask = masks_gt_to_store[i].squeeze().detach().cpu().numpy()
-            #
-            #     axs[0].imshow(image)
-            #     axs[0].set_title("Image")
-            #     axs[1].imshow(pred_mask, cmap='jet')
-            #     axs[1].set_title("Predicted Mask")
-            #     axs[2].imshow(pred_binary, cmap='gray')
-            #     axs[2].set_title("Binary Prediction")
-            #     axs[3].imshow(gt_mask, cmap='gray')
-            #     axs[3].set_title("Ground Truth")
-            #
-            #     for ax in axs:
-            #         ax.axis('off')
-            #     plt.tight_layout()
-            #     plt.show()
-            #
 
             save_image_grid(images_to_store,masks_pre_to_store,masks_pre_binary_to_store,masks_gt_to_store,os.path.join(output_dir, f"{image_name}_thres_{threshold}.jpg"))
             #
@@ -276,51 +218,6 @@ def evaluate_model_with_grabcut(
             pred_binary = SelfTraining.grabcut_from_mask(img, prob, grabcut_thres)
             pred_binary = torch.from_numpy(pred_binary).to(device)
             gt_binary = get_binary_from_normalization(gt)
-            #
-            #
-            # import matplotlib.pyplot as plt
-            # import torchvision.transforms.functional as TF
-            #
-            # # Unnormalize image (assuming ImageNet normalization)
-            # mean = [0.485, 0.456, 0.406]
-            # std = [0.229, 0.224, 0.225]
-            #
-            # def unnormalize(tensor, mean, std):
-            #     tensor = tensor.clone()
-            #     for t, m, s in zip(tensor, mean, std):
-            #         t.mul_(s).add_(m)
-            #     return tensor.clamp(0, 1)
-            #
-            # # Unnormalize and convert to PIL image
-            # img_un = unnormalize(img.detach().cpu(), mean, std)
-            # img_np = TF.to_pil_image(img_un)
-            #
-            # # Convert everything to numpy
-            # prob_vis = prob.squeeze().detach().cpu().numpy()  # model prediction prob
-            # pred_vis = pred_binary.squeeze().detach().cpu().numpy()  # grabcut output
-            # gt_vis = gt_binary.squeeze().detach().cpu().numpy()  # ground truth mask
-            #
-            # # Plot
-            # fig, axs = plt.subplots(1, 4, figsize=(16, 4))
-            #
-            # axs[0].imshow(img_np)
-            # axs[0].set_title("Image")
-            # axs[0].axis("off")
-            #
-            # axs[1].imshow(prob_vis, cmap='jet')
-            # axs[1].set_title("Model Probabilities")
-            # axs[1].axis("off")
-            #
-            # axs[2].imshow(pred_vis, cmap='gray')
-            # axs[2].set_title("Predicted Mask (GrabCut)")
-            # axs[2].axis("off")
-            #
-            # axs[3].imshow(gt_vis, cmap='gray')
-            # axs[3].set_title("Ground Truth Mask")
-            # axs[3].axis("off")
-            #
-            # plt.tight_layout()
-            # plt.show()
 
             iou, f1 = compute_iou_and_f1(
                 pred_binary.unsqueeze(0),  # [1, H, W]
