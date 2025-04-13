@@ -292,18 +292,6 @@ class CAMManager:
                     labels = batch_targets.to(device)
                     gt_masks = labels
 
-                    '''checking by visualization'''
-                    # print("labels shape:", labels.shape)
-                    # print("labels unique values:", torch.unique(labels))
-                    # print("gt_masks shape:", gt_masks.shape)
-                    # print("gt_masks unique values:", torch.unique(gt_masks))
-                    # for i in range(min(4, gt_masks.shape[0])):
-                    #     plt.figure(figsize=(4, 4))
-                    #     plt.imshow(gt_masks[i].squeeze().cpu().numpy(), cmap='gray')
-                    #     plt.title(f"Mask {i}")
-                    #     plt.axis('off')
-                    #     plt.show()
-
             except ValueError or KeyError:
                 raise ValueError(
                     f"Expected dict with keys '{target_type}' and 'segmentation'"
@@ -629,33 +617,6 @@ class SelfTraining:
                 total_pixels += masks.numel()
                 total_loss += loss.item() * images.size(0)
 
-                '''checking batch by visualization'''
-                # if batch_count == 80:  # only visualize one batch per epoch
-                #     images_vis = images[:4].detach().cpu()
-                #     masks_vis = masks[:4].detach().cpu()
-                #     preds_vis = probs[:4].float().detach().cpu()
-                #
-                #     for i in range(images_vis.size(0)):
-                #         fig, axs = plt.subplots(1, 3, figsize=(10, 3))
-                #
-                #         img = images_vis[i].permute(1, 2, 0).numpy()
-                #         img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1] for visualization
-                #
-                #         axs[0].imshow(img)
-                #         axs[0].set_title("Input Image")
-                #         axs[0].axis("off")
-                #
-                #         axs[1].imshow(masks_vis[i].squeeze(), cmap='gray')
-                #         axs[1].set_title("Ground Truth Mask")
-                #         axs[1].axis("off")
-                #
-                #         axs[2].imshow(preds_vis[i].squeeze(), cmap='gray')
-                #         axs[2].set_title("Predicted Mask")
-                #         axs[2].axis("off")
-                #
-                #         plt.tight_layout()
-                #         plt.show()
-
             avg_loss = total_loss / len(dataloader_new.dataset)
             pixel_accuracy = correct_pixels / total_pixels
 
@@ -838,11 +799,6 @@ class SelfTraining:
                     sample_count+=1
                     if sample_count%1000==0:
                         print(sample_count)
-                    # Convert single image to NumPy (unnormalized if needed)
-
-                    # print(low_thresh)
-                    # print(high_thresh)
-                    # Initialize with 2 (probable background)
                     refined_mask_np = SelfTraining.grabcut_from_mask(images[i], probs[i], threshold)
                     refined_mask_tensor = torch.from_numpy(refined_mask_np).to(device).float()  # [H, W]
                     combined_map = 0.5 * probs[i].squeeze(0) + 0.5 * refined_mask_tensor  # both [H, W
@@ -851,19 +807,6 @@ class SelfTraining:
                     mask_list.append(refined_mask_tensor.squeeze(0))  # ensure [H, W]
                     gt_mask_list.append(gt_masks[i].squeeze(0).cpu())  # ensure [H, W]
 
-                    # SelfTraining.visualize_grabcut(img_np, grabcut_mask.squeeze(), refined_mask)
-        # print(len(image_list))
-        # print(len(binary_mask_list))
-        # print(len(gt_mask_list))
-        #
-        # for i, (img, mask, gt) in enumerate(zip(image_list, binary_mask_list, gt_mask_list)):
-        #     if img.shape != image_list[0].shape:
-        #         print(f"❌ Image shape mismatch at index {i}: got {img.shape}, expected {image_list[0].shape}")
-        #     if mask.shape != binary_mask_list[0].shape:
-        #         print(
-        #             f"❌ Binary mask shape mismatch at index {i}: got {mask.shape}, expected {binary_mask_list[0].shape}")
-        #     if gt.shape != gt_mask_list[0].shape:
-        #         print(f"❌ Ground truth shape mismatch at index {i}: got {gt.shape}, expected {gt_mask_list[0].shape}")
 
         all_images = torch.stack(image_list)  # [N, 3, H, W]
         all_masks = torch.stack([mask.unsqueeze(0) for mask in mask_list])  # [N, 1, H, W]
