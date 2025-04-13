@@ -285,35 +285,3 @@ def save_image_grid(images, pred_masks, binary_masks, gt_masks, save_path):
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.close(fig)
-
-
-def remap_cam_by_percentile(cam: torch.Tensor,
-                            old_value: float = 0.2,
-                            new_value: float = 0.5) -> torch.Tensor:
-    """
-    Remaps CAM values so that the original value at a given percentile
-    maps to a new desired value, with interpolation.
-    """
-    cam_np = cam.detach().cpu().numpy()
-
-    # Get original percentile position of the value
-    percentile = (cam_np < old_value).sum() / cam_np.size
-
-    # Compute actual value at that percentile
-    percentile_value = np.percentile(cam_np, percentile * 100)
-
-    # Build remapping function (stretch values so percentile_value → new_value)
-    min_val = cam_np.min()
-    max_val = cam_np.max()
-
-    # Linearly scale based on where the old percentile_value should go
-    # This defines a piecewise remapping across the full [min, max] range
-    def remap(x):
-        return np.interp(x,
-                         [min_val, percentile_value, max_val],
-                         [0.0, new_value, 1.0])
-
-    cam_remapped = remap(cam_np)
-    cam_remapped = np.clip(cam_remapped, 0.0, 1.0)
-
-    return torch.from_numpy(cam_remapped).to(cam.device).float()
