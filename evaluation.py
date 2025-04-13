@@ -4,6 +4,8 @@ import os
 from utils import store_images,unnormalize,save_image_grid
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import torchvision.transforms.functional as TF
+
 
 
 def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
@@ -25,17 +27,20 @@ def get_binary_from_normalization(x: torch.Tensor) -> torch.Tensor:
     - 0.0078 (label 2) → 0 (background)
     - 0.0118 (label 3) → 1 (boundary → treated as foreground)
     """
+    include_boundary=True
     categories = (x * 255 - 1).round().long()  # Convert to int labels: 0, 1, 2
-
-    # Map: 0 → 1, 1 → 0, 2 → 1
-    # categories = torch.where(
-    #     categories == 0, torch.tensor(1, device=x.device),
-    #     torch.where(categories == 1, torch.tensor(0, device=x.device), torch.tensor(1, device=x.device))
-    # )
-    categories = torch.where(
-        categories == 0, torch.tensor(1, device=x.device),  # 0 → 1 (foreground)
-        torch.tensor(0, device=x.device)  # else → 0 (background)
-    )
+    if include_boundary==True:
+        # Map: 0 → 1, 1 → 0, 2 → 1
+        categories = torch.where(
+            categories == 0, torch.tensor(1, device=x.device),
+            torch.where(categories == 1, torch.tensor(0, device=x.device), torch.tensor(1, device=x.device))
+        )
+    else:
+        # Map: 0 → 1, 1 → 0, 2 → 0
+        categories = torch.where(
+            categories == 0, torch.tensor(1, device=x.device),  # 0 → 1 (foreground)
+            torch.tensor(0, device=x.device)  # else → 0 (background)
+        )
     return categories
 
 def load_test_pet_data(batch_size: int,resize_size: int = 256) -> torch.utils.data.DataLoader:
@@ -124,7 +129,8 @@ def evaluate_model(
     image_number: int,
     image_name: str,
     device: str = None,
-    threshold:float = 0.5
+    threshold:float = 0.5,
+    output_dir = "evaluation_visualization"
 ) -> None:
     """
     Evaluates the model on the test data and stores the images.
@@ -134,14 +140,14 @@ def evaluate_model(
     total_f1_score = 0
     num_samples = 0
     total_loss = 0.0
-    output_dir = "evaluation_visualization"
+    output_dir=output_dir
     os.makedirs(output_dir, exist_ok=True)
-    loss_funciton=nn.MSELoss()
+    loss_funciton=nn.BCEWithLogitsLoss()
     for i, (images, masks_gt) in enumerate(test_loader):
         logits = model(images)  # raw output
         # print(f"[Logits] min: {logits.min().item():.4f}, max: {logits.max().item():.4f}")
-        # masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
-        masks_pre=logits
+        masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
+        # masks_pre=logits
         # print(f"[Sigmoid Output] min: {masks_pre.min().item():.4f}, max: {masks_pre.max().item():.4f}")
         batch_loss=loss_funciton(masks_pre,masks_gt)
         masks_pre_binary= binarise_predictions(masks_pre, threshold)
@@ -230,7 +236,110 @@ def evaluate_model(
     mean_loss = total_loss / num_samples
     print(f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples}, CE Loss: {mean_loss}")
 
-def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = None,threshold: float=0.5):
+def evaluate_model_with_grabcut(
+    model: torch.nn.Module,
+    test_loader: torch.utils.data.DataLoader,
+    image_number: int,
+    image_name: str,
+    device: str = None,
+    threshold:float = 0.5,
+    output_dir = "evaluation_visualization",
+    grabcut_thres:float=0.2,
+) -> None:
+    """
+    Evaluates the model on the test data and stores the images.
+    """
+    from models import SelfTraining
+    print(f"Evaluating model with theshold:{threshold}")
+    total_IoU = 0
+    total_f1_score = 0
+    num_samples = 0
+    total_loss = 0.0
+    output_dir=output_dir
+    os.makedirs(output_dir, exist_ok=True)
+    loss_funciton=nn.BCEWithLogitsLoss()
+    for i, (images, masks_gt) in enumerate(test_loader):
+        logits = model(images)
+        masks_pre = torch.sigmoid(logits)
+        batch_loss = loss_funciton(masks_pre, masks_gt)
+
+        images = images.to(device)
+        masks_gt = masks_gt.to(device)
+
+        batch_size = images.size(0)
+        batch_iou, batch_f1 = 0.0, 0.0
+
+        for j in range(batch_size):
+            img = images[j]  # [C, H, W]
+            prob = masks_pre[j] # [1, H, W]
+            gt = masks_gt[j]  # [1, H, W]
+            pred_binary = SelfTraining.grabcut_from_mask(img, prob, grabcut_thres)
+            pred_binary = torch.from_numpy(pred_binary).to(device)
+            gt_binary = get_binary_from_normalization(gt)
+            #
+            #
+            # import matplotlib.pyplot as plt
+            # import torchvision.transforms.functional as TF
+            #
+            # # Unnormalize image (assuming ImageNet normalization)
+            # mean = [0.485, 0.456, 0.406]
+            # std = [0.229, 0.224, 0.225]
+            #
+            # def unnormalize(tensor, mean, std):
+            #     tensor = tensor.clone()
+            #     for t, m, s in zip(tensor, mean, std):
+            #         t.mul_(s).add_(m)
+            #     return tensor.clamp(0, 1)
+            #
+            # # Unnormalize and convert to PIL image
+            # img_un = unnormalize(img.detach().cpu(), mean, std)
+            # img_np = TF.to_pil_image(img_un)
+            #
+            # # Convert everything to numpy
+            # prob_vis = prob.squeeze().detach().cpu().numpy()  # model prediction prob
+            # pred_vis = pred_binary.squeeze().detach().cpu().numpy()  # grabcut output
+            # gt_vis = gt_binary.squeeze().detach().cpu().numpy()  # ground truth mask
+            #
+            # # Plot
+            # fig, axs = plt.subplots(1, 4, figsize=(16, 4))
+            #
+            # axs[0].imshow(img_np)
+            # axs[0].set_title("Image")
+            # axs[0].axis("off")
+            #
+            # axs[1].imshow(prob_vis, cmap='jet')
+            # axs[1].set_title("Model Probabilities")
+            # axs[1].axis("off")
+            #
+            # axs[2].imshow(pred_vis, cmap='gray')
+            # axs[2].set_title("Predicted Mask (GrabCut)")
+            # axs[2].axis("off")
+            #
+            # axs[3].imshow(gt_vis, cmap='gray')
+            # axs[3].set_title("Ground Truth Mask")
+            # axs[3].axis("off")
+            #
+            # plt.tight_layout()
+            # plt.show()
+
+            iou, f1 = compute_iou_and_f1(
+                pred_binary.unsqueeze(0),  # [1, H, W]
+                gt_binary.unsqueeze(0)  # [1, H, W]
+            )
+            batch_iou += iou
+            batch_f1 += f1
+
+        total_IoU += batch_iou
+        total_f1_score += batch_f1
+        total_loss += batch_loss.item() * batch_size
+        num_samples += batch_size
+
+
+    mean_loss = total_loss / num_samples
+    print(f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples}, CE Loss: {mean_loss}")
+
+
+def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = None,threshold: float=0.5,output_dir = "evaluation_visualization"):
     """
     Evaluates a segmentation dataset using IoU and F1 metrics.
 
@@ -247,7 +356,7 @@ def evaluate_dataset(dataset, image_number: int, image_name: str, device: str = 
     total_f1_score = 0
     num_samples = 0
     total_loss = 0.0
-    output_dir = "evaluation_visualization"
+    output_dir = output_dir
     os.makedirs(output_dir, exist_ok=True)
     loss_funciton=nn.BCEWithLogitsLoss()
 

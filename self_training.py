@@ -2,20 +2,31 @@ import os
 
 import torch
 import torch.nn as nn
-from PIL import ImageFile
 from torch.utils.data import DataLoader, TensorDataset
 
-from CAM.cam_model import CNN, ResNetBackbone, fit_sgd
 from models import CAMManager, SelfTraining, UNet
 
-from data import OxfordPetDataset,create_dataloaders,create_sample_loader_from_existing_loader
-from evaluation import evaluate_dataset, evaluate_model
-from utils import save_tensor_dataset, unnormalize
+from data import OxfordPetDataset, create_dataloaders, create_sample_loader_from_existing_loader
+from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization, evaluate_model_with_grabcut
+# from utils import save_tensor_dataset, unnormalize
+import random
+import numpy as np
+
+'''Fix randomization seed'''
 
 
-import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
+
+set_seed(42)
+
+'''Define device'''
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -24,236 +35,147 @@ device = torch.device(
     else "cpu"
 )
 
-classification_mode = "breed"
+'''Create directories'''
+log_dir = os.path.join("checkpoints", "Bootstrap")
+os.makedirs(log_dir, exist_ok=True)
+model_dir = os.path.join(log_dir, "model")
+os.makedirs(model_dir, exist_ok=True)
+eva_dir = os.path.join(log_dir, "evaluation")
+os.makedirs(model_dir, exist_ok=True)
+pre_dir = os.path.join(log_dir, "predicted_masks")
+os.makedirs(model_dir, exist_ok=True)
+
+'''Clean files in checkpoint'''  # this part of code needs to be disabled if going to use local saved models
+for root, dirs, files in os.walk(log_dir):
+    for file in files:
+        file_path = os.path.join(root, file)
+        os.remove(file_path)
+
+'''Preparing datasets'''
 batch_size = 64
+classification_mode = "breed"
+model_type = "CNN"
 dataloader_train, dataloader_val, dataloader_test = create_dataloaders(
     batch_size,
     resize_size=64,
     target_type=[classification_mode, "segmentation"],
     lazy_loading=True,
     shuffle=False)
-#
-#
-# ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-
-#
-
-# ## HYPERPARAMETERS
-# num_epochs = 20
-model_type = "CNN"  ## CNN, Res
-model_dir = os.path.join("checkpoints", "CAM")
-os.makedirs(model_dir, exist_ok=True)
-# use_existing_model = True # if True, will use saved model from local
-#
-# loss_function = torch.nn.CrossEntropyLoss()
-
-### MODEL INIT
-# model_mode = classification_mode  ## species, breed
-# model_name = f"{model_type}_{model_mode}"
-# print(f"Using model {model_name}")
-# model_path = os.path.join(model_dir, model_name)
-#
-# num_out = 37 if model_mode == "breed" else 2
-#
-# threshold=0
-#
-# if use_existing_model and os.path.exists(model_path):
-#     print(f"Using MODEL {model_path}.pt")
-#     model_test = (
-#         ResNetBackbone(num_classes=num_out, pretrained=False)
-#         if "Res" in model_name
-#         else CNN(out_channels=256, num_classes=num_out)
-#     )
-#     model_test.load_state_dict(torch.load(f"{model_path}"))
-#     model_test.to(device)
-#
-# else:
-#     model_test = (
-#         ResNetBackbone(num_classes=num_out, pretrained=False)
-#         if "Res" in model_name
-#         else CNN(out_channels=256, num_classes=num_out)
-#     )
-#     fit_sgd(
-#         model_test,
-#         dataloader_train,
-#         classification_mode,
-#         num_epochs,
-#         0.05,
-#         batch_size,
-#         loss_function,
-#         model_path,
-#         device=device,
-#     )
-
-### USING CAM AS LABELS IN A NEW DATASET
-# print("Generating datasets from CAM")
-# use_existing_cam = True #if true, will use saved cam datase
 
 print("Loading CAM dataset...")
-data = torch.load("cam_data/resized_64_species_breed_cam_mask_binary.pt")
+resized_data = (torch.load("cam_data/resized_64_species_breed_cam_mask_raw.pt"))
+#
+'''Evaluating CAM'''
+# threshold = 0
+# for i in range(1, 7):
+#     evaluate_dataset(resized_data, 8, f"evaluation_tred{threshold}", threshold=threshold, output_dir=eva_dir)
+#     threshold = round(threshold + 0.1, 2)
 
-# Case 1: If it’s already a TensorDataset
-if isinstance(data, TensorDataset):
-    new_dataset = data
+'''Binarize CAM as training labels and create dataloader'''
+cam_threshold = 0.2
+binarized_data = []
+sample_count = 0
+for image, cam, mask in resized_data:
+    # if sample_count==1000:
+    #     break
+    cam_binary = (cam > cam_threshold).float()
+    binarized_data.append((image, cam_binary, mask))
+    sample_count += 1
 
-# Case 2: If it’s a list of tuples (image, cam, mask)
-elif isinstance(data, list) and isinstance(data[0], tuple):
-    images = torch.stack([x[0] for x in data])
-    cams   = torch.stack([x[1] for x in data])
-    masks  = torch.stack([x[2] for x in data])
+binarized_dataset = torch.utils.data.TensorDataset(
+    torch.stack([x[0] for x in binarized_data]),
+    torch.stack([x[1] for x in binarized_data]),
+    torch.stack([x[2] for x in binarized_data]),
+)
 
-    # # Binarize the CAMs
-    # threshold = 0.8  # adjust as needed
-    # binary_cams = (cams > threshold).float()
-
-    # Use binary CAMs as pseudo labels (instead of original masks or raw cams)
-    new_dataset = TensorDataset(images,cams, masks)
-
-else:
-    raise TypeError("Unexpected format of loaded CAM dataset.")
-
-backup_dataset=new_dataset
-
-# if use_existing_cam and os.path.exists("cam_data/new_dataset.pt"):
-#     print("Loading CAM dataset...")
-#     data = torch.load("cam_data/new_dataset.pt")
-#     new_dataset = TensorDataset(data["images"], data["cams"], data["masks"])
-# else:
-#     cam_instance = CAMManager(
-#         model=model_test,
-#         dataloader=dataloader_train,
-#         method="Classical",
-#         target_type=classification_mode,
+# '''Remap CAM as training labels and create dataloader'''
+# remapped_data = []
+# pivot = 0.2  # The CAM value you want to map to 0.5
+#
+# for image, cam, mask in resized_data:
+#     cam_np = cam.squeeze().numpy()  # [H, W]
+#
+#     # Apply piecewise linear remapping
+#     cam_remapped = np.where(
+#         cam_np <= pivot,
+#         0.5 * (cam_np / pivot),                  # Stretch [0, pivot] → [0, 0.5]
+#         0.5 + 0.5 * ((cam_np - pivot) / (1 - pivot))  # Stretch [pivot, 1] → [0.5, 1]
 #     )
-#     new_dataset = cam_instance.dataset
-#     save_tensor_dataset(new_dataset, "cam_data/new_dataset.pt")
+#
+#     cam_tensor = torch.from_numpy(cam_remapped).unsqueeze(0).float()  # [1, H, W]
+#
+#     remapped_data.append((image, cam_tensor, mask))
+#
+# # Convert to TensorDataset
+# remapped_dataset = torch.utils.data.TensorDataset(
+#     torch.stack([x[0] for x in remapped_data]),
+#     torch.stack([x[1] for x in remapped_data]),
+#     torch.stack([x[2] for x in remapped_data]),
+# )
+
+backup_dataset = binarized_dataset
+new_dataset = backup_dataset
 
 SelfTraining.visualize_predicted_masks(
-    new_dataset, num_samples=8, save_path=f"visualizations/round_0.png"
+    new_dataset, num_samples=8, save_path=f"{pre_dir}/original_mask.png"
 )
 dataloader_new = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 
-print("Getting ground_truth_sample")
-gt_sample_loader = create_sample_loader_from_existing_loader(dataloader_val,100,64,False)
-gt_train_loader = create_sample_loader_from_existing_loader(dataloader_train,100,64,False)
+'''Get ground truth samples for evaluation'''
+gt_sample_loader = create_sample_loader_from_existing_loader(dataloader_val, 100, 64, False)
+
+'''Get ground truth samples for add-on training'''
+train_data = [dataloader_train.dataset[i] for i in range(100)]
+gt_data_for_train = [
+    (img, get_binary_from_normalization(mask["segmentation"]), get_binary_from_normalization(mask["segmentation"]),)
+    for img, mask in train_data]
+gt_data_for_train = TensorDataset(
+    torch.stack([x[0] for x in gt_data_for_train]),
+    torch.stack([x[1] for x in gt_data_for_train]),
+    torch.stack([x[2] for x in gt_data_for_train]),
+)
+
+'''Preparing for self-learning(bootstraping)'''
+Skip_first_round = False  # if true, will use the model"first_round_model.pt" saved at current folder to save time
+Use_Bootstrap_Models = False  # if true, will used saved models in bootstrap interations
+Addon_Dataset = False  # if true, new dataset will be added on original dataset and passed to the next round altogether
+Add_Groundtruth = False  # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
+TrainSeed = False  # if true, will use seed-loss in training process (not quite work with Add_on)
+GrabCut = False  # if true, will use GrabCut in the process of generating new pseudo labels
+Mixlabel = False  # if true, will use mixlabel in the process generating new pseudo labels
+filter = 0 # value of threshold for simple filter
 
 
-'''checking loader by visualization'''
-# for images, masks in gt_sample_loader:
-#     break  # Just the first batch
-# # Loop through batch
-# batch_size = images.size(0)
-# for i in range(batch_size):
-#     img = TF.to_pil_image(images[i].cpu())
-#
-#     # If mask is [1, H, W], squeeze it to [H, W]
-#     mask = masks[i]
-#     if mask.dim() == 3:
-#         mask = mask.squeeze(0)
-#     mask = mask.cpu().numpy()
-#
-#     # Plot image and mask
-#     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-#     axs[0].imshow(img)
-#     axs[0].set_title("Image")
-#     axs[0].axis("off")
-#
-#     axs[1].imshow(mask, cmap='gray')
-#     axs[1].set_title("Segmentation Mask")
-#     axs[1].axis("off")
-#
-#     plt.tight_layout()
-#     plt.show()
-#
-# for images, masks in gt_sample_loader:
-#     print("Image batch shape:", images.shape)  # Expecting [B, C, H, W]
-#     print("Mask batch shape:", masks.shape)    # Expecting [B, 1, H, W] or [B, H, W]
-#     break  # Only check the first batch
-
-# cam_sample= CAMManager(
-#     model=model_test,
-#     dataloader=gt_sample_loader,
-#     method="Classical",
-#     target_type=classification_mode,
-# )
-#
-# new_gt_dataset = cam_sample.dataset
-
-
-'''checking loader by visualization'''
-# loader = DataLoader(new_gt_dataset, batch_size=4)
-# for images, cams, masks in loader:
-#     break  # Just first batch
-#
-# # Convert and display a few samples
-# batch_size = images.size(0)
-# for i in range(batch_size):
-#     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-#
-#     # Unnormalize image if needed
-#     img = TF.to_pil_image(images[i].cpu())
-#     cam = cams[i][0].cpu().numpy()
-#     mask = masks[i][0].cpu().numpy()
-#
-#     axs[0].imshow(img)
-#     axs[0].set_title("Image")
-#     axs[0].axis("off")
-#
-#     axs[1].imshow(cam, cmap='jet')
-#     axs[1].set_title("CAM")
-#     axs[1].axis("off")
-#
-#     axs[2].imshow(mask, cmap='gray')
-#     axs[2].set_title("Ground Truth Mask")
-#     axs[2].axis("off")
-#
-#     plt.tight_layout()
-#     plt.show()
-
-# for batch in loader:
-#     print("Batch loaded:")
-#     for i, tensor in enumerate(batch):
-#         print(f"Tensor {i} shape: {tensor.shape}")
-#     break  # only inspect first batch
-
-# threshold=0
-# for i in range(7):
-#     evaluate_dataset(new_gt_dataset, 8, f"test", threshold=threshold)
-#     threshold = round(threshold+0.1,2)
-
-"""
-SelfTraining.visualize_cam_samples(dataloader_new)
-"""
-
-use_bootstrap_models=False#if ture, will used saved models in bootstrap
-add_on_dataset=True #if ture, new dataset will be added on original dataset and passed to the next round altogether
-AddGroundTruth=True
-TrainSeed=False #using Seed model (not quite work with Add_on)
-Grabcut=True
-epochs=5
-filter=0
-BOOTSTRAP_ROUNDS = 15
-### RUNNING BOOSTRAP AND UPDATE DATASET EACH ROUND
+epochs = 5 # number of epochs each round
+BOOTSTRAP_ROUNDS = 10 # maximum number of self-training
+'''Running Bootstrap'''
 for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     print(f"\nBootstrapping Round {round_num}")
-    model_new = UNet(3, 1).to(device)
-    if round_num==1:
-        dataloader_bootstrap=dataloader_new
+    model_new = UNet(3, 1).to(device)  # each round, create a new model
+
+    if round_num == 1:  # the first round should always use the dataset get from CAM, while other rounds should use dataset from previous round
+        dataloader_bootstrap = dataloader_new
     print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
+
     loss_function = nn.BCEWithLogitsLoss()
-    # loss_function = nn.MSELoss()
-    model_path = os.path.join(model_dir, f"Seed{TrainSeed}_Grabct{Grabcut}_filter{filter}_epoch{epochs}_addon{add_on_dataset}_bootstrap_round{round_num}.pt")
-    if use_bootstrap_models and os.path.exists(model_path) :
+
+    model_path = os.path.join(model_dir,
+                              f"Grabct{GrabCut}_Seed{TrainSeed}_filter{filter}_epoch{epochs}_addon{Addon_Dataset}_bootstrap_round{round_num}.pt")
+
+    if round_num == 1 and Skip_first_round:  # since firstround process will always be the same(only number of epochs may be different), can used saved first round model to save time
+        model_new = UNet(3, 1).to(device)
+        model_new.load_state_dict(torch.load(f"first_round_model.pt"))
+        print("Model loaded successfully.")
+    elif Use_Bootstrap_Models and os.path.exists(model_path):  # if going to use pre-saved boostrap models
         model_new = UNet(3, 1).to(device)
         model_new.load_state_dict(torch.load(f"{model_path}"))
         print("Model loaded successfully.")
     else:
-        if TrainSeed:
+        if TrainSeed:  # if use seed loss method in training loop
             SelfTraining.fit_sgd_seed(
-                model_new, dataloader_bootstrap, epochs, 0.05, loss_function, model_path, device=device,threshold=0.1
+                model_new, dataloader_bootstrap, epochs, 0.05, loss_function, model_path, device=device, threshold=0.1
             )
-        else:
+        else:  # normal training method
             SelfTraining.fit_sgd_pixel(
                 model_new, dataloader_bootstrap, epochs, 0.05, loss_function, model_path, device=device
             )
@@ -261,88 +183,63 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     model_new.eval()
 
     '''checking loader by visualization'''
-    # with torch.no_grad():
-    #     for images, masks in gt_sample_loader:
-    #         images = images.to(device)
-    #         masks = masks.to(device)
-    #
-    #         preds = torch.sigmoid(model_new(images))
-    #         preds_bin = (preds > 0.5).float()
-    #
-    #         images = images.cpu()
-    #         preds = preds.cpu()
-    #         masks = masks.cpu()
-    #
-    #         # for i in range(min(10, images.shape[0])):
-            #     fig, axs = plt.subplots(1, 3, figsize=(10, 3))
-            #     img = images[i].permute(1, 2, 0).numpy()
-            #     img = (img - img.min()) / (img.max() - img.min())  # Normalize for display
-            #
-            #     axs[0].imshow(img)
-            #     axs[0].set_title("Input Image")
-            #     axs[0].axis("off")
-            #
-            #     axs[1].imshow(preds[i].squeeze(), cmap="gray")
-            #     axs[1].set_title("Prediction")
-            #     axs[1].axis("off")
-            #
-            #     axs[2].imshow(masks[i].squeeze(), cmap="gray")
-            #     axs[2].set_title("Ground Truth")
-            #     axs[2].axis("off")
-            #
-            #     plt.tight_layout()
-            #     plt.show()
-            # break  # only show first batch
 
-    threshold = 0.2
+    threshold = 0.2  # threshold for evaluating the model against ground-truth samples
     for i in range(2):
-        evaluate_model(model_new,gt_sample_loader, 8, f"bootstrap_round_{round_num}", threshold=threshold)
-        threshold = round(threshold+0.3,2)
-    print("Generating new dataset from prediction")
-    # new_dataset_predict = SelfTraining.predict_segmentation_dataset__basicfilter(
-    #     model_new, dataloader_train, threshold=filter)
-    if Grabcut:
-        new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_grabcut(
-            model_new, dataloader_new)
-    else:
-        new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_basicfilter(
-            model_new, dataloader_new,threshold=0)
+        evaluate_model(model_new, gt_sample_loader, 8, f"bootstrap_round_{round_num}", threshold=threshold,
+                       output_dir=eva_dir)
+        threshold = round(threshold + 0.3, 2)
 
+    print("Generating new dataset from prediction")
+
+    if GrabCut: # use GrabCut as filter when generating new labels
+        new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_grabcut(
+            model_new, dataloader_new, threshold=0.2)
+    elif Mixlabel:  # The Mixlabel method needs to take probability input, however the input for the first round is binary (binaried CAM). We have to skip first round when mixlabels
+        if round_num == 1:
+            new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_basicfilter(
+                model_new, dataloader_new, threshold=0)
+        else:
+            new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_mixlabel(
+                model_new, dataloader_bootstrap, threshold=0.2)
+    else: # basic way of generating new labels by simply applying a filter based on a threshold value
+        new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_basicfilter(
+            model_new, dataloader_new, threshold=filter)
+
+    #saved the newly-generated dataset for visualization
     SelfTraining.visualize_predicted_masks(
         new_dataset_predict,
         num_samples=8,
-        save_path=f"visualizations/Seed{TrainSeed}_Grabct{Grabcut}_filter{filter}_epoch{epochs}_addon{add_on_dataset}_bootstrap_round{round_num}.png",
+        save_path=f"{pre_dir}/Seed{TrainSeed}_Grabct{GrabCut}_filter{filter}_epoch{epochs}_addon{Addon_Dataset}_bootstrap_round{round_num}.png",
     )
 
-    if add_on_dataset and AddGroundTruth:
+    if Addon_Dataset: #this will add new dataset on top of oringinal dataset and double the number of samples
         all_images = torch.cat(
-            [dataloader_new.dataset.tensors[0], new_dataset_predict.tensors[0],gt_train_loader.dataset.tensors[0]], dim=0
+            [dataloader_new.dataset.tensors[0], new_dataset_predict.tensors[0]], dim=0
         )
         all_labels = torch.cat(
-            [dataloader_new.dataset.tensors[1], new_dataset_predict.tensors[1],gt_train_loader.dataset.tensors[1]], dim=0
+            [dataloader_new.dataset.tensors[1], new_dataset_predict.tensors[1]], dim=0
         )
         all_masks = torch.cat(
-            [dataloader_new.dataset.tensors[2], new_dataset_predict.tensors[2],gt_train_loader.dataset.tensors[1]], dim=0
+            [dataloader_new.dataset.tensors[2], new_dataset_predict.tensors[2]], dim=0
         )
         new_dataset = TensorDataset(all_images, all_labels, all_masks)
-        dataloader_bootstrap = DataLoader(new_dataset,batch_size=batch_size, shuffle=False)
-    elif add_on_dataset and not AddGroundTruth:
-        all_images = torch.cat(
-            [new_dataset_predict.tensors[0],gt_train_loader.dataset.tensors[0]], dim=0
-        )
-        all_labels = torch.cat(
-            [new_dataset_predict.tensors[1],gt_train_loader.dataset.tensors[1]], dim=0
-        )
-        all_masks = torch.cat(
-            [new_dataset_predict.tensors[2],gt_train_loader.dataset.tensors[1]], dim=0
-        )
+        dataloader_bootstrap = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
+
+    elif Add_Groundtruth: #this will add some ground truth samples in the training loop
+        replication_factor = 1
+
+        gt_images_repeated = torch.cat([gt_data_for_train.tensors[0]] * replication_factor, dim=0)
+        gt_labels_repeated = torch.cat([gt_data_for_train.tensors[1]] * replication_factor, dim=0)
+        gt_masks_repeated = torch.cat([gt_data_for_train.tensors[2]] * replication_factor, dim=0)
+
+        # Concatenate with pseudo-labeled dataset
+        all_images = torch.cat([new_dataset_predict.tensors[0], gt_images_repeated], dim=0)
+        all_labels = torch.cat([new_dataset_predict.tensors[1], gt_labels_repeated], dim=0)
+        all_masks = torch.cat([new_dataset_predict.tensors[2], gt_masks_repeated], dim=0)
         new_dataset = TensorDataset(all_images, all_labels, all_masks)
-        dataloader_bootstrap = DataLoader(new_dataset,batch_size=batch_size, shuffle=False)
+        dataloader_bootstrap = DataLoader(new_dataset, batch_size=batch_size, shuffle=True)
     else:
         dataloader_bootstrap = DataLoader(new_dataset_predict, batch_size=batch_size, shuffle=False)
 
-    # Visualize results
-    print(f"Visualizing predicted masks from Round {round_num}")
-
-
-
+    print(f"Round {round_num} finished")
