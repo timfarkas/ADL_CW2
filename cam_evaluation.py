@@ -344,148 +344,148 @@ checkpoint_dicts = {
         },
     ],
     "run_3": [
-        # --- CNN Models ---
-        {
-            "model_path": "cnn_species_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
-                ClassifierHead(NUM_BREEDS, adapter="CNN"),
-                BboxHead(adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_breed_species",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="CNN"),
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
-            "epoch": 15,
-        },
-        {
-            "model_path": "cnn_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="CNN"),
-                BboxHead(adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_species_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="CNN"),
-                BboxHead(adapter="CNN"),
-            ],
-            "epoch": 20,
-        },
-        {
-            "model_path": "cnn_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
-            "epoch": 20,
-        },
-        {"model_path": "cnn_bbox", "heads": [BboxHead(adapter="CNN")], "epoch": 20},
-        # --- ResNet Models ---
-        {
-            "model_path": "res_species_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="res18"),
-                ClassifierHead(NUM_BREEDS, adapter="res18"),
-                BboxHead(adapter="res18"),
-            ],
-            "epoch": 20,
-            "size": "18",
-        },
-        {
-            "model_path": "res_breed_species",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res18"),
-                ClassifierHead(NUM_SPECIES, adapter="res18"),
-            ],
-            "epoch": 5,
-            "size": "18",
-        },
-        {
-            "model_path": "res_species_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="res50"),
-                ClassifierHead(NUM_BREEDS, adapter="res50"),
-                BboxHead(adapter="res50"),
-            ],
-            "epoch": 15,
-            "size": "50",
-        },
-        {
-            "model_path": "res_breed_species",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res50"),
-                ClassifierHead(NUM_SPECIES, adapter="res50"),
-            ],
-            "epoch": 15,
-            "size": "50",
-        },
-        {
-            "model_path": "res_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res18"),
-                BboxHead(adapter="res18"),
-            ],
-            "epoch": 15,
-            "size": "18",
-        },
-        {
-            "model_path": "res_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
-            "epoch": 20,
-            "size": "18",
-        },
-        {
-            "model_path": "res_breed_bbox",
-            "heads": [
-                ClassifierHead(NUM_BREEDS, adapter="res50"),
-                BboxHead(adapter="res50"),
-            ],
-            "epoch": 10,
-            "size": "50",
-        },
-        {
-            "model_path": "res_breed",
-            "heads": [ClassifierHead(NUM_BREEDS, adapter="res50")],
-            "epoch": 10,
-            "size": "50",
-        },
-        {
-            "model_path": "res_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="res18")],
-            "epoch": 10,
-            "size": "18",
-        },
+        # # --- CNN Models ---
+        # {
+        #     "model_path": "cnn_species_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="CNN"),
+        #         ClassifierHead(NUM_BREEDS, adapter="CNN"),
+        #         BboxHead(adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_breed_species",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="CNN"),
+        #         ClassifierHead(NUM_SPECIES, adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_breed",
+        #     "heads": [ClassifierHead(NUM_BREEDS, adapter="CNN")],
+        #     "epoch": 15,
+        # },
+        # {
+        #     "model_path": "cnn_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="CNN"),
+        #         BboxHead(adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_species_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="CNN"),
+        #         BboxHead(adapter="CNN"),
+        #     ],
+        #     "epoch": 20,
+        # },
+        # {
+        #     "model_path": "cnn_species",
+        #     "heads": [ClassifierHead(NUM_SPECIES, adapter="CNN")],
+        #     "epoch": 20,
+        # },
+        # {"model_path": "cnn_bbox", "heads": [BboxHead(adapter="CNN")], "epoch": 20},
+        # # --- ResNet Models ---
+        # {
+        #     "model_path": "res_species_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="res18"),
+        #         ClassifierHead(NUM_BREEDS, adapter="res18"),
+        #         BboxHead(adapter="res18"),
+        #     ],
+        #     "epoch": 20,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_breed_species",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res18"),
+        #         ClassifierHead(NUM_SPECIES, adapter="res18"),
+        #     ],
+        #     "epoch": 5,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_species_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="res50"),
+        #         ClassifierHead(NUM_BREEDS, adapter="res50"),
+        #         BboxHead(adapter="res50"),
+        #     ],
+        #     "epoch": 15,
+        #     "size": "50",
+        # },
+        # {
+        #     "model_path": "res_breed_species",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res50"),
+        #         ClassifierHead(NUM_SPECIES, adapter="res50"),
+        #     ],
+        #     "epoch": 15,
+        #     "size": "50",
+        # },
+        # {
+        #     "model_path": "res_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res18"),
+        #         BboxHead(adapter="res18"),
+        #     ],
+        #     "epoch": 15,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_breed",
+        #     "heads": [ClassifierHead(NUM_BREEDS, adapter="res18")],
+        #     "epoch": 20,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_breed_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_BREEDS, adapter="res50"),
+        #         BboxHead(adapter="res50"),
+        #     ],
+        #     "epoch": 10,
+        #     "size": "50",
+        # },
+        # {
+        #     "model_path": "res_breed",
+        #     "heads": [ClassifierHead(NUM_BREEDS, adapter="res50")],
+        #     "epoch": 10,
+        #     "size": "50",
+        # },
+        # {
+        #     "model_path": "res_species",
+        #     "heads": [ClassifierHead(NUM_SPECIES, adapter="res18")],
+        #     "epoch": 10,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_species_bbox",
+        #     "heads": [
+        #         ClassifierHead(NUM_SPECIES, adapter="res18"),
+        #         BboxHead(adapter="res18"),
+        #     ],
+        #     "epoch": 10,
+        #     "size": "18",
+        # },
+        # {
+        #     "model_path": "res_species",
+        #     "heads": [ClassifierHead(NUM_SPECIES, adapter="res50")],
+        #     "epoch": 15,
+        #     "size": "50",
+        # },
         {
             "model_path": "res_species_bbox",
             "heads": [
-                ClassifierHead(NUM_SPECIES, adapter="res18"),
-                BboxHead(adapter="res18"),
-            ],
-            "epoch": 15,
-            "size": "18",
-        },
-        {
-            "model_path": "res_species",
-            "heads": [ClassifierHead(NUM_SPECIES, adapter="res50")],
-            "epoch": 15,
-            "size": "50",
-        },
-        {
-            "model_path": "res_species_bbox",
-            "heads": [
                 ClassifierHead(NUM_SPECIES, adapter="res50"),
                 BboxHead(adapter="res50"),
             ],
-            "epoch": 20,
+            "epoch": 15,
             "size": "50",
         },
         {
@@ -504,7 +504,7 @@ checkpoint_dicts = {
 }
 
 
-def model_str_to_model_schema(model_str: str, epoch: int, device : str = None) -> dict:
+def model_str_to_model_schema(model_str: str, epoch: int, device : str = None, add_animal_head : bool = False) -> dict:
     """
     Convert a model string to a model schema dictionary.
 
@@ -548,6 +548,9 @@ def model_str_to_model_schema(model_str: str, epoch: int, device : str = None) -
             heads.append(ClassifierHead(NUM_SPECIES, adapter=adapter))
         elif part == "breed":
             heads.append(ClassifierHead(NUM_BREEDS, adapter=adapter))
+
+    if add_animal_head:
+        heads.append(ClassifierHead(2, adapter=adapter))
 
     if device:
         backbone = backbone.to(device)
@@ -979,7 +982,7 @@ if __name__ == "__main__":
 
     run_name = "run_3"
     checkpoints_dir = "checkpoints/" + run_name
-    generate_only = False
+    generate_only = True 
     num_best = 5
     cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
     use_mixed_loader = True ## SET THIS TO TRUE IF USING MIXED LOADER
@@ -1093,7 +1096,7 @@ if __name__ == "__main__":
 
         trainer = Trainer()
 
-        model_schema = model_str_to_model_schema(checkpoint["model_name"], epoch=None,device=device)
+        model_schema = model_str_to_model_schema(checkpoint["model_name"], epoch=None,device=device, add_animal_head=(run_name == "run_3"))
 
         trainer.set_model(
             model_schema["backbone"], model_schema["heads"], checkpoint_path
