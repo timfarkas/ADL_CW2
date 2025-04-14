@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -10,11 +9,11 @@ from torchvision.models import resnet18, ResNet18_Weights
 import cv2
 import os
 from torch.utils.data import TensorDataset, DataLoader
-'''One additional Library OpenCV has been used in this file for processing images with CAM. However it's possible to remove this library if necessary'''
 
-'''I only ran this code on CPU, not sure if that's compatible with GPU'''
+"""One additional Library OpenCV has been used in this file for processing images with CAM. However it's possible to remove this library if necessary"""
+
+"""I only ran this code on CPU, not sure if that's compatible with GPU"""
 from utils import resize_images
-
 
 
 # to show the images and labels of a batch
@@ -26,7 +25,7 @@ def show_batch(images, species, breeds, rows=4):
         plt.subplot(rows, cols, i + 1)
         plt.imshow(img)
         plt.title(f"{species[i]} - {breeds[i]}", fontsize=10)
-        plt.axis('off')
+        plt.axis("off")
 
     plt.tight_layout()
     plt.show()
@@ -38,24 +37,29 @@ class CNN(nn.Module):  # define the model
         super().__init__()
         self.features = nn.Sequential(
             # Input: (B, 3, 256, 256)
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),  # (B, 32, 256, 256)
+            nn.Conv2d(
+                in_channels=3, out_channels=32, kernel_size=3, padding=1
+            ),  # (B, 32, 256, 256)
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2),  # (B, 32, 128, 128)
-
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),  # (B, 64, 128, 128)
+            nn.Conv2d(
+                in_channels=32, out_channels=64, kernel_size=3, padding=1
+            ),  # (B, 64, 128, 128)
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2),  # (B, 64, 64, 64)
-
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),  # (B, 128, 64, 64)
+            nn.Conv2d(
+                in_channels=64, out_channels=128, kernel_size=3, padding=1
+            ),  # (B, 128, 64, 64)
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2),  # (B, 128, 32, 32)
-
-            nn.Conv2d(in_channels=128, out_channels=out_channels, kernel_size=3, padding=1),  # (B, out_channels, 32, 32)
+            nn.Conv2d(
+                in_channels=128, out_channels=out_channels, kernel_size=3, padding=1
+            ),  # (B, out_channels, 32, 32)
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
         # Classifier head after GAP
@@ -64,8 +68,12 @@ class CNN(nn.Module):  # define the model
     def forward(self, img, return_features=False):
         x = self.features(img)
         if return_features:
-            feature_map = x  # shape: (B, C, H, W), save the feature_map for the use of CAM
-        x = F.adaptive_avg_pool2d(x, 1) # This is the Global Average Pooling (GAP) that's necessary for CAM. Which transfer a whole channel into 1 single value
+            feature_map = (
+                x  # shape: (B, C, H, W), save the feature_map for the use of CAM
+            )
+        x = F.adaptive_avg_pool2d(
+            x, 1
+        )  # This is the Global Average Pooling (GAP) that's necessary for CAM. Which transfer a whole channel into 1 single value
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
 
@@ -74,12 +82,15 @@ class CNN(nn.Module):  # define the model
         else:
             return x
 
+
 # define a ResNet model
 class ResNetBackbone(nn.Module):
-    def __init__(self, num_classes,pretrained):
+    def __init__(self, num_classes, pretrained):
         super().__init__()
         if pretrained:
-            base_model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1) # With pretrained weights
+            base_model = resnet18(
+                weights=ResNet18_Weights.IMAGENET1K_V1
+            )  # With pretrained weights
         else:
             base_model = resnet18(weights=None)  # No pretrained weights
 
@@ -91,7 +102,7 @@ class ResNetBackbone(nn.Module):
             base_model.layer1,
             base_model.layer2,
             base_model.layer3,
-            base_model.layer4
+            base_model.layer4,
         )
 
         self.in_features = base_model.fc.in_features  # 512
@@ -111,18 +122,21 @@ class ResNetBackbone(nn.Module):
         else:
             return x
 
-def fit_sgd(model_train: torch.nn.Module, 
-            trainloader: torch.utils.data.DataLoader, 
-            label_select: str, 
-            number_epoch: int, 
-            learning_rate: float,
-            batch_size : int,
-            loss_function: torch.nn.Module, 
-            model_path: str, 
-            device: str = None) -> None:
+
+def fit_sgd(
+    model_train: torch.nn.Module,
+    trainloader: torch.utils.data.DataLoader,
+    label_select: str,
+    number_epoch: int,
+    learning_rate: float,
+    batch_size: int,
+    loss_function: torch.nn.Module,
+    model_path: str,
+    device: str = None,
+) -> None:
     """
     Train a model using Stochastic Gradient Descent.
-    
+
     Args:
         model_train: The neural network model to train
         trainloader: DataLoader containing the training data
@@ -135,31 +149,34 @@ def fit_sgd(model_train: torch.nn.Module,
     """
     print("<Training Start>")
     model_train.to(device)
-    optimizer = optim.SGD(model_train.parameters(), lr=learning_rate,
-                          momentum=0.9)
+    optimizer = optim.SGD(model_train.parameters(), lr=learning_rate, momentum=0.9)
 
     for epoch in range(number_epoch):
         batch_count = 0
         correct_count = 0
         sample_count = 0
         loss_sum = 0
-        total_batches=len(trainloader)
+        total_batches = len(trainloader)
         for images, targets in trainloader:
             images = images.to(device)
             labels = targets["breed"].to(device)
             batch_count += 1
-            if batch_count%10==0:
+            if batch_count % 10 == 0:
                 print(f"Batch: {batch_count}/{total_batches}")
             # images, breeds = images.to(device), breeds.to(device)  # Move data to GPU
             optimizer.zero_grad()
-            outputs = model_train(images) 
-            loss = loss_function(outputs,labels) # I used breeds as label. Potentially can switch to species
+            outputs = model_train(images)
+            loss = loss_function(
+                outputs, labels
+            )  # I used breeds as label. Potentially can switch to species
             loss.backward()
             optimizer.step()
-            _, predicted = torch.max(outputs[:batch_size], 1)  # Get the index of the max logit (prediction)
-            
+            _, predicted = torch.max(
+                outputs[:batch_size], 1
+            )  # Get the index of the max logit (prediction)
+
             batch_correct_count = (predicted == labels).sum().item()
-            
+
             # Count correct predictions
             correct_count += batch_correct_count
             sample_count += batch_size
@@ -167,16 +184,23 @@ def fit_sgd(model_train: torch.nn.Module,
             loss_sum += running_loss
 
         print(
-            f"Epoch:{epoch + 1}/{number_epoch},Accuracy: {correct_count / sample_count},{correct_count}/{sample_count},Loss:{loss_sum / sample_count}")
+            f"Epoch:{epoch + 1}/{number_epoch},Accuracy: {correct_count / sample_count},{correct_count}/{sample_count},Loss:{loss_sum / sample_count}"
+        )
 
     # save trained model
     torch.save(model_train.state_dict(), f"{model_path}")
-    print("Model saved. Number of parameters:", sum(a.numel() for a in model_train.parameters()))
+    print(
+        "Model saved. Number of parameters:",
+        sum(a.numel() for a in model_train.parameters()),
+    )
+
 
 def compute_cam(feature_map, classifier_weights, class_idx):
     # feature_map: (C, H, W)
     # classifier_weights: (num_classes, C)
-    weights = classifier_weights[class_idx].unsqueeze(1).unsqueeze(2)  # Shape: (C, 1, 1)
+    weights = (
+        classifier_weights[class_idx].unsqueeze(1).unsqueeze(2)
+    )  # Shape: (C, 1, 1)
     cam = torch.sum(weights * feature_map, dim=0)  # Shape: (H, W)
     cam = cam.detach().cpu().numpy()
     cam = np.maximum(cam, 0)  # ReLU
@@ -184,7 +208,8 @@ def compute_cam(feature_map, classifier_weights, class_idx):
     cam = cam / (np.max(cam) + 1e-8)  # Normalize to [0, 1]
     return cam
 
-def show_cam_on_image(img_tensor, cam, title='CAM'):
+
+def show_cam_on_image(img_tensor, cam, title="CAM"):
     # img_tensor: (3, H, W), range [0,1]
     img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
     h, w = img_np.shape[:2]
@@ -197,13 +222,15 @@ def show_cam_on_image(img_tensor, cam, title='CAM'):
     plt.figure(figsize=(4, 4))
     plt.imshow(overlay)
     plt.title(title)
-    plt.axis('off')
+    plt.axis("off")
     plt.show()
+
 
 def unnormalize(img_tensor):
     mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
     std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
     return (img_tensor * std + mean).clamp(0, 1)
+
 
 def visualize_cam(model, dataset, label_select, device=None):
     # Get a batch of test images
@@ -223,7 +250,7 @@ def visualize_cam(model, dataset, label_select, device=None):
             img = images[i]
             fmap = feature_maps[i]
             target_class = labels[i].item()
-            
+
             # Compute CAM
             cam = compute_cam(fmap, model.classifier.weight.data, target_class)
             img_np = unnormalize(img)  # Convert from tensor -> numpy [0,1] image
@@ -243,12 +270,12 @@ def visualize_cam(model, dataset, label_select, device=None):
             # Plot original
             axes[0, i].imshow(img_np)
             axes[0, i].set_title(f"Original - Class {target_class}")
-            axes[0, i].axis('off')
+            axes[0, i].axis("off")
 
             # Plot CAM
             axes[1, i].imshow(overlay)
             axes[1, i].set_title(f"CAM - Class {target_class}")
-            axes[1, i].axis('off')
+            axes[1, i].axis("off")
 
     plt.tight_layout()
     plt.show()
@@ -282,16 +309,27 @@ def get_labels_from_cam(model, image_batch, device="cpu"):
             _, pred_class = torch.max(logits[i], dim=0)
             predicted_classes.append(pred_class.item())
 
-            class_weights = weights[pred_class].unsqueeze(1).unsqueeze(2)  # shape: (C, 1, 1)
-            cam = torch.sum(class_weights * feature_map, dim=0, keepdim=True).unsqueeze(0)  # shape: (1, 1, H, W)
+            class_weights = (
+                weights[pred_class].unsqueeze(1).unsqueeze(2)
+            )  # shape: (C, 1, 1)
+            cam = torch.sum(class_weights * feature_map, dim=0, keepdim=True).unsqueeze(
+                0
+            )  # shape: (1, 1, H, W)
             cam = F.relu(cam)  # Apply ReLU
             cam = cam - cam.min()
             cam = cam / (cam.max() + 1e-8)  # Normalize to [0, 1]
-            cam_resized = F.interpolate(cam, size=(image_batch.shape[2], image_batch.shape[3]), mode='bilinear',
-                                        align_corners=False)
-            cam_masks.append(cam_resized.squeeze(0).squeeze(0).cpu())  # shape: (H, W), move to CPU
+            cam_resized = F.interpolate(
+                cam,
+                size=(image_batch.shape[2], image_batch.shape[3]),
+                mode="bilinear",
+                align_corners=False,
+            )
+            cam_masks.append(
+                cam_resized.squeeze(0).squeeze(0).cpu()
+            )  # shape: (H, W), move to CPU
 
     return cam_masks, predicted_classes
+
 
 def generate_cam_label_dataset(model, dataloader, device="cuda"):
     """
@@ -304,12 +342,12 @@ def generate_cam_label_dataset(model, dataloader, device="cuda"):
     all_images = []
     all_cams = []
     all_masks = []
-    batch_count=0
+    batch_count = 0
 
     for image_batch, targets in dataloader:
         image_batch = image_batch.to(device)
-        batch_count+=1
-        print("Batch:",batch_count)
+        batch_count += 1
+        print("Batch:", batch_count)
 
         if isinstance(targets, dict):
             gt_masks = targets["segmentation"].to(device)
@@ -317,7 +355,9 @@ def generate_cam_label_dataset(model, dataloader, device="cuda"):
             raise ValueError("Expected dict with key 'segmentation'")
 
         with torch.no_grad():
-            logits, feature_maps = model(image_batch, return_features=True)  # logits: (B, C), fmap: (B, C, H, W)
+            logits, feature_maps = model(
+                image_batch, return_features=True
+            )  # logits: (B, C), fmap: (B, C, H, W)
             weights = model.classifier.weight.data  # shape: (num_classes, C)
 
             pred_classes = logits.argmax(dim=1)  # (B,)
@@ -328,11 +368,15 @@ def generate_cam_label_dataset(model, dataloader, device="cuda"):
                 cls_idx = pred_classes[i]
                 weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
 
-                cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(0)  # (1, 1, H, W)
+                cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(
+                    0
+                )  # (1, 1, H, W)
                 cam = F.relu(cam)
                 cam = cam - cam.min()
                 cam = cam / (cam.max() + 1e-8)
-                cam_resized = F.interpolate(cam, size=(256, 256), mode='bilinear', align_corners=False)
+                cam_resized = F.interpolate(
+                    cam, size=(256, 256), mode="bilinear", align_corners=False
+                )
                 batch_cams.append(cam_resized)
 
             cams_batch = torch.cat(batch_cams, dim=0)  # (B, 1, 256, 256)
@@ -347,6 +391,7 @@ def generate_cam_label_dataset(model, dataloader, device="cuda"):
 
     print(f"✅ Created CAM-labeled dataset with {len(input_tensor)} samples.")
     return TensorDataset(input_tensor, cam_tensor, mask_tensor)
+
 
 # if __name__ == "__main__":
 #
