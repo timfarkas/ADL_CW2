@@ -3,17 +3,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torchvision.models import resnet18, ResNet18_Weights
 import cv2
-import os
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset
 
 """One additional Library OpenCV has been used in this file for processing images with CAM. However it's possible to remove this library if necessary"""
 
 """I only ran this code on CPU, not sure if that's compatible with GPU"""
-from utils import resize_images
 
 
 # to show the images and labels of a batch

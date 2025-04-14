@@ -17,10 +17,9 @@ import mixed_data
 import matplotlib.pyplot as plt
 import json
 import os
-from typing import List, Tuple, Optional, Union, Any
+from typing import List, Tuple, Optional
 import glob
 import data
-from utils import downsample_image
 
 checkpoint_dicts = {
     "run_1": [
@@ -1037,7 +1036,7 @@ if __name__ == "__main__":
                 trainer.set_model(backbone, checkpoint["heads"], checkpoint_path)
             elif path_parts[0] == "res":
                 size = checkpoint["size"]
-                backbone = ResNetBackbone(model_type=f"resnet" + size)
+                backbone = ResNetBackbone(model_type="resnet" + size)
                 [head.change_adapter("res" + size) for head in checkpoint["heads"]]
                 trainer.set_model(
                     backbone, checkpoint["heads"], checkpoint_path + "_" + size
@@ -1056,7 +1055,7 @@ if __name__ == "__main__":
                     else None
                 )
 
-                if not target_type in ["species", "bbox", "breed"]:
+                if target_type not in ["species", "bbox", "breed"]:
                     if use_mixed_loader:
                         print(
                             f"Got target type '{target_type} from path, assuming is_animal.'"
