@@ -16,13 +16,13 @@ torch.manual_seed(27)
 # Define the current backbones: CNN and ResNet
 backbone_candidates = {
     "CNN": CNNBackbone,
-    "ResNet": lambda: ResNetBackbone(pretrained=True)
+    "ResNet": lambda: ResNetBackbone(pretrained=True),
 }
 
 # Define classification tasks
 classification_tasks = [
-    {"task": "species", "num_classes": 2},    # Cat or dog
-    {"task": "breed", "num_classes": 37}      # 37 breed classes
+    {"task": "species", "num_classes": 2},  # Cat or dog
+    {"task": "breed", "num_classes": 37},  # 37 breed classes
 ]
 
 # Hyperparameters
@@ -45,9 +45,13 @@ for backbone_name, BackboneClass in backbone_candidates.items():
     for lr in learning_rates:
         for task in classification_tasks:
             # Instantiate head with backbone-specific adapter
-            head = ClassifierHead(num_classes=task["num_classes"], adapter=backbone_name)
+            head = ClassifierHead(
+                num_classes=task["num_classes"], adapter=backbone_name
+            )
             backbone = BackboneClass()
-            model_path = os.path.join("checkpoints", f"{backbone_name}_{task['task']}_lr{lr}")
+            model_path = os.path.join(
+                "checkpoints", f"{backbone_name}_{task['task']}_lr{lr}"
+            )
             config = {
                 "backbone": backbone,
                 "heads": [head],
@@ -56,7 +60,7 @@ for backbone_name, BackboneClass in backbone_candidates.items():
                 "target_type": [task["task"]],
                 "eval_functions": [compute_accuracy],
                 "eval_function_names": ["Acc"],
-                "loss_functions": [nn.CrossEntropyLoss()]
+                "loss_functions": [nn.CrossEntropyLoss()],
             }
             configurations.append(config)
 
@@ -69,7 +73,9 @@ print(f"Using device: {device}")
 
 # Training loop
 for config in sampled_configs:
-    print(f"\n=== Running configuration: {config['model_path']} (LR={config['learning_rate']}) ===")
+    print(
+        f"\n=== Running configuration: {config['model_path']} (LR={config['learning_rate']}) ==="
+    )
     trainer = Trainer()
     trainer.set_model(config["backbone"], config["heads"], config["model_path"])
     trainer.set_optimizer(config["learning_rate"])  # Uses AdamW by default
@@ -80,5 +86,7 @@ for config in sampled_configs:
         trainer.set_loaders(train_loader_breed, val_loader_breed)
     elif config["target_type"][0] == "species":
         trainer.set_loaders(train_loader_species, val_loader_species)
-    trainer.fit_sgd(num_epochs=num_epochs, device=device)  # Note: Uses AdamW despite name
+    trainer.fit_sgd(
+        num_epochs=num_epochs, device=device
+    )  # Note: Uses AdamW despite name
     print(f"Finished training configuration: {config['model_path']}")

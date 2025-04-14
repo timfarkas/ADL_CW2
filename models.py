@@ -204,7 +204,7 @@ class CAMManager:
         method: Literal["GradCAM", "ScoreCAM", "AblationCAM"] = "GradCAM",
         target_layer=None,
         smooth: bool = False,
-        output_size = (256, 256)
+        output_size=(256, 256),
     ):
         """
         Args:
@@ -217,7 +217,7 @@ class CAMManager:
         self.smooth = smooth
         self.model = model
         self.method = method
-        self.classical=False
+        self.classical = False
 
         # Auto-detect target layers if not specified
         if target_layer is None:
@@ -244,21 +244,31 @@ class CAMManager:
 
         # Initialise the appropriate CAM method
         self.cam_method = method
-        
 
         ## self.cam.batch_size = dataloader.batch_size
-        
+
         self.generator = self.get_cam_generator(
-            dataloader=dataloader, target_type=target_type, smooth=smooth, output_size=output_size
+            dataloader=dataloader,
+            target_type=target_type,
+            smooth=smooth,
+            output_size=output_size,
         )
 
-    def get_cam_dataset(self, num_samples=None, output_size=(256,256)) -> torch.utils.data.TensorDataset:
+    def get_cam_dataset(
+        self, num_samples=None, output_size=(256, 256)
+    ) -> torch.utils.data.TensorDataset:
         self.dataset = self._generate_cam_dataset(
-            self.dataloader, self.target_type, self.smooth, num_samples, output_size=output_size
+            self.dataloader,
+            self.target_type,
+            self.smooth,
+            num_samples,
+            output_size=output_size,
         )
         return self.dataset
 
-    def get_cam_generator(self, dataloader, target_type: str, smooth: bool = False, output_size = (256, 256)):
+    def get_cam_generator(
+        self, dataloader, target_type: str, smooth: bool = False, output_size=(256, 256)
+    ):
         device = next(self.model.parameters()).device
 
         for batch_images, batch_targets in dataloader:
@@ -271,7 +281,9 @@ class CAMManager:
                 case "ScoreCAM":
                     cam = ScoreCAM(model=self.model, target_layers=self.target_layers)
                 case "AblationCAM":
-                    cam = AblationCAM(model=self.model, target_layers=self.target_layers)
+                    cam = AblationCAM(
+                        model=self.model, target_layers=self.target_layers
+                    )
                 case _:
                     raise ValueError(f"Unsupported CAM method: {self.method}")
             images = batch_images.to(device)
@@ -285,7 +297,6 @@ class CAMManager:
 
             targets = [ClassifierOutputTarget(label.item()) for label in labels]
 
-            
             grayscale_cams = cam(
                 input_tensor=images,
                 targets=targets,
@@ -297,16 +308,24 @@ class CAMManager:
                 tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
             else:
                 tensor_cams = grayscale_cams
-            
+
             # Convert gt_masks to float before downsampling to avoid the Long tensor error
             gt_masks_float = gt_masks.cpu().float()
-            yield (downsample_image(batch_images, target_size=output_size), 
-                   downsample_image(tensor_cams, target_size=output_size), 
-                   downsample_image(gt_masks_float, target_size=output_size, mode="nearest").long())
-
+            yield (
+                downsample_image(batch_images, target_size=output_size),
+                downsample_image(tensor_cams, target_size=output_size),
+                downsample_image(
+                    gt_masks_float, target_size=output_size, mode="nearest"
+                ).long(),
+            )
 
     def _generate_cam_dataset(
-        self, dataloader, target_type, smooth: bool, num_samples=None, output_size=(256,256)
+        self,
+        dataloader,
+        target_type,
+        smooth: bool,
+        num_samples=None,
+        output_size=(256, 256),
     ):
         """
         Generate a dataset with CAM masks for self-training.
@@ -352,13 +371,13 @@ class CAMManager:
             model.eval()
             batch_cams = []
             input_size = input_tensor.shape[-2:]  # get (H, W) from input
-            
+
             with torch.no_grad():
                 logits = model(input_tensor)  # logits: (B, C)
                 feature_maps = model.feature_maps  # (B, C, H, W)
                 weights = model.head.head[2].weight
                 pred_classes = logits.argmax(dim=1)  # (B,)
-                
+
                 for i in range(input_tensor.size(0)):
                     fmap = feature_maps[i]  # (C, H, W)
                     cls_idx = pred_classes[i]
@@ -543,7 +562,7 @@ class ResNetBackbone(nn.Module):
 
         # Adjust batch norm momentum for stronger normalization (deprecated)
         # Instead, cutting out ResNet101 to save on training speed and positing that WD + augmentations + smaller ResNets will address overfitting
-        #for module in self.features.modules():
+        # for module in self.features.modules():
         #    if isinstance(module, nn.BatchNorm2d):
         #        module.momentum = 0.01 # Default is 0.1, lower value for "stronger" effect
 
@@ -607,8 +626,6 @@ class UNet(nn.Module):
 
 
 class SelfTraining:
-
-
     @staticmethod
     def fit_sgd_pixel(
         model_train,
@@ -618,7 +635,7 @@ class SelfTraining:
         loss_function: torch.nn.Module,
         model_path: str,
         device: str = None,
-        threshold: int=0
+        threshold: int = 0,
     ) -> None:
         """
         Train a segmentation model using Stochastic Gradient Descent.
@@ -646,9 +663,9 @@ class SelfTraining:
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
                 # if batch_count % 10 == 0:
-                    # print(f"Batch: {batch_count}/{total_batches}")
+                # print(f"Batch: {batch_count}/{total_batches}")
                 images = images.to(device)
-                masks =(masks >= threshold)*masks.to(device).float()
+                masks = (masks >= threshold) * masks.to(device).float()
                 # masks_bin = (masks > threshold).float()
                 # masks_gt = masks_gt.to(device).float()
                 optimizer.zero_grad()
@@ -676,6 +693,7 @@ class SelfTraining:
             "Model saved. Number of parameters:",
             sum(p.numel() for p in model_train.parameters()),
         )
+
     @staticmethod
     def fit_sgd_seed(
         model_train,
@@ -685,7 +703,7 @@ class SelfTraining:
         loss_function: torch.nn.Module,
         model_path: str,
         device: str = None,
-        threshold:int=0.1
+        threshold: int = 0.1,
     ) -> None:
         """
         Train a segmentation model using Stochastic Gradient Descent.
@@ -714,7 +732,7 @@ class SelfTraining:
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
                 # if batch_count % 10 == 0:
-                    # print(f"Batch: {batch_count}/{total_batches}")
+                # print(f"Batch: {batch_count}/{total_batches}")
                 images = images.to(device)
                 masks = masks.to(device).float()
                 masks_flat = masks.view(-1)
@@ -724,16 +742,20 @@ class SelfTraining:
                 # threshold_bg = torch.quantile(masks_flat, threshold).item()
                 # threshold_fg = torch.quantile(masks_flat, (1-threshold)).item()
 
-                if firsttime==True:
+                if firsttime == True:
                     min_val = masks_flat.min().item()
                     max_val = masks_flat.max().item()
-                    print(f"masks stats → min: {min_val:.4f}, max: {max_val:.4f}, bg_thres: {threshold_bg:.4f}, fg_thres: {threshold_fg:.4f}")
-                    num_fg_seeds = (masks >= threshold_fg).sum().item()/(64*64*64)
+                    print(
+                        f"masks stats → min: {min_val:.4f}, max: {max_val:.4f}, bg_thres: {threshold_bg:.4f}, fg_thres: {threshold_fg:.4f}"
+                    )
+                    num_fg_seeds = (masks >= threshold_fg).sum().item() / (64 * 64 * 64)
                     print(f"Foreground seeds (masks >= {threshold_fg}): {num_fg_seeds}")
-                    num_bg_seeds = (masks <= threshold_bg).sum().item()/(64*64*64)
+                    num_bg_seeds = (masks <= threshold_bg).sum().item() / (64 * 64 * 64)
                     print(f"Background seeds (masks <= {threshold_bg}): {num_bg_seeds}")
-                    firsttime=False
-                seed_mask = ((masks >= threshold_fg) | (masks <= threshold_bg)).float()  # [B, H, W]
+                    firsttime = False
+                seed_mask = (
+                    (masks >= threshold_fg) | (masks <= threshold_bg)
+                ).float()  # [B, H, W]
                 masks_bin = torch.zeros_like(masks)
                 masks_bin[masks >= threshold_fg] = 1  # Foreground
                 masks_bin[masks <= threshold_bg] = 0  # Background
@@ -743,7 +765,6 @@ class SelfTraining:
 
                 loss_raw = loss_function(outputs, masks_bin)
                 loss = (loss_raw * seed_mask).sum() / (seed_mask.sum() + 1e-6)
-
 
                 loss.backward()
                 optimizer.step()
@@ -766,6 +787,7 @@ class SelfTraining:
             "Model saved. Number of parameters:",
             sum(p.numel() for p in model_train.parameters()),
         )
+
     @staticmethod
     def predict_segmentation_dataset_with_basicfilter(
         model: nn.Module,
@@ -791,7 +813,7 @@ class SelfTraining:
         gt_mask_list = []
 
         with torch.no_grad():
-            for images, targets,gt_masks in dataloader:
+            for images, targets, gt_masks in dataloader:
                 images = images.to(device)
                 logits = model(images)  # [B, 1, H, W]
                 probs = torch.sigmoid(logits)  # ∈ [0,1]
@@ -809,7 +831,6 @@ class SelfTraining:
 
         print(f"Generated filtered probability masks for {len(all_images)} samples.")
         return TensorDataset(all_images, all_probs, all_gts)
-
 
     @staticmethod
     def predict_segmentation_dataset_with_grabcut(
@@ -837,26 +858,33 @@ class SelfTraining:
 
         with torch.no_grad():
             sample_count = 0
-            for images, targets,gt_masks in dataloader:
+            for images, targets, gt_masks in dataloader:
                 images = images.to(device)
                 logits = model(images)  # [B, 1, H, W]
                 probs = torch.sigmoid(logits)  # [B, 1, H, W]
                 batch_size = images.size(0)
                 for i in range(batch_size):
-                    sample_count+=1
-                    if sample_count%1000==0:
+                    sample_count += 1
+                    if sample_count % 1000 == 0:
                         print(sample_count)
-                    refined_mask_np = SelfTraining.grabcut_from_mask(images[i], probs[i], threshold)
-                    refined_mask_tensor = torch.from_numpy(refined_mask_np).to(device).float()  # [H, W]
-                    combined_map = 0.5 * probs[i].squeeze(0) + 0.5 * refined_mask_tensor  # both [H, W
+                    refined_mask_np = SelfTraining.grabcut_from_mask(
+                        images[i], probs[i], threshold
+                    )
+                    refined_mask_tensor = (
+                        torch.from_numpy(refined_mask_np).to(device).float()
+                    )  # [H, W]
+                    combined_map = (
+                        0.5 * probs[i].squeeze(0) + 0.5 * refined_mask_tensor
+                    )  # both [H, W
                     refined_mask_tensor = combined_map.unsqueeze(0).float()
                     image_list.append(images[i].cpu())
                     mask_list.append(refined_mask_tensor.squeeze(0))  # ensure [H, W]
                     gt_mask_list.append(gt_masks[i].squeeze(0).cpu())  # ensure [H, W]
 
-
         all_images = torch.stack(image_list)  # [N, 3, H, W]
-        all_masks = torch.stack([mask.unsqueeze(0) for mask in mask_list])  # [N, 1, H, W]
+        all_masks = torch.stack(
+            [mask.unsqueeze(0) for mask in mask_list]
+        )  # [N, 1, H, W]
         all_gts = torch.stack([gt.unsqueeze(0) for gt in gt_mask_list])  # [N, 1, H, W]
 
         # print(f"Image batch size: {all_images.shape}")
@@ -890,12 +918,11 @@ class SelfTraining:
         prob_mask_list = []
         gt_mask_list = []
 
-        with (torch.no_grad()):
-            for images, probs,gt_masks in dataloader:
+        with torch.no_grad():
+            for images, probs, gt_masks in dataloader:
                 images = images.to(device)
                 logits = model(images)  # [B, 1, H, W]
                 new_probs = torch.sigmoid(logits)  # ∈ [0,1]
-
 
                 # Threshold percentage
                 # threshold_percentage = threshold  # Set your desired percentage
@@ -916,11 +943,10 @@ class SelfTraining:
 
                 # Apply the threshold: set all pixels below the threshold to 0
                 add_probs = (new_probs >= threshold_value_high).float() * 1.0
-                filtered_probs = torch.maximum(
-                    add_probs,
-                    probs
-                ).float()
-                filtered_probs = (new_probs >= threshold_value_low).float() * filtered_probs
+                filtered_probs = torch.maximum(add_probs, probs).float()
+                filtered_probs = (
+                    new_probs >= threshold_value_low
+                ).float() * filtered_probs
 
                 image_list.append(images.cpu())
                 prob_mask_list.append(filtered_probs.cpu())
@@ -1026,9 +1052,8 @@ class SelfTraining:
         plt.tight_layout()
         plt.show()
 
-
     @staticmethod
-    def grabcut_from_mask(image,prob,threshold, iter_count=5):
+    def grabcut_from_mask(image, prob, threshold, iter_count=5):
         """
         Applies GrabCut using an initial seed mask.
         Returns binary mask after GrabCut, or fallback based on confident seeds.
@@ -1061,18 +1086,31 @@ class SelfTraining:
         if not has_fg or not has_bg:
             # print("⚠️ GrabCut skipped (no confident FG/BG seeds) → using fallback init_mask.")
             # # Convert: 1 (FG) and 3 (probable FG) → 1, everything else → 0
-            return ((init_mask == cv2.GC_FGD) | (init_mask == cv2.GC_PR_FGD)).astype(np.uint8)
+            return ((init_mask == cv2.GC_FGD) | (init_mask == cv2.GC_PR_FGD)).astype(
+                np.uint8
+            )
 
         # Proceed with GrabCut if valid seeds exist
-        mask = init_mask.copy().astype('uint8')
+        mask = init_mask.copy().astype("uint8")
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
 
-        cv2.grabCut(img_np, mask, None, bgdModel, fgdModel, iter_count, mode=cv2.GC_INIT_WITH_MASK)
+        cv2.grabCut(
+            img_np,
+            mask,
+            None,
+            bgdModel,
+            fgdModel,
+            iter_count,
+            mode=cv2.GC_INIT_WITH_MASK,
+        )
 
-        binary_mask = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype('uint8')
+        binary_mask = np.where(
+            (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0
+        ).astype("uint8")
         refined_mask = binary_mask.astype(np.float32)  #
         return refined_mask
+
     @staticmethod
     def visualize_grabcut(image, init_mask, binary_mask, title_prefix="Sample"):
         """
@@ -1106,4 +1144,3 @@ class SelfTraining:
 
         plt.tight_layout()
         plt.show()
-
