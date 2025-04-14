@@ -17,12 +17,9 @@ from torchvision.models import (
 import os
 from utils import resize_images, unnormalize
 from torch.utils.data import TensorDataset
-from evaluation import get_categories_from_normalization
-
-import numpy as np
-# import pydensecrf.densecrf as dcrf
-# from pydensecrf.utils import unary_from_softmax, create_pairwise_bilateral, create_pairwise_gaussian
-#
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam import GradCAM, ScoreCAM, AblationCAM
+from utils import downsample_image
 
 ### Num Inputs:
 #       Breed:                  37
@@ -178,6 +175,19 @@ class BasicCAMWrapper(nn.Module):
         plt.show()
 
 
+class TrainedModel(nn.Module):
+    def __init__(self, backbone: nn.Module, head: nn.Module, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.backbone = backbone
+        self.head = head
+
+    def forward(self, x):
+        features = self.backbone(x)
+        self.feature_maps = features
+        logits = self.head(features)
+        return logits
+
+
 class CAMManager:
     """
     Class that manages different CAM methods based on the grad-cam package.
@@ -194,6 +204,7 @@ class CAMManager:
         method: Literal["GradCAM", "ScoreCAM", "AblationCAM"] = "GradCAM",
         target_layer=None,
         smooth: bool = False,
+        output_size = (256, 256)
     ):
         """
         Args:
@@ -201,13 +212,21 @@ class CAMManager:
             method: CAM method ('GradCAM', 'HiResCAM', etc. naming based on grad-cam package)
             target_layer: Target layer for CAM methods, if None will be auto-detected
         """
+        self.dataloader = dataloader
+        self.target_type = target_type
+        self.smooth = smooth
         self.model = model
         self.method = method
         self.classical=False
 
         # Auto-detect target layers if not specified
         if target_layer is None:
-            if hasattr(model, "features") and hasattr(model.features, "__getitem__"):
+            if isinstance(model, TrainedModel):
+                if isinstance(model.backbone, ResNetBackbone):
+                    self.target_layers = [model.backbone.features[-1][-1]]
+                else:
+                    self.target_layers = [model.backbone.features[-2]]
+            elif hasattr(model, "features") and hasattr(model.features, "__getitem__"):
                 if isinstance(model, ResNetBackbone):
                     self.target_layers = [
                         model.features[-1][-1]
@@ -224,34 +243,71 @@ class CAMManager:
             self.target_layers = [target_layer]
 
         # Initialise the appropriate CAM method
-        match method:
-            case "GradCAM":
-                from pytorch_grad_cam import GradCAM
+        self.cam_method = method
+        
 
-                self.cam = GradCAM(model=model, target_layers=self.target_layers)
-                self.cam.batch_size = dataloader.batch_size
-            case "ScoreCAM":
-                from pytorch_grad_cam import ScoreCAM
-
-                self.cam = ScoreCAM(model=model, target_layers=self.target_layers)
-                self.cam.batch_size = dataloader.batch_size
-            case "AblationCAM":
-                from pytorch_grad_cam import AblationCAM
-
-                self.cam = AblationCAM(model=model, target_layers=self.target_layers)
-                self.cam.batch_size = dataloader.batch_size
-            case "Classical":
-                self.classical = True
-
-            case _:
-                raise ValueError(f"Unsupported CAM method: {method}")
-
-
-        self.dataset = self._generate_cam_dataset(
-            dataloader=dataloader, target_type=target_type, smooth=smooth
+        ## self.cam.batch_size = dataloader.batch_size
+        
+        self.generator = self.get_cam_generator(
+            dataloader=dataloader, target_type=target_type, smooth=smooth, output_size=output_size
         )
 
-    def _generate_cam_dataset(self, dataloader, target_type, smooth: bool):
+    def get_cam_dataset(self, num_samples=None, output_size=(256,256)) -> torch.utils.data.TensorDataset:
+        self.dataset = self._generate_cam_dataset(
+            self.dataloader, self.target_type, self.smooth, num_samples, output_size=output_size
+        )
+        return self.dataset
+
+    def get_cam_generator(self, dataloader, target_type: str, smooth: bool = False, output_size = (256, 256)):
+        device = next(self.model.parameters()).device
+
+        for batch_images, batch_targets in dataloader:
+            cam = None
+            match self.method:
+                case "ClassicCAM":
+                    cam = self._classic_cam(model=self.model)
+                case "GradCAM":
+                    cam = GradCAM(model=self.model, target_layers=self.target_layers)
+                case "ScoreCAM":
+                    cam = ScoreCAM(model=self.model, target_layers=self.target_layers)
+                case "AblationCAM":
+                    cam = AblationCAM(model=self.model, target_layers=self.target_layers)
+                case _:
+                    raise ValueError(f"Unsupported CAM method: {self.method}")
+            images = batch_images.to(device)
+            try:
+                labels = batch_targets[target_type].to(device)
+                gt_masks = batch_targets["segmentation"].to(device)
+            except (ValueError, KeyError):
+                raise ValueError(
+                    f"Expected dict with keys '{target_type}' and 'segmentation'"
+                )
+
+            targets = [ClassifierOutputTarget(label.item()) for label in labels]
+
+            
+            grayscale_cams = cam(
+                input_tensor=images,
+                targets=targets,
+                aug_smooth=smooth,
+                eigen_smooth=smooth,
+            )
+
+            if self.method != "ClassicCAM":
+                tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
+            else:
+                tensor_cams = grayscale_cams
+            
+            # Convert gt_masks to float before downsampling to avoid the Long tensor error
+            gt_masks_float = gt_masks.cpu().float()
+            yield (downsample_image(batch_images, target_size=output_size), 
+                   downsample_image(tensor_cams, target_size=output_size), 
+                   downsample_image(gt_masks_float, target_size=output_size, mode="nearest").long())
+
+
+    def _generate_cam_dataset(
+        self, dataloader, target_type, smooth: bool, num_samples=None, output_size=(256,256)
+    ):
         """
         Generate a dataset with CAM masks for self-training.
 
@@ -262,76 +318,19 @@ class CAMManager:
             TensorDataset: Contains (images, cam_mask, segmentation_masks),
                 where masks are [B, 1, H, W].
         """
-        from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
         self.model.eval()
 
-        all_images = []
-        all_cams = []
-        all_masks = []
-
-        device = next(self.model.parameters()).device
-
-        for batch_images, batch_targets in dataloader:
-            all_images.append(batch_images)
-            images = batch_images.to(device)
-
-            try:
-                # If batch_targets is a dict
-                if isinstance(batch_targets, dict):
-                    print("dict")
-                    labels = batch_targets[target_type].to(device)
-                    gt_masks = batch_targets["segmentation"].to(device)
-                # If it's a tuple of (label, mask)
-                elif isinstance(batch_targets, (tuple, list)):
-                    print("tuple")
-                    labels = batch_targets[0].to(device)
-                    gt_masks = batch_targets[1].to(device)
-                # If it's just the label tensor
-                else:
-                    labels = batch_targets.to(device)
-                    gt_masks = labels
-
-            except ValueError or KeyError:
-                raise ValueError(
-                    f"Expected dict with keys '{target_type}' and 'segmentation'"
-                )
-
-            if self.classical:
-                with torch.no_grad():
-                    logits, feature_maps = self.model(batch_images,
-                                                      return_features=True)  # logits: (B, C), fmap: (B, C, H, W)
-                    weights = self.model.classifier.weight.data  # shape: (num_classes, C)
-
-                    pred_classes = logits.argmax(dim=1)  # (B,)
-                    batch_cams = []
-
-                    input_size = batch_images.shape[-2:]  # get (H, W) from input
-
-                    for i in range(batch_images.size(0)):
-                        fmap = feature_maps[i]  # (C, H, W)
-                        cls_idx = pred_classes[i]
-                        weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
-
-                        cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(0)  # (1, 1, H, W)
-                        cam = F.relu(cam)
-                        cam = cam - cam.min()
-                        cam = cam / (cam.max() + 1e-8)
-                        cam_resized = F.interpolate(cam, size=input_size, mode='bilinear', align_corners=False)
-                        batch_cams.append(cam_resized)
-
-                    tensor_cams = torch.cat(batch_cams, dim=0)  # (B, 1, H, W)
-            else:
-                targets = [ClassifierOutputTarget(label.item()) for label in labels]
-                grayscale_cams = self.cam(
-                    input_tensor=images,
-                    targets=targets,
-                    aug_smooth=smooth,
-                    eigen_smooth=smooth,
-                )
-                tensor_cams = torch.from_numpy(grayscale_cams).float().unsqueeze(1)
-            all_cams.append(tensor_cams)
-            all_masks.append(gt_masks.cpu())
+        all_images, all_cams, all_masks = [], [], []
+        batch_size = dataloader.batch_size
+        for i, (images, cams, masks) in enumerate(
+            self.get_cam_generator(dataloader, target_type, smooth, output_size)
+        ):
+            all_images.append(images)
+            all_cams.append(cams)
+            all_masks.append(masks)
+            if num_samples is not None and (i + 1) * batch_size >= num_samples:
+                break
 
         # Concatenate all batches
         images_tensor = torch.cat(all_images, dim=0)
@@ -339,6 +338,48 @@ class CAMManager:
         masks_tensor = torch.cat(all_masks, dim=0)
 
         return TensorDataset(images_tensor, cams_tensor, masks_tensor)
+
+    def _classic_cam(self, model: torch.nn.Module):
+        def _forward(
+            input_tensor,
+            targets,
+            aug_smooth,
+            eigen_smooth,
+        ):
+            """
+            Forward pass to get logits and feature maps.
+            """
+            model.eval()
+            batch_cams = []
+            input_size = input_tensor.shape[-2:]  # get (H, W) from input
+            
+            with torch.no_grad():
+                logits = model(input_tensor)  # logits: (B, C)
+                feature_maps = model.feature_maps  # (B, C, H, W)
+                weights = model.head.head[2].weight
+                pred_classes = logits.argmax(dim=1)  # (B,)
+                
+                for i in range(input_tensor.size(0)):
+                    fmap = feature_maps[i]  # (C, H, W)
+                    cls_idx = pred_classes[i]
+                    weight_vec = weights[cls_idx].view(-1, 1, 1)  # (C, 1, 1)
+
+                    cam = torch.sum(fmap * weight_vec, dim=0, keepdim=True).unsqueeze(
+                        0
+                    )  # (1, 1, H, W)
+                    cam = F.relu(cam)
+                    cam = cam - cam.min()
+                    cam = cam / (cam.max() + 1e-8)
+                    cam_resized = F.interpolate(
+                        cam, size=input_size, mode="bilinear", align_corners=False
+                    )
+                    batch_cams.append(cam_resized.cpu())
+
+                batch_cams = torch.cat(batch_cams, dim=0)  # (B, 1, H, W)
+            return batch_cams
+
+        return _forward
+
 
 class BboxHead(nn.Module):
     def __init__(self, adapter="CNN"):

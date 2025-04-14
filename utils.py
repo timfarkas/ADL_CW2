@@ -75,6 +75,51 @@ def resize_images(
     
     return img_resized
 
+def downsample_image(cam, target_size=(64, 64), mode='bilinear'):
+    """
+    Downsamples a CAM tensor to a target size.
+    
+    Args:
+        cam (torch.Tensor): The CAM tensor to downsample. Can be 2D (H, W) or 3D (B, H, W) or 4D (B, C, H, W).
+        target_size (tuple, optional): The target size to downsample to. Defaults to (64, 64).
+        mode (str, optional): Interpolation mode. Options: 'bilinear', 'nearest', 'bicubic', 'area'. Defaults to 'bilinear'.
+        
+    Returns:
+        torch.Tensor: The downsampled CAM tensor with the same number of dimensions as the input.
+    """
+    import torch.nn.functional as F
+    
+    # Save original shape to restore at the end
+    original_shape = cam.shape
+    
+    # Handle different input dimensions
+    if len(original_shape) == 2:  # (H, W)
+        cam = cam.unsqueeze(0).unsqueeze(0)  # Add batch and channel dims: (1, 1, H, W)
+    elif len(original_shape) == 3:  # (B, H, W)
+        cam = cam.unsqueeze(1)  # Add channel dim: (B, 1, H, W)
+    
+    # Ensure cam is in the expected 4D format (B, C, H, W) for F.interpolate
+    assert len(cam.shape) == 4, f"Expected 4D tensor after reshaping, got {cam.shape}"
+    
+    # Determine if we need align_corners based on mode
+    align_corners = None if mode == 'nearest' or mode == 'area' else False
+    
+    # Perform downsampling using specified interpolation mode
+    downsampled_cam = F.interpolate(
+        cam, 
+        size=target_size, 
+        mode=mode, 
+        align_corners=align_corners
+    )
+    
+    # Restore original dimensions
+    if len(original_shape) == 2:  # (H, W)
+        downsampled_cam = downsampled_cam.squeeze(0).squeeze(0)  # Remove batch and channel dims
+    elif len(original_shape) == 3:  # (B, H, W)
+        downsampled_cam = downsampled_cam.squeeze(1)  # Remove channel dim
+    
+    return downsampled_cam
+
 
 #### EVAL FUNCTIONS FOR PRE-TRAINING TRAINER
 def compute_accuracy(outputs, targets) -> float:
