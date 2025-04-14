@@ -113,10 +113,10 @@ gt_data_for_train = TensorDataset(
 '''Preparing for selflearning(bootstraping)'''
 Skip_first_round = True # if true, will use the model"first_round_model.pt" saved at current folder to save time
 Use_Bootstrap_Models = False  # if true, will used saved models in bootstrap interations
-Addon_Dataset = True  # if true, new dataset will be added on original dataset and passed to the next round altogether
-Add_Groundtruth = False  # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
+Addon_Dataset = False  # if true, new dataset will be added on original dataset and passed to the next round altogether
+Add_Groundtruth = True  # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
 TrainSeed = False  # if true, will use seed-loss in training process (not quite work with Add_on)
-GrabCut = True # if true, will use GrabCut in the process of generating new pseudo labels
+GrabCut = False # if true, will use GrabCut in the process of generating new pseudo labels
 Mixlabel = False  # if true, will use mixlabel in the process generating new pseudo labels
 filter = 0 # value of threshold for simple filter
 
@@ -202,7 +202,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
         dataloader_bootstrap = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 
     elif Add_Groundtruth: #this will add some ground truth samples in the training loop
-        replication_factor = 1
+        replication_factor = 10
 
         gt_images_repeated = torch.cat([gt_data_for_train.tensors[0]] * replication_factor, dim=0)
         gt_labels_repeated = torch.cat([gt_data_for_train.tensors[1]] * replication_factor, dim=0)
