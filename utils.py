@@ -143,7 +143,7 @@ def convertVOCBBoxFormatToAnchorFormat(boxes):
     Takes in a tensor of bounding boxes in VOC format, of the form [x_min, y_min, x_max, y_max], or a single box.
     Converts it to a tensor of bounding boxes in anchor format, of the form [cx, cy, w, h], or a single box.
     """
-    assert type(boxes) == torch.Tensor, f"Expected tensor, received {type(boxes)}"
+    assert isinstance(boxes, torch.Tensor), f"Expected tensor, received {type(boxes)}"
     unsqueezed = False
     if len(boxes.shape) == 1:
         unsqueezed = True
