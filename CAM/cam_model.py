@@ -1,12 +1,12 @@
+import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import numpy as np
 import torch.nn.functional as F
-from torchvision.models import resnet18, ResNet18_Weights
-import cv2
+import torch.optim as optim
 from torch.utils.data import TensorDataset
+from torchvision.models import ResNet18_Weights, resnet18
 
 """One additional Library OpenCV has been used in this file for processing images with CAM. However it's possible to remove this library if necessary"""
 

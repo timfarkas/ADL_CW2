@@ -1,11 +1,12 @@
 import os
 import random
+
 import torch
 import torch.nn as nn
-from models import CNNBackbone, ResNetBackbone, ClassifierHead
+
+from data import OxfordPetDataset, create_dataloaders
+from models import ClassifierHead, CNNBackbone, ResNetBackbone
 from pre_training import Trainer
-from data import create_dataloaders
-from data import OxfordPetDataset
 from utils import compute_accuracy
 
 # Set random seeds for reproducibility

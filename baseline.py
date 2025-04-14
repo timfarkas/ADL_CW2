@@ -1,17 +1,16 @@
 import os
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-
-from models import SelfTraining, UNet
 
 from data import (
     create_dataloaders,
     create_sample_loader_from_existing_loader,
 )
 from evaluation import evaluate_model, get_binary_from_normalization
+from models import SelfTraining, UNet
 
 device = torch.device(
     "cuda"

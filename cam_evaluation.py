@@ -1,25 +1,27 @@
-from pre_training import (
-    Trainer,
-    NUM_SPECIES,
-    NUM_BREEDS,
-)
+import glob
+import json
+import os
+from typing import List, Optional, Tuple
+
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+
+import data
+import mixed_data
 from models import (
     BboxHead,
     CAMManager,
-    CNNBackbone,
     ClassifierHead,
+    CNNBackbone,
     ResNetBackbone,
     TrainedModel,
 )
-import torch
-import torch.nn as nn
-import mixed_data
-import matplotlib.pyplot as plt
-import json
-import os
-from typing import List, Tuple, Optional
-import glob
-import data
+from pre_training import (
+    NUM_BREEDS,
+    NUM_SPECIES,
+    Trainer,
+)
 
 checkpoint_dicts = {
     "run_1": [
