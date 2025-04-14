@@ -89,6 +89,15 @@ class Trainer():
         self.heads = heads
         self.model_path = model_path
 
+    def checkpoint_path(self, epoch: int) -> str:
+        """
+        Returns the path to the checkpoint file.
+        
+        Returns:
+            Path to the checkpoint file
+        """
+        return f"{os.path.splitext(self.model_path)[0]}_checkpoint_epoch{epoch}.pt"
+
     def save_checkpoint(self, epoch, additional_info=None):
         """
         Save a checkpoint of the current model state.
@@ -112,7 +121,7 @@ class Trainer():
             checkpoint.update(additional_info)
         
         # Create checkpoint filename with epoch number
-        checkpoint_path = f"{os.path.splitext(self.model_path)[0]}_checkpoint_epoch{epoch}.pt"
+        checkpoint_path = self.checkpoint_path(epoch)
         torch.save(checkpoint, checkpoint_path)
         print(f"Checkpoint saved to {checkpoint_path}")
         return checkpoint_path
@@ -549,6 +558,9 @@ def convert_and_get_IoU(outputs, targets) -> float:
     iou = computeBBoxIoU(outputs, targets)
     return iou
 
+checkpoints_dir = "checkpoints"
+NUM_SPECIES = 2
+NUM_BREEDS = 37
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -595,10 +607,6 @@ if __name__ == "__main__":
 
     cel_fn = nn.CrossEntropyLoss()
     mse_fn = nn.MSELoss(reduction='none') # Compute loss per element without reduction
-
-    checkpoints_dir = "checkpoints"
-    NUM_SPECIES = 2
-    NUM_BREEDS = 37
 
     run_dicts = [
         {   ### cnn_species
