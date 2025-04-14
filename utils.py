@@ -2,6 +2,7 @@ import torch
 import torchvision
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset, DataLoader
 import os
 
@@ -288,3 +289,44 @@ if __name__ == "__main__":
     print(f"IoU (VOC format, maximum overlap): {iou_voc_max}")
     print(f"IoU Loss (VOC format, maximum overlap): {compute_IOULoss(outputs_anchor_max, targets_anchor_max)}")
 
+
+
+
+def save_image_grid(images, pred_masks, binary_masks, gt_masks, save_path):
+    """
+    Save a grid of images where each column = one sample,
+    and each row = Image / Predicted Mask / Binary Prediction / Ground Truth.
+    """
+    num_images = images.size(0)
+    fig, axs = plt.subplots(4, num_images, figsize=(4 * num_images, 16))  # 4 rows × N columns
+
+    if num_images == 1:
+        axs = np.expand_dims(axs, axis=1)  # handle single column case
+
+    for i in range(num_images):
+        # Unnormalize image for visualization
+        image = images[i].permute(1, 2, 0).cpu().numpy()
+        image = (image * 255).astype(np.uint8) if image.max() <= 1.0 else image.astype(np.uint8)
+
+        pred_mask = pred_masks[i].squeeze().detach().cpu().numpy()
+        binary_mask = binary_masks[i].squeeze().detach().cpu().numpy()
+        gt_mask = gt_masks[i].squeeze().detach().cpu().numpy()
+
+        axs[0][i].imshow(image)
+        axs[0][i].set_title(f"Image {i+1}")
+
+        axs[1][i].imshow(pred_mask, cmap='jet')
+        axs[1][i].set_title("Predicted Mask")
+
+        axs[2][i].imshow(binary_mask, cmap='gray')
+        axs[2][i].set_title("Binary Prediction")
+
+        axs[3][i].imshow(gt_mask, cmap='gray')
+        axs[3][i].set_title("Ground Truth")
+
+        for j in range(4):
+            axs[j][i].axis('off')
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300)
+    plt.close(fig)
