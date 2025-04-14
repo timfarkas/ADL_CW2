@@ -11,7 +11,6 @@ from models import CAMManager, SelfTraining, UNet
 
 from data import OxfordPetDataset,create_dataloaders,create_sample_loader_from_existing_loader
 from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization
-from utils import save_tensor_dataset, unnormalize
 
 device = torch.device(
     "cuda"
@@ -34,16 +33,7 @@ dataloader_train, dataloader_val, dataloader_test = create_dataloaders(
     shuffle=False)
 gt_sample_loader = create_sample_loader_from_existing_loader(dataloader_val,100,64,False)
 dataset = dataloader_train.dataset  # get the dataset used inside the original DataLoader
-# for i in range(5):  # check first 5 samples
-#     img, mask = dataset[i]
-#     seg = mask["segmentation"]
-#
-#     print(f"Sample {i}:")
-#     print(f"  shape: {seg.shape}")
-#     print(f"  dtype: {seg.dtype}")
-#     print(f"  min: {seg.min().item():.4f}, max: {seg.max().item():.4f}")
-#     print(f"  unique values: {torch.unique(seg)}\n")
-# Create a new dataset that returns (img, segmentation_mask, segmentation_mask)
+
 tripled_data = [
     (img, get_binary_from_normalization(mask["segmentation"]), get_binary_from_normalization(mask["segmentation"]),)
     for img, mask in dataset
@@ -88,9 +78,7 @@ dataloader_train_triple = DataLoader(
 
 model_new = UNet(3, 1).to(device)
 
-# print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
 loss_function = nn.BCEWithLogitsLoss()
-# loss_function = nn.MSELoss()
 
 epochs_previous=0
 # model_path_previous = os.path.join(model_dir, f"baseline_model_epoch{epochs_previous}.pt")
