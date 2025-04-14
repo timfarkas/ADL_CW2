@@ -659,7 +659,7 @@ class SelfTraining:
             total_pixels = 0
             total_loss = 0
 
-            total_batches = len(dataloader_new)
+            # total_batches = len(dataloader_new)
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
                 # if batch_count % 10 == 0:
@@ -728,7 +728,7 @@ class SelfTraining:
             total_pixels = 0
             total_loss = 0
 
-            total_batches = len(dataloader_new)
+            # total_batches = len(dataloader_new)
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
                 # if batch_count % 10 == 0:
@@ -742,7 +742,7 @@ class SelfTraining:
                 # threshold_bg = torch.quantile(masks_flat, threshold).item()
                 # threshold_fg = torch.quantile(masks_flat, (1-threshold)).item()
 
-                if firsttime == True:
+                if firsttime:
                     min_val = masks_flat.min().item()
                     max_val = masks_flat.max().item()
                     print(

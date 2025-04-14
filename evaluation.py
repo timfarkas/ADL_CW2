@@ -27,7 +27,7 @@ def get_binary_from_normalization(x: torch.Tensor) -> torch.Tensor:
     """
     include_boundary = True
     categories = (x * 255 - 1).round().long()  # Convert to int labels: 0, 1, 2
-    if include_boundary == True:
+    if include_boundary:
         # Map: 0 → 1, 1 → 0, 2 → 1
         categories = torch.where(
             categories == 0,
