@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader,Subset, TensorDataset
 from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
 import random
@@ -12,6 +12,7 @@ import re
 import tarfile
 import urllib.request
 import xml.etree.ElementTree as ET
+
 
 RANDOM_SEED = 27
 
@@ -544,7 +545,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     if use_augmentation:
         train_transform = transforms.Compose([
-            transforms.Resize(resize_size),
+            transforms.Resize(resize_size, interpolation=Image.NEAREST),
             transforms.CenterCrop(resize_size),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             transforms.RandomGrayscale(p=0.2),
@@ -553,14 +554,14 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         ])
     else:
         train_transform = transforms.Compose([
-            transforms.Resize(resize_size),
+            transforms.Resize(resize_size, interpolation=Image.NEAREST),
             transforms.CenterCrop(resize_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
     val_test_transform = transforms.Compose([
-        transforms.Resize(resize_size),
+        transforms.Resize(resize_size, interpolation=Image.NEAREST),
         transforms.CenterCrop(resize_size),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -570,6 +571,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     target_transform = None
     if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
         target_transform = transforms.Compose([
+
             transforms.Resize(resize_size, interpolation=InterpolationMode.NEAREST),
             transforms.CenterCrop(resize_size),
             SegmentationToTensor(),
@@ -640,6 +642,55 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
     )
 
     return train_loader, val_loader, test_loader
+
+
+def create_sample_loader_from_existing_loader(loader, num_samples=20, batch_size=20, shuffle=False, seed=42):
+    """
+    Create a new DataLoader containing a subset of (image, segmentation_mask) pairs,
+    extracted from a dataset where targets are dicts containing the 'segmentation' key.
+
+    Args:
+        loader (DataLoader): Existing PyTorch DataLoader.
+        num_samples (int): Number of samples to extract.
+        batch_size (int): Batch size for the new DataLoader.
+        shuffle (bool): Whether to shuffle before selecting samples.
+        seed (int): Random seed for reproducibility.
+
+    Returns:
+        DataLoader: New DataLoader yielding (image, segmentation_mask) batches.
+    """
+    dataset = loader.dataset
+    dataset_size = len(dataset)
+
+    if num_samples > dataset_size:
+        raise ValueError(f"Requested {num_samples} samples, but dataset only has {dataset_size} items.")
+
+    # Choose random or sequential indices
+    indices = list(range(dataset_size))
+    if shuffle:
+        random.seed(seed)
+        random.shuffle(indices)
+
+    selected_indices = indices[:num_samples]
+
+    # Extract (image, segmentation) pairs and store as tensors
+    image_list = []
+    mask_list = []
+    for idx in selected_indices:
+        image, target = dataset[idx]
+        mask = target["segmentation"]
+        image_list.append(image.unsqueeze(0))
+        mask_list.append(mask.unsqueeze(0))
+
+    # Stack to tensors
+    images_tensor = torch.cat(image_list, dim=0)
+    masks_tensor = torch.cat(mask_list, dim=0)
+
+    # Wrap into a TensorDataset
+    tensor_dataset = TensorDataset(images_tensor, masks_tensor)
+
+    # Return standard DataLoader
+    return DataLoader(tensor_dataset, batch_size=batch_size, shuffle=False)
 
 # Example usage:
 if __name__ == "__main__":
