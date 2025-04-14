@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader, Subset, TensorDataset
+from torch.utils.data import Dataset, DataLoader, TensorDataset
 from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
 import random
@@ -183,13 +183,13 @@ class OxfordPetDataset(Dataset):
         if self.images_tar_path.exists():
             print(f"Images already downloaded: {self.images_tar_path}")
         else:
-            print(f"Downloading images...")
+            print("Downloading images...")
             urllib.request.urlretrieve(self.IMAGES_URL, self.images_tar_path)
 
         if self.annotations_tar_path.exists():
             print(f"Annotations already downloaded: {self.annotations_tar_path}")
         else:
-            print(f"Downloading annotations...")
+            print("Downloading annotations...")
             urllib.request.urlretrieve(self.ANNOTATIONS_URL, self.annotations_tar_path)
 
     def extract_files(self):

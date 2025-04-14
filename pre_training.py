@@ -6,8 +6,6 @@ import os
 from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
 import torch
 import torch.nn as nn
-import sys
-import io
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from utils import compute_accuracy, computeBBoxIoU, convertVOCBBoxFormatToAnchorFormat
@@ -385,7 +383,7 @@ class Trainer:
                 )  ## convert label dict to list
 
                 if i % max(1, len(self.train_loader) // 10) == 0:
-                    print(f"|", end="", flush=True)
+                    print("|", end="", flush=True)
 
                 images = images.to(device)
                 labels = [label.to(device) for label in labels]
@@ -956,7 +954,7 @@ if __name__ == "__main__":
             trainer.fit_sgd(device=device)
         elif run_dict["backbone"] == "res":
             for size in ["18", "50"]:  # Excluding ResNet-101
-                backbone = ResNetBackbone(model_type=f"resnet" + size)
+                backbone = ResNetBackbone(model_type="resnet" + size)
                 [
                     head.change_adapter("res" + size) for head in run_dict["heads"]
                 ]  ## change adapter to match resnet size

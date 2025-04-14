@@ -2,20 +2,16 @@ import os
 
 import torch
 import torch.nn as nn
-from PIL import ImageFile
 import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 
-from CAM.cam_model import CNN, ResNetBackbone, fit_sgd
-from models import CAMManager, SelfTraining, UNet
+from models import SelfTraining, UNet
 
 from data import (
-    OxfordPetDataset,
     create_dataloaders,
     create_sample_loader_from_existing_loader,
 )
-from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization
-from utils import save_tensor_dataset, unnormalize
+from evaluation import evaluate_model, get_binary_from_normalization
 
 device = torch.device(
     "cuda"
@@ -107,7 +103,7 @@ model_new = UNet(3, 1).to(device)
 # print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
 loss_function = nn.BCEWithLogitsLoss()
 # loss_function = nn.MSELoss()
-model_path = os.path.join(model_dir, f"baseline_model.pt")
+model_path = os.path.join(model_dir, "baseline_model.pt")
 
 
 epochs = 10
@@ -127,4 +123,4 @@ SelfTraining.fit_sgd_pixel(
 )
 
 
-evaluate_model(model_new, gt_sample_loader, 8, f"baselind", threshold=0.5)
+evaluate_model(model_new, gt_sample_loader, 8, "baselind", threshold=0.5)

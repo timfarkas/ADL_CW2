@@ -2,7 +2,6 @@ import os
 import random
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from models import CNNBackbone, ResNetBackbone, ClassifierHead
 from pre_training import Trainer
 from data import create_dataloaders

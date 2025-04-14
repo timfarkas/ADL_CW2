@@ -982,9 +982,9 @@ class SelfTraining:
             axs[0, i].imshow(img)
             axs[0, i].set_title(f"Image {i + 1}")
             axs[1, i].imshow(pred_mask, cmap="gray")
-            axs[1, i].set_title(f"Predicted")
+            axs[1, i].set_title("Predicted")
             axs[2, i].imshow(gt_mask, cmap="gray")
-            axs[2, i].set_title(f"Ground Truth")
+            axs[2, i].set_title("Ground Truth")
 
             for row in range(3):
                 axs[row, i].axis("off")

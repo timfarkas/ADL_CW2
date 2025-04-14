@@ -4,18 +4,15 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from models import CAMManager, SelfTraining, UNet
+from models import SelfTraining, UNet
 
 from data import (
-    OxfordPetDataset,
     create_dataloaders,
     create_sample_loader_from_existing_loader,
 )
 from evaluation import (
-    evaluate_dataset,
     evaluate_model,
     get_binary_from_normalization,
-    evaluate_model_with_grabcut,
 )
 
 # from utils import save_tensor_dataset, unnormalize
@@ -167,7 +164,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
         round_num == 1 and Skip_first_round
     ):  # since firstround process will always be the same(only number of epochs may be different), can used saved first round model to save time
         model_new = UNet(3, 1).to(device)
-        model_new.load_state_dict(torch.load(f"first_round_model.pt"))
+        model_new.load_state_dict(torch.load("first_round_model.pt"))
         print("Model loaded successfully.")
     elif Use_Bootstrap_Models and os.path.exists(
         model_path

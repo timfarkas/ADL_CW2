@@ -5,8 +5,6 @@ import os
 from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
 import torch
 import torch.nn as nn
-import sys
-import io
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from utils import compute_accuracy, computeBBoxIoU, convertVOCBBoxFormatToAnchorFormat
@@ -233,7 +231,7 @@ class Trainer:
                     else labels
                 )
                 if i % max(1, len(self.train_loader) // 10) == 0:
-                    print(f"|", end="", flush=True)
+                    print("|", end="", flush=True)
                 images = images.to(device)
                 labels = [label.to(device) for label in labels]
                 batch_count += 1
@@ -523,7 +521,7 @@ if __name__ == "__main__":
         }
     ]
 
-    print(f"Starting quick logging validation with 1 configuration...\n")
+    print("Starting quick logging validation with 1 configuration...\n")
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()
