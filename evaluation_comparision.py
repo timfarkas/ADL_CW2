@@ -1,13 +1,10 @@
 import os
 
 import torch
-import torch.nn as nn
-from PIL import ImageFile
-import matplotlib.pyplot as plt
+
 from torch.utils.data import DataLoader, TensorDataset
 from data import OxfordPetDataset,create_dataloaders,create_sample_loader_from_existing_loader
 from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization
-from utils import save_tensor_dataset, unnormalize
 from models import CAMManager, SelfTraining, UNet
 
 
@@ -46,7 +43,7 @@ dataloader_test_new = DataLoader(
     num_workers=0)
 
 epochs=40
-# model_path = os.path.join(model_dir, f"baseline_model_epoch{epochs}.pt")
+
 model_name=f"baseline_model_epoch{epochs}"
 # model_name=f"best_model_selftrain"
 model_path = os.path.join(model_dir, f"{model_name}.pt")
