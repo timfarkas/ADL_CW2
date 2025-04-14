@@ -1,14 +1,16 @@
-from data import OxfordPetDataset
-import data
 import json
 import os
-from models import ResNetBackbone, CNNBackbone, BboxHead, ClassifierHead
+
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 import torch.optim as optim
-from utils import compute_accuracy, computeBBoxIoU, convertVOCBBoxFormatToAnchorFormat
+from torch.utils.data import DataLoader
+
+import data
 import mixed_data
+from data import OxfordPetDataset
+from models import BboxHead, ClassifierHead, CNNBackbone, ResNetBackbone
+from utils import compute_accuracy, computeBBoxIoU, convertVOCBBoxFormatToAnchorFormat
 
 
 class Trainer:

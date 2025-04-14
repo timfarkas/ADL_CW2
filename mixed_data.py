@@ -1,17 +1,18 @@
-from torch.utils.data import Dataset, DataLoader
-from pathlib import Path
-from PIL import Image
-import os
 import json
+import os
+import random
 import subprocess
 import zipfile
-import torch
-import random
-from torchvision import transforms
-from data import OxfordPetDataset, create_dataloaders, SegmentationToTensor
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 
+from data import OxfordPetDataset, SegmentationToTensor, create_dataloaders
 
 RANDOM_SEED = 27
 

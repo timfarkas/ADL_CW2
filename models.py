@@ -1,25 +1,26 @@
+import os
 from typing import Literal
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-from torchvision.models import (
-    resnet18,
-    ResNet18_Weights,
-    resnet50,
-    ResNet50_Weights,
-    resnet101,
-    ResNet101_Weights,
-)
-import os
-from utils import resize_images, unnormalize
-from torch.utils.data import TensorDataset
+import torch.optim as optim
+from pytorch_grad_cam import AblationCAM, GradCAM, ScoreCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam import GradCAM, ScoreCAM, AblationCAM
-from utils import downsample_image
+from torch.utils.data import TensorDataset
+from torchvision.models import (
+    ResNet18_Weights,
+    ResNet50_Weights,
+    ResNet101_Weights,
+    resnet18,
+    resnet50,
+    resnet101,
+)
+
+from utils import downsample_image, resize_images, unnormalize
 
 ### Num Inputs:
 #       Breed:                  37

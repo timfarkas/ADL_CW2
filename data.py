@@ -1,18 +1,18 @@
-import torch
-from torch.utils.data import Dataset, DataLoader, TensorDataset
-from torchvision import transforms
-from torchvision.transforms.functional import InterpolationMode
-import random
 import os
-from PIL import Image
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
+import random
 import re
 import tarfile
 import urllib.request
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torchvision import transforms
+from torchvision.transforms.functional import InterpolationMode
 
 RANDOM_SEED = 27
 

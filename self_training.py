@@ -1,10 +1,12 @@
 import os
 
+# from utils import save_tensor_dataset, unnormalize
+import random
+
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-
-from models import SelfTraining, UNet
 
 from data import (
     create_dataloaders,
@@ -14,10 +16,7 @@ from evaluation import (
     evaluate_model,
     get_binary_from_normalization,
 )
-
-# from utils import save_tensor_dataset, unnormalize
-import random
-import numpy as np
+from models import SelfTraining, UNet
 
 """Fix randomization seed"""
 

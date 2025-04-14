@@ -1,8 +1,10 @@
-import torch
-import torchvision
 import os
-from utils import unnormalize, save_image_grid
+
+import torch
 import torch.nn as nn
+import torchvision
+
+from utils import save_image_grid, unnormalize
 
 
 def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
