@@ -21,7 +21,7 @@ device = torch.device(
     else "cpu"
 )
 
-model_dir = os.path.join("checkpoints", "CAM")
+model_dir = os.path.join("checkpoints", "EVA")
 os.makedirs(model_dir, exist_ok=True)
 
 classification_mode = "breed"
@@ -57,54 +57,49 @@ dataloader_train_triple = DataLoader(
     num_workers=0)
 
 #
-images, masks, masks_gt = next(iter(dataloader_train_triple))
+# images, masks, masks_gt = next(iter(dataloader_train_triple))
 
-# Plot the first N samples
-images_vis = images[:8].detach().cpu()
-masks_vis = masks[:8].detach().cpu()
-preds_vis = masks_gt[:8].float().detach().cpu()
-
-
-for i in range(images_vis.size(0)):
-    fig, axs = plt.subplots(1, 3, figsize=(10, 3))
-
-    img = images_vis[i].permute(1, 2, 0).numpy()
-    img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1] for visualization
-
-    axs[0].imshow(img)
-    axs[0].set_title("Input Image")
-    axs[0].axis("off")
-
-    axs[1].imshow(masks_vis[i].squeeze(), cmap='gray')
-    axs[1].set_title("Ground Truth Mask")
-    axs[1].axis("off")
-
-    axs[2].imshow(preds_vis[i].squeeze(), cmap='gray')
-    axs[2].set_title("Predicted Mask")
-    axs[2].axis("off")
-
-    plt.tight_layout()
-    plt.show()
+# # Plot the first N samples
+# images_vis = images[:8].detach().cpu()
+# masks_vis = masks[:8].detach().cpu()
+# preds_vis = masks_gt[:8].float().detach().cpu()
+#
+#
+# for i in range(images_vis.size(0)):
+#     fig, axs = plt.subplots(1, 3, figsize=(10, 3))
+#
+#     img = images_vis[i].permute(1, 2, 0).numpy()
+#     img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1] for visualization
+#
+#     axs[0].imshow(img)
+#     axs[0].set_title("Input Image")
+#     axs[0].axis("off")
+#
+#     axs[1].imshow(masks_vis[i].squeeze(), cmap='gray')
+#     axs[1].set_title("Ground Truth Mask")
+#     axs[1].axis("off")
+#
+#     axs[2].imshow(preds_vis[i].squeeze(), cmap='gray')
+#     axs[2].set_title("Predicted Mask")
+#     axs[2].axis("off")
+#
+#     plt.tight_layout()
+#     plt.show()
 
 model_new = UNet(3, 1).to(device)
 
 # print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
 loss_function = nn.BCEWithLogitsLoss()
 # loss_function = nn.MSELoss()
-model_path = os.path.join(model_dir, f"baseline_model.pt")
 
-
-epochs=10
-
+epochs_previous=0
+# model_path_previous = os.path.join(model_dir, f"baseline_model_epoch{epochs_previous}.pt")
+# model_path = os.path.join(model_dir, f"best_model_selftrain.pt")
 model_new = UNet(3, 1).to(device)
-model_new.load_state_dict(torch.load(f"{model_path}"))
-print("Model loaded successfully.")
-
+# model_new.load_state_dict(torch.load(f"{model_path_previous}"))
+epochs=40
+model_path= os.path.join(model_dir, f"baseline_model_epoch{epochs}.pt")
 SelfTraining.fit_sgd_pixel(
-    model_new, dataloader_train_triple, epochs, 0.05, loss_function, model_path, device=device
+    model_new, dataloader_train_triple, epochs-epochs_previous, 0.05, loss_function, model_path, device=device
 )
 
-
-
-
-evaluate_model(model_new, gt_sample_loader, 8, f"baselind", threshold=0.5)
