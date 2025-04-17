@@ -1,26 +1,27 @@
-from pre_training import (
-    Trainer,
-    NUM_SPECIES,
-    NUM_BREEDS,
-)
+import glob
+import json
+import os
+from typing import List, Optional, Tuple
+
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+
+import data
+import mixed_data
 from models import (
     BboxHead,
     CAMManager,
-    CNNBackbone,
     ClassifierHead,
+    CNNBackbone,
     ResNetBackbone,
     TrainedModel,
 )
-import torch
-import torch.nn as nn
-import mixed_data
-import matplotlib.pyplot as plt
-import json
-import os
-from typing import List, Tuple, Optional, Union, Any
-import glob
-import data
-from utils import downsample_image
+from pre_training import (
+    NUM_BREEDS,
+    NUM_SPECIES,
+    Trainer,
+)
 
 checkpoint_dicts = {
     "run_1": [
@@ -504,7 +505,9 @@ checkpoint_dicts = {
 }
 
 
-def model_str_to_model_schema(model_str: str, epoch: int, device : str = None, add_animal_head : bool = False) -> dict:
+def model_str_to_model_schema(
+    model_str: str, epoch: int, device: str = None, add_animal_head: bool = False
+) -> dict:
     """
     Convert a model string to a model schema dictionary.
 
@@ -538,7 +541,7 @@ def model_str_to_model_schema(model_str: str, epoch: int, device : str = None, a
     else:  # ResNet
         adapter = f"res{size}"
         backbone = ResNetBackbone(model_type=f"resnet{size}")
-    
+
     # Create heads based on the model parts
     heads = []
     for part in parts:
@@ -732,7 +735,9 @@ def computeIoU(
     elif len(unique_values) == 1:
         segment = segment[:, 0]
     else:
-        raise ValueError(f"Unexpected segmentation mask value count {len(unique_values)}")
+        raise ValueError(
+            f"Unexpected segmentation mask value count {len(unique_values)}"
+        )
 
     intersection = torch.logical_and(cam, segment).sum().item()
     union = torch.logical_or(cam, segment).sum().item()
@@ -775,7 +780,7 @@ def find_optimal_threshold(
         generator = (data for data in camDataset)
         for i, batch in enumerate(generator):
             img, cam, segment = batch
-            
+
             segment = segment.unsqueeze(0).unsqueeze(0)  # (1,1,H,W)
 
             iou = computeIoU(cam, segment, threshold, visualize=False)
@@ -812,7 +817,7 @@ def find_optimal_threshold(
 def findOptimalCAMSettings(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
-    target_type : str,
+    target_type: str,
     cam_type: str,
     num_samples: int = 50,
 ) -> List[Tuple[int, float, float]]:
@@ -870,7 +875,7 @@ def findLayerCAMThresholdAndIOU(
         model, loader, target_type=target_type, target_layer=layer, method=cam_type
     )
 
-    dataset = manager.get_cam_dataset(num_samples=num_samples, output_size=(64,64))
+    dataset = manager.get_cam_dataset(num_samples=num_samples, output_size=(64, 64))
     threshold, iou = find_optimal_threshold(dataset, num_samples=num_samples)
     del dataset
     del manager
@@ -977,26 +982,28 @@ def getBestCAMCheckpoints(num_best=5, json_path="logs/cam_stats.json") -> List[d
 
 
 if __name__ == "__main__":
-    
     cam_types = ["ClassicCAM", "GradCAM"]
 
     run_name = "run_3"
     checkpoints_dir = "checkpoints/" + run_name
-    generate_only = True 
+    generate_only = True
     num_best = 5
-    cam_stats_file = os.path.join("logs", "cam_stats_"+run_name+".json")
-    use_mixed_loader = True ## SET THIS TO TRUE IF USING MIXED LOADER
+    cam_stats_file = os.path.join("logs", "cam_stats_" + run_name + ".json")
+    use_mixed_loader = True  ## SET THIS TO TRUE IF USING MIXED LOADER
     device = "mps"
 
     if use_mixed_loader:
         train_loader, loader, _ = mixed_data.create_mixed_dataloaders(
-        target_type=["species", "breed", "is_animal", "segmentation"], bg_directory="landscapes", batch_size=32, mixing_ratio=99999999999 ## fetch all types of data but never show background
+            target_type=["species", "breed", "is_animal", "segmentation"],
+            bg_directory="landscapes",
+            batch_size=32,
+            mixing_ratio=99999999999,  ## fetch all types of data but never show background
         )
     else:
         train_loader, loader, _ = data.create_dataloaders(
-        target_type=["species", "breed", "segmentation"], batch_size=32 ## fetch all types of data
+            target_type=["species", "breed", "segmentation"],
+            batch_size=32,  ## fetch all types of data
         )
-
 
     print("\n------------------------ Evaluating CAMS ---------------------\n")
     print(f"Iterating through {len(checkpoint_dicts[run_name])} checkpoints...")
@@ -1018,9 +1025,12 @@ if __name__ == "__main__":
             if run_name == "run_3":
                 assert use_mixed_loader, "Mixed loader must be set to true for run 3"
                 # Add is_animal classifier head to match the pre-training setup
-                adapter = "CNN" if path_parts[0] == "cnn" else f"res{checkpoint['size']}"
-                checkpoint["heads"].append(ClassifierHead(num_classes=2, adapter=adapter))
-
+                adapter = (
+                    "CNN" if path_parts[0] == "cnn" else f"res{checkpoint['size']}"
+                )
+                checkpoint["heads"].append(
+                    ClassifierHead(num_classes=2, adapter=adapter)
+                )
 
             trainer = Trainer()
             if path_parts[0] == "cnn":
@@ -1028,7 +1038,7 @@ if __name__ == "__main__":
                 trainer.set_model(backbone, checkpoint["heads"], checkpoint_path)
             elif path_parts[0] == "res":
                 size = checkpoint["size"]
-                backbone = ResNetBackbone(model_type=f"resnet" + size)
+                backbone = ResNetBackbone(model_type="resnet" + size)
                 [head.change_adapter("res" + size) for head in checkpoint["heads"]]
                 trainer.set_model(
                     backbone, checkpoint["heads"], checkpoint_path + "_" + size
@@ -1041,15 +1051,20 @@ if __name__ == "__main__":
             for head_index, head in enumerate(trainer.heads):
                 model = TrainedModel(backbone=trainer.backbone, head=head)
 
-                target_type = path_parts[head_index + 1] if (head_index + 1) < len(path_parts) else None
-                
-                if not target_type in ['species', 'bbox', 'breed']:
+                target_type = (
+                    path_parts[head_index + 1]
+                    if (head_index + 1) < len(path_parts)
+                    else None
+                )
+
+                if target_type not in ["species", "bbox", "breed"]:
                     if use_mixed_loader:
-                        print(f"Got target type '{target_type} from path, assuming is_animal.'")
-                        target_type = 'is_animal'
+                        print(
+                            f"Got target type '{target_type} from path, assuming is_animal.'"
+                        )
+                        target_type = "is_animal"
                     else:
                         raise ValueError(f"Unexpected target type {target_type}")
-
 
                 """
                 According to a quick research, and also the results of the CAMS
@@ -1076,7 +1091,12 @@ if __name__ == "__main__":
                     cam_settings = findOptimalCAMSettings(
                         model, loader, target_type, cam, num_samples=100
                     )
-                    _saveModelCAMSettingsToJson(model_name, settings_name, cam_settings, os.path.join("logs", "cam_stats_"+run_name+".json"))
+                    _saveModelCAMSettingsToJson(
+                        model_name,
+                        settings_name,
+                        cam_settings,
+                        os.path.join("logs", "cam_stats_" + run_name + ".json"),
+                    )
 
                 del model
 
@@ -1096,12 +1116,16 @@ if __name__ == "__main__":
 
         trainer = Trainer()
 
-        model_schema = model_str_to_model_schema(checkpoint["model_name"], epoch=None,device=device, add_animal_head=(run_name == "run_3"))
+        model_schema = model_str_to_model_schema(
+            checkpoint["model_name"],
+            epoch=None,
+            device=device,
+            add_animal_head=(run_name == "run_3"),
+        )
 
         trainer.set_model(
             model_schema["backbone"], model_schema["heads"], checkpoint_path
         )
-        
 
         ## find checkpoint file and epoch using glob
         checkpoint_pattern = os.path.join(
@@ -1126,15 +1150,15 @@ if __name__ == "__main__":
         target_head = None
 
         ### find head reference
-        assert head_name in [head.name for head in trainer.heads] or any(head.name in head_name for head in trainer.heads), (
-            f"Head {head_name} not found in trainer.heads: {trainer.heads}"
-        )
+        assert head_name in [head.name for head in trainer.heads] or any(
+            head.name in head_name for head in trainer.heads
+        ), f"Head {head_name} not found in trainer.heads: {trainer.heads}"
         count = 0
         for head in trainer.heads:
             if head.name in head_name:
                 print(f"Head name {head.name} matches {head_name}")
                 target_head = head
-                if head_name.split("-") and head_name.split("-")[-1] == str(count): 
+                if head_name.split("-") and head_name.split("-")[-1] == str(count):
                     break
                 count += 1
         print(f"Using {head_name} (number {count})")
@@ -1146,7 +1170,7 @@ if __name__ == "__main__":
         print(f"Generating {cam_name} dataset for {path} head {target_type}:")
         target_layer = findConvLayerByIndex(model, checkpoint["layer_index"])
         manager = CAMManager(model, train_loader, target_type, cam_name, target_layer)
-        dataset = manager.get_cam_dataset(output_size=(64,64))
+        dataset = manager.get_cam_dataset(output_size=(64, 64))
 
         # Create directory if it doesn't exist
         os.makedirs("cam_datasets", exist_ok=True)
