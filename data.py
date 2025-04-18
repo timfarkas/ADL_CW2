@@ -656,7 +656,7 @@ def create_dataloaders(
     if use_augmentation:
         train_transform = transforms.Compose(
             [
-                transforms.Resize(resize_size, interpolation=Image.NEAREST),
+                transforms.Resize(resize_size),
                 transforms.CenterCrop(resize_size),
                 transforms.ColorJitter(
                     brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
@@ -671,7 +671,7 @@ def create_dataloaders(
     else:
         train_transform = transforms.Compose(
             [
-                transforms.Resize(resize_size, interpolation=Image.NEAREST),
+                transforms.Resize(resize_size),
                 transforms.CenterCrop(resize_size),
                 transforms.ToTensor(),
                 transforms.Normalize(
@@ -682,7 +682,7 @@ def create_dataloaders(
 
     val_test_transform = transforms.Compose(
         [
-            transforms.Resize(resize_size, interpolation=Image.NEAREST),
+            transforms.Resize(resize_size),
             transforms.CenterCrop(resize_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
