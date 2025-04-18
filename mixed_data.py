@@ -1,17 +1,18 @@
-from torch.utils.data import Dataset, DataLoader
-from pathlib import Path
-from PIL import Image
-import os
 import json
+import os
+import random
 import subprocess
 import zipfile
-import torch
-import random
-from torchvision import transforms
-from data import OxfordPetDataset, create_dataloaders, SegmentationToTensor
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 
+from data import OxfordPetDataset, SegmentationToTensor, create_dataloaders
 
 RANDOM_SEED = 27
 
@@ -19,13 +20,15 @@ RANDOM_SEED = 27
 # https://www.kaggle.com/datasets/arnaud58/landscape-pictures
 # and place the images under a directory called landscape_data
 
-def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
 
+def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
     # Check if dataset already exists
     if os.path.exists(output_path):
         image_files = list(Path(output_path).glob("**/*.jpg"))
         if image_files:
-            print(f"Found existing dataset at {output_path} with {len(image_files)} images")
+            print(
+                f"Found existing dataset at {output_path} with {len(image_files)} images"
+            )
             return output_path
 
     os.makedirs(output_path, exist_ok=True)
@@ -48,10 +51,13 @@ def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
 
     # Build curl command
     curl_cmd = [
-        "curl", "-L",
+        "curl",
+        "-L",
         f"https://www.kaggle.com/api/v1/datasets/download/{dataset_name}",
-        "-o", zip_path,
-        "--header", f"Authorization: Basic {credentials['username']}:{credentials['key']}"
+        "-o",
+        zip_path,
+        "--header",
+        f"Authorization: Basic {credentials['username']}:{credentials['key']}",
     ]
 
     try:
@@ -60,7 +66,7 @@ def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
         print(f"Dataset downloaded to {zip_path}")
 
         # Extract
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(output_path)
         print(f"Dataset extracted to {output_path}")
 
@@ -72,8 +78,14 @@ def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
         print(f"Error downloading dataset: {e}")
         return None
 
-def create_virtual_splits_for_landscape(bg_base_dir, train_ratio=0.7, val_ratio=0.15,
-                                       test_ratio=0.15, random_seed=RANDOM_SEED):
+
+def create_virtual_splits_for_landscape(
+    bg_base_dir,
+    train_ratio=0.7,
+    val_ratio=0.15,
+    test_ratio=0.15,
+    random_seed=RANDOM_SEED,
+):
     """Create virtual splits for any directory containing images.
 
     Args:
@@ -112,12 +124,14 @@ def create_virtual_splits_for_landscape(bg_base_dir, train_ratio=0.7, val_ratio=
 
     # create splits
     val_indices = all_indices[:val_size]
-    test_indices = all_indices[val_size:val_size + test_size]
-    train_indices = all_indices[val_size + test_size:]
+    test_indices = all_indices[val_size : val_size + test_size]
+    train_indices = all_indices[val_size + test_size :]
 
-    print(f"Created virtual splits: training ({len(train_indices)}, {len(train_indices) / total_images:.1%}), "
-          f"validation ({len(val_indices)}, {len(val_indices) / total_images:.1%}), "
-          f"testing ({len(test_indices)}, {len(test_indices) / total_images:.1%})")
+    print(
+        f"Created virtual splits: training ({len(train_indices)}, {len(train_indices) / total_images:.1%}), "
+        f"validation ({len(val_indices)}, {len(val_indices) / total_images:.1%}), "
+        f"testing ({len(test_indices)}, {len(test_indices) / total_images:.1%})"
+    )
 
     return train_indices, val_indices, test_indices
 
@@ -125,7 +139,14 @@ def create_virtual_splits_for_landscape(bg_base_dir, train_ratio=0.7, val_ratio=
 class BackgroundDataset(Dataset):
     """Dataset for background images (without pets)."""
 
-    def __init__(self, bg_dir, indices=None, transform=None, target_label=-1, target_type=["class"]):
+    def __init__(
+        self,
+        bg_dir,
+        indices=None,
+        transform=None,
+        target_label=-1,
+        target_type=["class"],
+    ):
         """Initialize the background dataset.
 
         Args:
@@ -138,7 +159,9 @@ class BackgroundDataset(Dataset):
         self.bg_dir = Path(bg_dir)
         self.transform = transform
         self.target_label = target_label
-        self.target_type = target_type if isinstance(target_type, list) else [target_type]
+        self.target_type = (
+            target_type if isinstance(target_type, list) else [target_type]
+        )
 
         # Find all images
         self.bg_files = list(self.bg_dir.glob("**/*.jpg"))
@@ -168,12 +191,16 @@ class BackgroundDataset(Dataset):
 
         # Create targets based on target_type
         if len(self.target_type) == 1:
-            target = self._get_target(self.target_type[0], original_width, original_height)
+            target = self._get_target(
+                self.target_type[0], original_width, original_height
+            )
             return image, target
         else:
             targets = {}
             for t_type in self.target_type:
-                targets[t_type] = self._get_target(t_type, original_width, original_height)
+                targets[t_type] = self._get_target(
+                    t_type, original_width, original_height
+                )
             return image, targets
 
     def _get_target(self, target_type, original_width, original_height):
@@ -235,14 +262,16 @@ class MixedDataset(Dataset):
 
         # Create the mixed index map
         for i in range(main_size):
-            self.index_map.append(('main', i))
+            self.index_map.append(("main", i))
 
             # Insert background images
             if (i + 1) % self.mixing_ratio == 0 and bg_counter < len(bg_indices):
-                self.index_map.append(('bg', bg_indices[bg_counter]))
+                self.index_map.append(("bg", bg_indices[bg_counter]))
                 bg_counter += 1
 
-        print(f"Mixed dataset created with {main_size} main images and {bg_counter} background images")
+        print(
+            f"Mixed dataset created with {main_size} main images and {bg_counter} background images"
+        )
 
     def __len__(self):
         return len(self.index_map)
@@ -250,17 +279,27 @@ class MixedDataset(Dataset):
     def __getitem__(self, idx):
         dataset_type, dataset_idx = self.index_map[idx]
 
-        if dataset_type == 'main':
+        if dataset_type == "main":
             return self.main_dataset[dataset_idx]
         else:  # 'bg'
             return self.bg_dataset[dataset_idx]
 
 
-def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                             test_ratio=0.15, random_seed=RANDOM_SEED, target_type=["class"],
-                             normalize_bbox=True, data_directory="oxford_pet_data",
-                             bg_directory=None, mixing_ratio=5, bg_label=-1,
-                             use_augmentation=False, lazy_loading=True):
+def create_mixed_dataloaders(
+    batch_size=32,
+    train_ratio=0.7,
+    val_ratio=0.15,
+    test_ratio=0.15,
+    random_seed=RANDOM_SEED,
+    target_type=["class"],
+    normalize_bbox=True,
+    data_directory="oxford_pet_data",
+    bg_directory=None,
+    mixing_ratio=5,
+    bg_label=-1,
+    use_augmentation=False,
+    lazy_loading=True,
+):
     """Create PyTorch DataLoaders with background image integration.
 
     Args:
@@ -282,43 +321,71 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
     """
     if bg_directory is None or not os.path.exists(bg_directory):
-        print("Warning: Background directory not found or not specified. Using standard dataloaders.")
+        print(
+            "Warning: Background directory not found or not specified. Using standard dataloaders."
+        )
         return create_dataloaders(
-            batch_size, train_ratio, val_ratio, test_ratio, random_seed,
-            target_type, normalize_bbox, data_directory, use_augmentation, lazy_loading
+            batch_size,
+            train_ratio,
+            val_ratio,
+            test_ratio,
+            random_seed,
+            target_type,
+            normalize_bbox,
+            data_directory,
+            use_augmentation,
+            lazy_loading,
         )
 
     if use_augmentation:
-        train_transform = transforms.Compose([
-            transforms.Resize(64),
-            transforms.CenterCrop(64),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            transforms.RandomGrayscale(p=0.2),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        train_transform = transforms.Compose(
+            [
+                transforms.Resize(64),
+                transforms.CenterCrop(64),
+                transforms.ColorJitter(
+                    brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+                ),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
     else:
-        train_transform = transforms.Compose([
+        train_transform = transforms.Compose(
+            [
+                transforms.Resize(64),
+                transforms.CenterCrop(64),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+
+    val_test_transform = transforms.Compose(
+        [
             transforms.Resize(64),
             transforms.CenterCrop(64),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-
-    val_test_transform = transforms.Compose([
-        transforms.Resize(64),
-        transforms.CenterCrop(64),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
     target_transform = None
-    if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
-        target_transform = transforms.Compose([
-            transforms.Resize(64),
-            transforms.CenterCrop(64),
-            SegmentationToTensor(),
-        ])
+    if (
+        "segmentation" in target_type
+        if isinstance(target_type, list)
+        else target_type == "segmentation"
+    ):
+        target_transform = transforms.Compose(
+            [
+                transforms.Resize(64),
+                transforms.CenterCrop(64),
+                SegmentationToTensor(),
+            ]
+        )
 
     # Create Oxford Pet datasets
     train_pet_dataset = OxfordPetDataset(
@@ -332,7 +399,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
-        random_seed=random_seed
+        random_seed=random_seed,
     )
 
     val_pet_dataset = OxfordPetDataset(
@@ -346,7 +413,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
-        random_seed=random_seed
+        random_seed=random_seed,
     )
 
     test_pet_dataset = OxfordPetDataset(
@@ -360,20 +427,21 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
-        random_seed=random_seed
+        random_seed=random_seed,
     )
 
     # Create background datasets
     try:
-
-        train_indices, val_indices, test_indices = create_virtual_splits_for_landscape(bg_directory)
+        train_indices, val_indices, test_indices = create_virtual_splits_for_landscape(
+            bg_directory
+        )
 
         train_bg_dataset = BackgroundDataset(
             bg_dir=bg_directory,
             indices=train_indices,
             transform=train_transform,
             target_label=bg_label,
-            target_type=target_type
+            target_type=target_type,
         )
 
         val_bg_dataset = BackgroundDataset(
@@ -381,7 +449,7 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
             indices=val_indices,
             transform=val_test_transform,
             target_label=bg_label,
-            target_type=target_type
+            target_type=target_type,
         )
 
         test_bg_dataset = BackgroundDataset(
@@ -389,18 +457,28 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
             indices=test_indices,
             transform=val_test_transform,
             target_label=bg_label,
-            target_type=target_type
+            target_type=target_type,
         )
     except ValueError as e:
         print(f"Error creating background dataset: {e}")
         print("Using standard dataloaders without background mixing.")
         return create_dataloaders(
-            batch_size, train_ratio, val_ratio, test_ratio, random_seed,
-            target_type, normalize_bbox, data_directory, use_augmentation, lazy_loading
+            batch_size,
+            train_ratio,
+            val_ratio,
+            test_ratio,
+            random_seed,
+            target_type,
+            normalize_bbox,
+            data_directory,
+            use_augmentation,
+            lazy_loading,
         )
 
     # Create mixed datasets
-    train_mixed_dataset = MixedDataset(train_pet_dataset, train_bg_dataset, mixing_ratio)
+    train_mixed_dataset = MixedDataset(
+        train_pet_dataset, train_bg_dataset, mixing_ratio
+    )
     val_mixed_dataset = MixedDataset(val_pet_dataset, val_bg_dataset, mixing_ratio)
     test_mixed_dataset = MixedDataset(test_pet_dataset, test_bg_dataset, mixing_ratio)
 
@@ -411,25 +489,17 @@ def create_mixed_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         shuffle=True,
         pin_memory=True,
     )
-    val_loader = DataLoader(
-        val_mixed_dataset,
-        batch_size=batch_size
-    )
-    test_loader = DataLoader(
-        test_mixed_dataset,
-        batch_size=batch_size
-    )
+    val_loader = DataLoader(val_mixed_dataset, batch_size=batch_size)
+    test_loader = DataLoader(test_mixed_dataset, batch_size=batch_size)
 
     return train_loader, val_loader, test_loader
 
 
 if __name__ == "__main__":
-
     # Download the landscape pictures dataset
     bg_directory = download_kaggle_dataset("arnaud58/landscape-pictures")
 
     if bg_directory:
-
         # Check if images were downloaded properly
         image_paths = list(Path(bg_directory).glob("**/*.jpg"))
         image_count = len(image_paths)
@@ -443,13 +513,12 @@ if __name__ == "__main__":
                 target_type=["species", "class", "bbox", "segmentation"],
                 mixing_ratio=5,
                 use_augmentation=True,
-                lazy_loading=True
+                lazy_loading=True,
             )
 
             print(f"\nTraining images: {len(train_loader.dataset)}")
             print(f"Validation images: {len(val_loader.dataset)}")
             print(f"Testing images: {len(test_loader.dataset)}")
-
 
     def visualize_batch(dataloader, num_samples=5):
         # Get a batch
@@ -457,7 +526,9 @@ if __name__ == "__main__":
 
         print(targets)
 
-        mask = targets["segmentation"][0]  # Get the first segmentation mask from the batch
+        mask = targets["segmentation"][
+            0
+        ]  # Get the first segmentation mask from the batch
 
         print(f"Mask tensor shape: {mask.shape}")
         print(f"Mask tensor dtype: {mask.dtype}")
@@ -470,7 +541,6 @@ if __name__ == "__main__":
         fig, axes = plt.subplots(1, num_samples, figsize=(15, 3))
 
         for i in range(num_samples):
-
             img = images[i].permute(1, 2, 0).numpy()
 
             # Denormalize
@@ -484,8 +554,8 @@ if __name__ == "__main__":
             # Get target info
             if isinstance(targets, dict):
                 # Get class and bbox if available
-                class_label = targets['class'][i].item() if 'class' in targets else None
-                bbox = targets['bbox'][i] if 'bbox' in targets else None
+                class_label = targets["class"][i].item() if "class" in targets else None
+                bbox = targets["bbox"][i] if "bbox" in targets else None
 
                 title = f"Class: {class_label}"
                 axes[i].set_title(title)
@@ -499,16 +569,21 @@ if __name__ == "__main__":
                     height = ymax - ymin
 
                     import matplotlib.patches as patches
+
                     rect = patches.Rectangle(
-                        (xmin * 64, ymin * 64), width * 64, height * 64,
-                        linewidth=2, edgecolor='r', facecolor='none'
+                        (xmin * 64, ymin * 64),
+                        width * 64,
+                        height * 64,
+                        linewidth=2,
+                        edgecolor="r",
+                        facecolor="none",
                     )
                     axes[i].add_patch(rect)
             else:
                 # Simple target (just class)
                 axes[i].set_title(f"Class: {targets[i].item()}")
 
-            axes[i].axis('off')
+            axes[i].axis("off")
 
         plt.tight_layout()
         plt.show()
