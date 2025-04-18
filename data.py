@@ -1,20 +1,21 @@
-import torch
-from torch.utils.data import Dataset, DataLoader,Subset, TensorDataset
-from torchvision import transforms
-from torchvision.transforms.functional import InterpolationMode
-import random
 import os
-from PIL import Image
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
+import random
 import re
 import tarfile
 import urllib.request
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torchvision import transforms
+from torchvision.transforms.functional import InterpolationMode
 
 RANDOM_SEED = 27
+
 
 class OxfordPetDataset(Dataset):
     """
@@ -23,24 +24,68 @@ class OxfordPetDataset(Dataset):
     """
 
     IMAGES_URL = "https://www.robots.ox.ac.uk/~vgg/data/pets/data/images.tar.gz"
-    ANNOTATIONS_URL = "https://www.robots.ox.ac.uk/~vgg/data/pets/data/annotations.tar.gz"
+    ANNOTATIONS_URL = (
+        "https://www.robots.ox.ac.uk/~vgg/data/pets/data/annotations.tar.gz"
+    )
 
     CAT_BREEDS = [
-        'abyssinian', 'bengal', 'birman', 'bombay', 'british', 'egyptian', 'maine',
-        'persian', 'ragdoll', 'russian', 'siamese', 'sphynx'
+        "abyssinian",
+        "bengal",
+        "birman",
+        "bombay",
+        "british",
+        "egyptian",
+        "maine",
+        "persian",
+        "ragdoll",
+        "russian",
+        "siamese",
+        "sphynx",
     ]
 
     DOG_BREEDS = [
-        'american', 'basset', 'beagle', 'boxer', 'chihuahua', 'english', 'german',
-        'great', 'japanese', 'keeshond', 'leonberger', 'miniature', 'newfoundland',
-        'pomeranian', 'pug', 'saint', 'samoyed', 'scottish', 'shiba', 'staffordshire',
-        'wheaten', 'yorkshire', 'shih', 'havanese', 'golden'
+        "american",
+        "basset",
+        "beagle",
+        "boxer",
+        "chihuahua",
+        "english",
+        "german",
+        "great",
+        "japanese",
+        "keeshond",
+        "leonberger",
+        "miniature",
+        "newfoundland",
+        "pomeranian",
+        "pug",
+        "saint",
+        "samoyed",
+        "scottish",
+        "shiba",
+        "staffordshire",
+        "wheaten",
+        "yorkshire",
+        "shih",
+        "havanese",
+        "golden",
     ]
 
-    def __init__(self, root_dir="oxford_pet_data", transform=None, target_type=["class"],
-                 normalize_bbox=True, target_transform=None, cache_in_memory=False,
-                 split="train", train_ratio=0.7, val_ratio=0.15,
-                 test_ratio=0.15, random_seed=RANDOM_SEED,resize_size=64):
+    def __init__(
+        self,
+        root_dir="oxford_pet_data",
+        transform=None,
+        target_type=["class"],
+        normalize_bbox=True,
+        target_transform=None,
+        cache_in_memory=False,
+        split="train",
+        train_ratio=0.7,
+        val_ratio=0.15,
+        test_ratio=0.15,
+        random_seed=RANDOM_SEED,
+        resize_size=64,
+    ):
         """Initialize dataset with directory structure and PyTorch adapter settings.
 
         Args:
@@ -87,7 +132,6 @@ class OxfordPetDataset(Dataset):
         self.cached_images = {}
         self.cached_masks = {}
 
-
         # Prepare the dataset (download, extract, setup mappings)
         self.prepare_dataset()
 
@@ -96,8 +140,9 @@ class OxfordPetDataset(Dataset):
 
         # Validate split parameter
         if split not in ["train", "val", "test"]:
-            raise ValueError(f"Invalid split: {split}. Must be 'train', 'val', or 'test'")
-
+            raise ValueError(
+                f"Invalid split: {split}. Must be 'train', 'val', or 'test'"
+            )
 
         # Split the dataset
         train_data, val_data, test_data = self._split_dataset(
@@ -111,7 +156,6 @@ class OxfordPetDataset(Dataset):
             self.data_items = val_data
         elif split == "test":
             self.data_items = test_data
-
 
         # If caching is enabled, preload images for the selected split only
         if self.cache_in_memory:
@@ -139,13 +183,13 @@ class OxfordPetDataset(Dataset):
         if self.images_tar_path.exists():
             print(f"Images already downloaded: {self.images_tar_path}")
         else:
-            print(f"Downloading images...")
+            print("Downloading images...")
             urllib.request.urlretrieve(self.IMAGES_URL, self.images_tar_path)
 
         if self.annotations_tar_path.exists():
             print(f"Annotations already downloaded: {self.annotations_tar_path}")
         else:
-            print(f"Downloading annotations...")
+            print("Downloading annotations...")
             urllib.request.urlretrieve(self.ANNOTATIONS_URL, self.annotations_tar_path)
 
     def extract_files(self):
@@ -153,12 +197,12 @@ class OxfordPetDataset(Dataset):
         # Extract images and annotations
         if not list(self.images_dir.glob("*.jpg")):
             print("Extracting images...")
-            with tarfile.open(self.images_tar_path, 'r:gz') as tar:
+            with tarfile.open(self.images_tar_path, "r:gz") as tar:
                 tar.extractall(path=self.root_dir)
 
         if not (self.annotations_dir / "xmls").exists():
             print("Extracting annotations...")
-            with tarfile.open(self.annotations_tar_path, 'r:gz') as tar:
+            with tarfile.open(self.annotations_tar_path, "r:gz") as tar:
                 tar.extractall(path=self.root_dir)
 
     def setup_class_mappings(self):
@@ -167,7 +211,9 @@ class OxfordPetDataset(Dataset):
         image_files = list(self.images_dir.glob("*.jpg"))
 
         # Extract class names from filenames
-        class_names = sorted(list(set(re.sub(r'_\d+$', '', img.stem.lower()) for img in image_files)))
+        class_names = sorted(
+            list(set(re.sub(r"_\d+$", "", img.stem.lower()) for img in image_files))
+        )
 
         self.class_names = class_names
         self.class_to_idx = {cls_name: i for i, cls_name in enumerate(class_names)}
@@ -176,11 +222,11 @@ class OxfordPetDataset(Dataset):
         self.class_to_species = {}
         for cls in class_names:
             if any(cls.startswith(cat_breed) for cat_breed in self.CAT_BREEDS):
-                self.class_to_species[cls] = 'cat'
+                self.class_to_species[cls] = "cat"
             elif any(cls.startswith(dog_breed) for dog_breed in self.DOG_BREEDS):
-                self.class_to_species[cls] = 'dog'
+                self.class_to_species[cls] = "dog"
             else:
-                self.class_to_species[cls] = 'unknown'
+                self.class_to_species[cls] = "unknown"
 
     def get_all_data_labels(self):
         """Get all dataset entries.
@@ -190,11 +236,11 @@ class OxfordPetDataset(Dataset):
         """
         image_files = sorted(list(self.images_dir.glob("*.jpg")))
         dataset = []
-        species_to_idx = {'cat': 0, 'dog': 1, 'unknown': 2}
+        species_to_idx = {"cat": 0, "dog": 1, "unknown": 2}
 
         for img_path in image_files:
             # Get class info
-            class_name = re.sub(r'_\d+$', '', img_path.stem.lower())
+            class_name = re.sub(r"_\d+$", "", img_path.stem.lower())
             class_idx = self.class_to_idx[class_name]
             species = self.class_to_species[class_name]
             species_idx = species_to_idx[species]
@@ -248,7 +294,14 @@ class OxfordPetDataset(Dataset):
 
         return (xmin, ymin, xmax, ymax)
 
-    def _split_dataset(self, dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
+    def _split_dataset(
+        self,
+        dataset,
+        train_ratio=0.7,
+        val_ratio=0.15,
+        test_ratio=0.15,
+        random_seed=RANDOM_SEED,
+    ):
         """Split the dataset into training, validation, and test sets.
 
         Args:
@@ -274,11 +327,13 @@ class OxfordPetDataset(Dataset):
 
         # Split the dataset
         train_data = shuffled_data[:train_size]
-        val_data = shuffled_data[train_size:train_size + val_size]
-        test_data = shuffled_data[train_size + val_size:]
+        val_data = shuffled_data[train_size : train_size + val_size]
+        test_data = shuffled_data[train_size + val_size :]
 
-        print(f"Dataset split complete: training ({len(train_data) / dataset_size:.1%}), "
-              f"validation ({len(val_data) / dataset_size:.1%}), testing ({len(test_data) / dataset_size:.1%})")
+        print(
+            f"Dataset split complete: training ({len(train_data) / dataset_size:.1%}), "
+            f"validation ({len(val_data) / dataset_size:.1%}), testing ({len(test_data) / dataset_size:.1%})"
+        )
 
         return train_data, val_data, test_data
 
@@ -297,10 +352,14 @@ class OxfordPetDataset(Dataset):
             base_name = os.path.splitext(os.path.basename(img_path))[0]
 
             # Try original case
-            orig_seg_path = os.path.join(self.root_dir, 'annotations/trimaps', base_name + '.png')
+            orig_seg_path = os.path.join(
+                self.root_dir, "annotations/trimaps", base_name + ".png"
+            )
 
             # Then try lowercase
-            lower_seg_path = os.path.join(self.root_dir, 'annotations/trimaps', base_name.lower() + '.png')
+            lower_seg_path = os.path.join(
+                self.root_dir, "annotations/trimaps", base_name.lower() + ".png"
+            )
 
             if os.path.exists(orig_seg_path):
                 original_case_matches += 1
@@ -311,8 +370,12 @@ class OxfordPetDataset(Dataset):
                 missing_masks.add(base_name)
 
         print(f"\nTotal images: {total_images}")
-        print(f"Original case matches: {original_case_matches} ({original_case_matches / total_images:.1%})")
-        print(f"Lowercase-only matches: {lowercase_only_matches} ({lowercase_only_matches / total_images:.1%})")
+        print(
+            f"Original case matches: {original_case_matches} ({original_case_matches / total_images:.1%})"
+        )
+        print(
+            f"Lowercase-only matches: {lowercase_only_matches} ({lowercase_only_matches / total_images:.1%})"
+        )
         print(f"No matches: {no_matches} ({no_matches / total_images:.1%})")
 
         return missing_masks
@@ -354,20 +417,39 @@ class OxfordPetDataset(Dataset):
 
         if len(self.target_type) == 1:
             target = self._get_target(
-                self.target_type[0], img_path, class_idx, species_idx, bbox,
-                original_width, original_height
+                self.target_type[0],
+                img_path,
+                class_idx,
+                species_idx,
+                bbox,
+                original_width,
+                original_height,
             )
             return image, target
         else:
             targets = {}
             for t_type in self.target_type:
                 targets[t_type] = self._get_target(
-                    t_type, img_path, class_idx, species_idx, bbox,
-                    original_width, original_height
+                    t_type,
+                    img_path,
+                    class_idx,
+                    species_idx,
+                    bbox,
+                    original_width,
+                    original_height,
                 )
             return image, targets
 
-    def _get_target(self, target_type, img_path, class_idx, species_idx, bbox, original_width, original_height):
+    def _get_target(
+        self,
+        target_type,
+        img_path,
+        class_idx,
+        species_idx,
+        bbox,
+        original_width,
+        original_height,
+    ):
         """Get the target based on the specified target type.
 
         Args:
@@ -399,10 +481,13 @@ class OxfordPetDataset(Dataset):
                 xmin, ymin, xmax, ymax = bbox
 
                 new_xmin, new_ymin, new_xmax, new_ymax = adjust_bbox_for_center_crop(
-                    xmin, ymin, xmax, ymax,
+                    xmin,
+                    ymin,
+                    xmax,
+                    ymax,
                     orig_w=original_width,
                     orig_h=original_height,
-                    final_size=self.resize_size
+                    final_size=self.resize_size,
                 )
 
                 if self.normalize_bbox:
@@ -411,7 +496,9 @@ class OxfordPetDataset(Dataset):
                     new_xmax /= self.resize_size
                     new_ymax /= self.resize_size
 
-                bbox_tensor = torch.tensor([new_xmin, new_ymin, new_xmax, new_ymax], dtype=torch.float32)
+                bbox_tensor = torch.tensor(
+                    [new_xmin, new_ymin, new_xmax, new_ymax], dtype=torch.float32
+                )
             return bbox_tensor
         elif target_type == "segmentation":
             # Check if mask is in cache
@@ -420,7 +507,9 @@ class OxfordPetDataset(Dataset):
                 return self.cached_masks[cache_key]
 
             base_name = os.path.splitext(os.path.basename(img_path))[0]
-            seg_path = os.path.join(self.root_dir, 'annotations/trimaps', base_name + '.png')
+            seg_path = os.path.join(
+                self.root_dir, "annotations/trimaps", base_name + ".png"
+            )
 
             try:
                 mask = Image.open(seg_path)
@@ -439,20 +528,28 @@ class OxfordPetDataset(Dataset):
             except FileNotFoundError:
                 # If segmentation mask is not found, return a blank mask
                 print(f"Warning: Segmentation mask not found for {base_name}")
-                blank_mask = torch.zeros((1, original_height, original_width), dtype=torch.float32)
+                blank_mask = torch.zeros(
+                    (1, original_height, original_width), dtype=torch.float32
+                )
                 if self.target_transform:
                     # Resize blank mask to match target transform expectations
-                    blank_mask = torch.zeros((1, self.resize_size, self.resize_size), dtype=torch.float32)
+                    blank_mask = torch.zeros(
+                        (1, self.resize_size, self.resize_size), dtype=torch.float32
+                    )
                 return blank_mask
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
+
 
 class SegmentationToTensor:
     def __call__(self, pic):
         tensor = torch.as_tensor(np.array(pic), dtype=torch.long)
         return tensor
 
-def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED):
+
+def split_dataset(
+    dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED
+):
     """Split the dataset into training, validation, and test sets.
 
     Args:
@@ -478,11 +575,13 @@ def split_dataset(dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, ran
     val_size = int(val_ratio * dataset_size)
 
     train_data = all_data[:train_size]
-    val_data = all_data[train_size:train_size + val_size]
-    test_data = all_data[train_size + val_size:]
+    val_data = all_data[train_size : train_size + val_size]
+    test_data = all_data[train_size + val_size :]
 
-    print(f"Dataset split complete: training ({len(train_data) / dataset_size:.1%}), "
-          f"validation ({len(val_data) / dataset_size:.1%}), testing ({len(test_data) / dataset_size:.1%})")
+    print(
+        f"Dataset split complete: training ({len(train_data) / dataset_size:.1%}), "
+        f"validation ({len(val_data) / dataset_size:.1%}), testing ({len(test_data) / dataset_size:.1%})"
+    )
 
     return train_data, val_data, test_data
 
@@ -521,10 +620,21 @@ def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_si
     return new_xmin, new_ymin, new_xmax, new_ymax
 
 
-def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
-                       test_ratio=0.15,resize_size=64, random_seed=RANDOM_SEED, target_type=["class"],
-                       normalize_bbox=True, data_directory="oxford_pet_data", use_augmentation=False, lazy_loading=True,shuffle=True):
-    '''Create PyTorch DataLoaders for training, validation, and testing.
+def create_dataloaders(
+    batch_size=32,
+    train_ratio=0.7,
+    val_ratio=0.15,
+    test_ratio=0.15,
+    resize_size=64,
+    random_seed=RANDOM_SEED,
+    target_type=["class"],
+    normalize_bbox=True,
+    data_directory="oxford_pet_data",
+    use_augmentation=False,
+    lazy_loading=True,
+    shuffle=True,
+):
+    """Create PyTorch DataLoaders for training, validation, and testing.
 
 
         Args:
@@ -541,41 +651,58 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
 
     Returns:
         tuple: (train_loader, val_loader, test_loader) DataLoader instances
-    '''
+    """
 
     if use_augmentation:
-        train_transform = transforms.Compose([
-            transforms.Resize(resize_size),
-            transforms.CenterCrop(resize_size),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            transforms.RandomGrayscale(p=0.2),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        train_transform = transforms.Compose(
+            [
+                transforms.Resize(resize_size),
+                transforms.CenterCrop(resize_size),
+                transforms.ColorJitter(
+                    brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+                ),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
     else:
-        train_transform = transforms.Compose([
+        train_transform = transforms.Compose(
+            [
+                transforms.Resize(resize_size),
+                transforms.CenterCrop(resize_size),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+
+    val_test_transform = transforms.Compose(
+        [
             transforms.Resize(resize_size),
             transforms.CenterCrop(resize_size),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-
-    val_test_transform = transforms.Compose([
-        transforms.Resize(resize_size),
-        transforms.CenterCrop(resize_size),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
     # Define target transform for segmentation masks
     target_transform = None
-    if "segmentation" in target_type if isinstance(target_type, list) else target_type == "segmentation":
-        target_transform = transforms.Compose([
-
-            transforms.Resize(resize_size, interpolation=InterpolationMode.NEAREST),
-            transforms.CenterCrop(resize_size),
-            SegmentationToTensor(),
-        ])
+    if (
+        "segmentation" in target_type
+        if isinstance(target_type, list)
+        else target_type == "segmentation"
+    ):
+        target_transform = transforms.Compose(
+            [
+                transforms.Resize(resize_size, interpolation=InterpolationMode.NEAREST),
+                transforms.CenterCrop(resize_size),
+                SegmentationToTensor(),
+            ]
+        )
 
     # Create dataset with all splits
     train_dataset = OxfordPetDataset(
@@ -590,9 +717,8 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
         random_seed=random_seed,
-        resize_size=resize_size
+        resize_size=resize_size,
     )
-
 
     val_dataset = OxfordPetDataset(
         root_dir=data_directory,
@@ -606,7 +732,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
         random_seed=random_seed,
-        resize_size = resize_size
+        resize_size=resize_size,
     )
 
     test_dataset = OxfordPetDataset(
@@ -621,7 +747,7 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
         random_seed=random_seed,
-        resize_size = resize_size
+        resize_size=resize_size,
     )
 
     train_loader = DataLoader(
@@ -632,19 +758,15 @@ def create_dataloaders(batch_size=32, train_ratio=0.7, val_ratio=0.15,
         pin_memory=True,
         # persistent_workers=True
     )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size
-    )
+    val_loader = DataLoader(val_dataset, batch_size=batch_size)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
     return train_loader, val_loader, test_loader
 
 
-def create_sample_loader_from_existing_loader(loader, num_samples=20, batch_size=20, shuffle=False, seed=42):
+def create_sample_loader_from_existing_loader(
+    loader, num_samples=20, batch_size=20, shuffle=False, seed=42
+):
     """
     Create a new DataLoader containing a subset of (image, segmentation_mask) pairs,
     extracted from a dataset where targets are dicts containing the 'segmentation' key.
@@ -663,7 +785,9 @@ def create_sample_loader_from_existing_loader(loader, num_samples=20, batch_size
     dataset_size = len(dataset)
 
     if num_samples > dataset_size:
-        raise ValueError(f"Requested {num_samples} samples, but dataset only has {dataset_size} items.")
+        raise ValueError(
+            f"Requested {num_samples} samples, but dataset only has {dataset_size} items."
+        )
 
     # Choose random or sequential indices
     indices = list(range(dataset_size))
@@ -692,9 +816,9 @@ def create_sample_loader_from_existing_loader(loader, num_samples=20, batch_size
     # Return standard DataLoader
     return DataLoader(tensor_dataset, batch_size=batch_size, shuffle=False)
 
+
 # Example usage:
 if __name__ == "__main__":
-
     print("\nChecking all segmentation masks in dataset:")
     dataset = OxfordPetDataset()
     dataset.check_all_segmentation_masks()
@@ -717,7 +841,6 @@ if __name__ == "__main__":
         image = dataset.load_image(img_path)
         print(f"Image size (x, y): {image.size}")
         print(f"Bounding box (xmin, ymin, xmax, ymax): {bbox}")
-
 
     # Create dataloaders
     train_loader, val_loader, test_loader = create_dataloaders(
@@ -747,8 +870,8 @@ if __name__ == "__main__":
 
         plt.imshow(img)
 
-        if 'bbox' in targets:
-            bbox = targets['bbox'][i].cpu().numpy()
+        if "bbox" in targets:
+            bbox = targets["bbox"][i].cpu().numpy()
 
             # If bbox normalized, convert to pixel coordinates
             if bbox.max() <= 1.0:
@@ -759,32 +882,37 @@ if __name__ == "__main__":
             else:
                 xmin, ymin, xmax, ymax = bbox
 
-            rect = plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
-                                 fill=False, edgecolor='red', linewidth=2)
+            rect = plt.Rectangle(
+                (xmin, ymin),
+                xmax - xmin,
+                ymax - ymin,
+                fill=False,
+                edgecolor="red",
+                linewidth=2,
+            )
             plt.gca().add_patch(rect)
 
         title = ""
-        if 'class' in targets:
-            class_idx = targets['class'][i].item()
+        if "class" in targets:
+            class_idx = targets["class"][i].item()
             class_title = train_loader.dataset.class_names[class_idx]
             title += f"{class_title}"
-        if 'species' in targets:
-            species_idx = targets['species'][i].item()
+        if "species" in targets:
+            species_idx = targets["species"][i].item()
             species_name = "Cat" if species_idx == 0 else "Dog"
             title += f" ({species_name})"
 
-        if 'segmentation' in targets:
-            seg_mask_tensor = targets['segmentation'][i]
+        if "segmentation" in targets:
+            seg_mask_tensor = targets["segmentation"][i]
             if seg_mask_tensor.ndim > 2:
                 seg_mask = seg_mask_tensor.squeeze().cpu().numpy()
             else:
                 seg_mask = seg_mask_tensor.cpu().numpy()
-            plt.imshow(seg_mask, cmap='jet', alpha=0.5)
+            plt.imshow(seg_mask, cmap="jet", alpha=0.5)
 
         plt.title(title, fontsize=8)
-        plt.axis('off')
-
+        plt.axis("off")
 
     plt.title(title)
-    plt.axis('off')
+    plt.axis("off")
     plt.show()
