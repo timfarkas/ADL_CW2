@@ -17,12 +17,9 @@ class DataloaderManager:
         self.persistent_workers = persistent_workers
 
     def create_dataloaders(
-        self, pet_only: bool = False, shuffle_train: bool = True
+        self, shuffle_train: bool = True
     ) -> DataLoader:
-        if pet_only:
-            train_dataset, val_dataset, test_dataset = self.dataset_manager.pet_datasets
-        else:
-            train_dataset, val_dataset, test_dataset = self.dataset_manager.datasets
+        train_dataset, val_dataset, test_dataset = self.dataset_manager.datasets
 
         train_dataloader = DataLoader(
             train_dataset,

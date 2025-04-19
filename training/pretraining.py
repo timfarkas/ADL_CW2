@@ -50,9 +50,7 @@ def run_pretraining_process(
                 device=device,
                 learning_rate=learning_rate,
                 weight_decay=weight_decay,
-                dataloaders=dataloader_manager.create_dataloaders(
-                    pet_only=run_config["use_mixed_data"]
-                ),
+                dataloaders=dataloader_manager.create_dataloaders(),
             )
             pretrainer.fit_model(
                 num_epochs=num_epochs,
