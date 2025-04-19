@@ -5,7 +5,10 @@ import random
 
 from datasets.dataset_manager import DatasetManager
 
+# General run configuration
 RANDOM_SEED = 27
+TEST_MODELS_BEFORE_TRAINING = True
+
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
@@ -24,10 +27,14 @@ if __name__ == "__main__":
         workers = 6
     else:
         device = torch.device("cpu")
+        workers = 2
 
     print(f"Using device: {device}")
 
     # Load the dataset
     dataset_manager = DatasetManager()
-    print(dataset_manager.pet_datasets[0][0][0])
 
+    if TEST_MODELS_BEFORE_TRAINING:
+        from models.utils import test_models
+
+        test_models(device)
