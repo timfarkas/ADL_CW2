@@ -2,7 +2,7 @@ import os
 import random
 import re
 import tarfile
-from typing import Literal
+from typing import get_args
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -11,6 +11,8 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+
+from custom_types import DatasetGroup
 
 
 class OxfordPetDataset(Dataset):
@@ -77,7 +79,7 @@ class OxfordPetDataset(Dataset):
         transform: list,
         target_transform: list,
         cache_in_memory: bool,
-        split: Literal["train", "val", "test"],
+        split: DatasetGroup,
         root_dir: str = "data/oxford_pet_dataset",
     ):
         """Initialize dataset with directory structure and PyTorch adapter settings.
@@ -131,7 +133,7 @@ class OxfordPetDataset(Dataset):
         data_labels = self.get_all_data_labels()
 
         # Validate split parameter
-        if split not in ["train", "val", "test"]:
+        if split not in get_args(DatasetGroup):
             raise ValueError(
                 f"Invalid split: {split}. Must be 'train', 'val', or 'test'"
             )
@@ -460,7 +462,7 @@ class OxfordPetDataset(Dataset):
         """
         if target_type == "is_animal":
             return 1  # All images in OxfordPetDataset are animals
-        elif target_type in ["class", "breed"]:
+        elif target_type == "breed":
             return class_idx
         elif target_type == "species":
             return species_idx

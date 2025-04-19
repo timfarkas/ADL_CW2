@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from custom_types import DatasetGroup
 from new_data_utils import download_kaggle_dataset
 
 
@@ -20,7 +21,7 @@ class BackgroundDataset(Dataset):
         target_type: list[str],
         train_ratio: float,
         val_ratio: float,
-        split: str,
+        split: DatasetGroup,
     ):
         """Initialize the background dataset.
 

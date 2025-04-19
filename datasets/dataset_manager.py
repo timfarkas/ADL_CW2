@@ -6,6 +6,7 @@ import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
 
+from custom_types import ModelTarget
 from datasets.background_dataset import BackgroundDataset
 from datasets.oxford_pet_dataset import OxfordPetDataset
 from datasets.mixed_dataset import MixedDataset
@@ -34,7 +35,7 @@ class DatasetManager:
         image_size: tuple = (224, 224),
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
-        target_type: list = ["class", "breed", "bbox", "segmentation"],
+        target_type: list[ModelTarget] = ["species", "breed", "bbox", "segmentation"],
         normalize_bbox: bool = True,
         bg_label: int = -1,
         use_augmentation: bool = False,
