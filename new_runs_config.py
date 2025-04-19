@@ -1,3 +1,5 @@
+DEFAULT_IMAGE_SIZE = (224, 224)
+
 # TODO: if possible, create some validation
 runs_config = {
     "run_1": {
@@ -41,6 +43,8 @@ model_names = [
     "res18_species_breed_bbox",
     "res50_species_breed_bbox",
 ]
+
+cam_types = ["ClassicCAM", "GradCAM"]
 
 def get_checkpoints_and_logs_dirs(run_name: str, model_name: str):
     """
