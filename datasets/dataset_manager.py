@@ -76,12 +76,14 @@ class DatasetManager:
         else:
             self.train_inputs_transform = transforms.Compose(transforms_list)
 
-        self.get_oxford_dataset()
+        self.generate_oxford_dataset()
         if mixed:
-            self.get_background_dataset()
+            self.generate_background_dataset()
             self.generate_mixed_dataset()
 
-    def get_oxford_dataset(self):
+        self.datasets = self.pet_datasets if not mixed else self.mixed_datasets
+
+    def generate_oxford_dataset(self):
         """Load the Oxford Pets dataset."""
         self.pet_datasets = tuple(
             OxfordPetDataset(
@@ -98,7 +100,7 @@ class DatasetManager:
             for dataset_group in dataset_groups
         )
 
-    def get_background_dataset(self):
+    def generate_background_dataset(self):
         """Load the background dataset."""
         self.bg_datasets = tuple(
             BackgroundDataset(
