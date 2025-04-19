@@ -22,12 +22,15 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         device = torch.device("cuda")
         workers = 12
+        persistent_workers = True
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         workers = 6
+        persistent_workers = True
     else:
         device = torch.device("cpu")
         workers = 2
+        persistent_workers = False
 
     print(f"Using device: {device}")
 
