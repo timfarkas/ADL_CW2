@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import torch
 import random
@@ -10,7 +9,7 @@ from training.pretraining import run_pretraining_process
 
 # General run configuration
 RANDOM_SEED = 27
-TEST_MODELS_BEFORE_TRAINING = True
+TEST_MODELS_BEFORE_TRAINING = False
 PRETRAIN_MODELS = True
 EVALUATE_CAMS = True
 GENERATE_CAM_DATASET = True
