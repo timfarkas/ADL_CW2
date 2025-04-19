@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from training.evaluations import compute_iou
+from new_runs_config import cam_evaluation_json, get_checkpoints_and_logs_dirs
 
 
 def get_conv_layers(model: nn.Module) -> list[nn.Conv2d]:
@@ -16,6 +17,67 @@ def find_conv_layer_by_index(model: nn.Module, index: int = -1) -> nn.Conv2d | N
     if conv_layers:
         return conv_layers[index]
     return None
+
+
+def get_best_cam(runs_config: dict[str, any]):
+    """
+    Get the best CAM settings for each model in the given runs and stores them in a JSON file.
+    Args:
+        runs_config (dict): A dictionary containing the configuration for each run.
+    Returns:
+        best_overall (dict): A dictionary containing the best CAM settings across all runs.
+    """
+    results = {}
+    best_overall = {}
+    for run_name, _ in runs_config.items():
+        _, logs_dir = get_checkpoints_and_logs_dirs(
+            run_name=run_name,
+            model_name="",
+        )
+
+        cam_json_path = os.path.join(logs_dir, cam_evaluation_json)
+        if os.path.exists(cam_json_path):
+            with open(cam_json_path, "r") as f:
+                cam_data = json.load(f)
+
+            run_best_results = []
+            for model_name, model_data in cam_data.items():
+                for settings_name, settings in model_data.items():
+                    best_iou = max(
+                        settings,
+                        key=lambda x: x["iou"],
+                    )
+                    run_best_results.append(
+                        {
+                            "model_name": model_name,
+                            "cam_type": settings_name.split("_")[0],
+                            "head_target": settings_name.split("_")[1], 
+                            "layer_index": best_iou["layer_index"],
+                            "iou": best_iou["iou"],
+                        }
+                    )
+            run_best_results.sort(key=lambda x: x["iou"], reverse=True)
+            results[run_name] = run_best_results
+            if run_best_results[0]["iou"] > best_overall.get("iou", 0):
+                best_overall = {
+                    "run_name": run_name,
+                    "model_name": run_best_results[0]["model_name"],
+                    "cam_type": run_best_results[0]["cam_type"],
+                    "head_target": run_best_results[0]["head_target"],
+                    "layer_index": run_best_results[0]["layer_index"],
+                    "iou": run_best_results[0]["iou"],
+                }
+    # Save the best overall settings to a JSON file
+    best_cam_settings_per_run = os.path.join(
+        logs_dir.split("/")[0], "best_cam_settings_per_run.json"
+    )
+    with open(best_cam_settings_per_run, "w") as f:
+        json.dump(results, f, indent=4)
+
+    print(
+        f"Best CAM settings overall: run: {best_overall['run_name']}, model: {best_overall['model_name']}, cam type: {best_overall['cam_type']}, target: {best_overall['head_target']}, layer: {best_overall['layer_index']}, iou: {best_overall['iou']}"
+    )
+    return best_overall
 
 
 def compute_cam_iou(cam: torch.Tensor, segment: torch.Tensor) -> float:
@@ -87,8 +149,7 @@ def save_model_cam_settings_to_json(
         data[model_name] = {}
 
     data[model_name][settings_name] = [
-        {"layer_index": layer_idx, "iou": iou}
-        for layer_idx, iou in cam_settings
+        {"layer_index": layer_idx, "iou": iou} for layer_idx, iou in cam_settings
     ]
 
     # Save the updated data

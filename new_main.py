@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import random
 
+from cam_generation.utils import get_best_cam
 from new_runs_config import runs_config, model_names, cam_types
 from cam_generation.cam_evaluation import evaluate_cams
 from training.pretraining import run_pretraining_process
@@ -25,7 +26,6 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(RANDOM_SEED)
 
     # Set device
-    print(os.cpu_count())
     if torch.cuda.is_available():
         device = torch.device("cuda")
         workers = 12
@@ -71,4 +71,9 @@ if __name__ == "__main__":
             persistent_workers=persistent_workers,
             num_samples=50,
             cam_types=cam_types,
+        )
+
+    if GENERATE_CAM_DATASET:
+        best_cam_dict = get_best_cam(
+            runs_config=runs_config,
         )
