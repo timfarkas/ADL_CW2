@@ -647,3 +647,20 @@ class Pretrainer:
         )
 
         return best_epoch
+
+
+class PretrainedModel(nn.Module):
+    """
+    The output model of Pretrainer when using a single head
+    """
+
+    def __init__(self, backbone: nn.Module, head: nn.Module, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.backbone = backbone
+        self.head = head
+
+    def forward(self, x):
+        features = self.backbone(x)
+        self.feature_maps = features
+        logits = self.head(features)
+        return logits
