@@ -1,7 +1,9 @@
 import torch
+from torch.utils.data import DataLoader
 
 from models.backbones import CNNBackbone, ResNetBackbone
 from models.heads import PretrainHead
+from models.pretrainer import Pretrainer
 from training.evaluations import compute_accuracy, convert_and_get_iou
 from training.losses import cel_fn, mse_fn
 
@@ -69,3 +71,49 @@ def get_model_dict_by_name(model_name: str, is_mixed_data: bool):
         "loss_functions": loss_functions,
         "loader_targets": loader_targets,
     }
+
+
+def get_pretrainer_by_config(
+    model_config: dict,
+    checkpoints_dir: str,
+    logs_dir: str,
+    device: torch.device,
+    learning_rate: float,
+    weight_decay: float,
+    dataloaders: tuple[DataLoader] | None,
+) -> Pretrainer:
+    """
+    Create a pretrainer object based on the model configuration.
+    """
+
+    pretrainer = Pretrainer(
+        device=device, log_dir=logs_dir, log_file="pretraining.json"
+    )
+    pretrainer.set_model(
+        backbone=model_config["backbone"],
+        heads=model_config["heads"],
+        model_path=checkpoints_dir,
+    )
+    pretrainer.set_eval_functions(
+        model_config["eval_functions"],
+        model_config["eval_function_names"],
+    )
+    pretrainer.set_loss_functions(
+        model_config["loss_functions"],
+    )
+    pretrainer.set_target_names(
+        model_config["loader_targets"],
+    )
+    pretrainer.set_optimizer(
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+    )
+
+    if dataloaders is not None:
+        train_dataloader, val_dataloader, _ = dataloaders
+        pretrainer.set_loaders(
+            train_loader=train_dataloader,
+            val_loader=val_dataloader,
+        )
+
+    return pretrainer
