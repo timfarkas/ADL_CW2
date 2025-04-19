@@ -27,7 +27,7 @@ class PretrainHead(nn.Module):
             *[
                 nn.AdaptiveAvgPool2d((1, 1)),
                 nn.Flatten(),
-                nn.Linear(num_inputs, 4),
+                nn.Linear(num_inputs, num_outputs),
                 *([nn.Sigmoid()] if is_bbox else []),  # ← conditional layer
             ]
         )
