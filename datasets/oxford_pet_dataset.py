@@ -406,8 +406,6 @@ class OxfordPetDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        print(self.target_type)
-
         if len(self.target_type) == 1:
             target = self._get_target(
                 self.target_type[0],
