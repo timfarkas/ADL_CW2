@@ -3,17 +3,19 @@ import numpy as np
 import torch
 import random
 
-from new_runs_config import runs_config, model_names
+from new_runs_config import runs_config, model_names, cam_types
+from cam_generation.cam_evaluation import evaluate_cams
 from training.pretraining import run_pretraining_process
 
 # General run configuration
 RANDOM_SEED = 27
 TEST_MODELS_BEFORE_TRAINING = True
 PRETRAIN_MODELS = True
+EVALUATE_CAMS = True
+GENERATE_CAM_DATASET = True
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
 PRETRAIN_NUM_EPOCHS = 2
-
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
@@ -58,4 +60,15 @@ if __name__ == "__main__":
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
             num_epochs=PRETRAIN_NUM_EPOCHS,
+        )
+
+    if EVALUATE_CAMS:
+        evaluate_cams(
+            runs_config=runs_config,
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            num_samples=50,
+            cam_types=cam_types,
         )
