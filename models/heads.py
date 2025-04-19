@@ -33,6 +33,7 @@ class PretrainHead(nn.Module):
         )
 
         self.name = "BBoxHead" if is_bbox else f"ClassifierHead({num_outputs})"
+        self.is_bbox = is_bbox
 
     def forward(self, z):
         return self.head(z)
