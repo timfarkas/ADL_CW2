@@ -1,5 +1,20 @@
 import torch
 
+def compute_iou(outputs, targets) -> float:
+    """
+    Calculate average intersection over union.
+
+    Args:
+        outputs: Model predictions (logits)
+        targets: Ground truth labels
+
+    Returns:
+        IoU of the two.
+    """
+    intersection = torch.logical_and(outputs, targets).sum().item()
+    union = torch.logical_or(outputs, targets).sum().item()
+    iou = intersection / union if union != 0 else 0.0
+    return iou
 
 def compute_accuracy(outputs, targets) -> float:
     """
