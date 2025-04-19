@@ -41,3 +41,19 @@ model_names = [
     "res18_species_breed_bbox",
     "res50_species_breed_bbox",
 ]
+
+def get_checkpoints_and_logs_dirs(run_name: str, model_name: str):
+    """
+    Get the checkpoints and logs directories for a given run and model name.
+    
+    Args:
+        run_name (str): The name of the run.
+        model_name (str): The name of the model.
+
+    Returns:
+        tuple: A tuple containing the checkpoints directory and logs
+        directory, in that order.
+    """
+    logs_dir = f"logs/{run_name}"
+    checkpoints_dir = f"checkpoints/{run_name}/{model_name}"
+    return checkpoints_dir, logs_dir

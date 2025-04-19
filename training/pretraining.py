@@ -3,6 +3,7 @@ import torch
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
+from new_runs_config import get_checkpoints_and_logs_dirs
 
 
 def run_pretraining_process(
@@ -32,11 +33,13 @@ def run_pretraining_process(
                 model_name=model_name,
                 is_mixed_data=run_config["use_mixed_data"],
             )
-            logs_dir = f"logs/{run_name}"
-            checkpoint_dir = f"checkpoints/{run_name}/{model_name}"
+            checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
+                run_name=run_name,
+                model_name=model_name,
+            )
             pretrainer = get_pretrainer_by_config(
                 model_config=model_config,
-                checkpoints_dir=checkpoint_dir,
+                checkpoints_dir=checkpoints_dir,
                 logs_dir=logs_dir,
                 device=device,
                 learning_rate=learning_rate,
