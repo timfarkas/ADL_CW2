@@ -354,7 +354,7 @@ class Pretrainer:
                     [labels] if isinstance(labels, torch.Tensor) else labels
                 )  ## convert label tensor to list
                 labels = (
-                    [labels[key] for key in labels.keys()]
+                    [labels[key] for key in self.target_names]
                     if isinstance(labels, dict)
                     else labels
                 )  ## convert label dict to list
@@ -503,7 +503,7 @@ class Pretrainer:
                         [labels] if isinstance(labels, torch.Tensor) else labels
                     )  ## convert label tensor to list
                     labels = (
-                        [labels[key] for key in labels.keys()]
+                        [labels[key] for key in self.target_names]
                         if isinstance(labels, dict)
                         else labels
                     )  ## convert label dict to list
