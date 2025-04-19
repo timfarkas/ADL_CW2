@@ -77,14 +77,14 @@ class BackgroundDataset(Dataset):
         # Create targets based on target_type
         if len(self.target_type) == 1:
             target = self._get_target(
-                self.target_type[0], original_width, original_height
+                self.target_type[0]
             )
             return image, target
         else:
             targets = {}
             for t_type in self.target_type:
                 targets[t_type] = self._get_target(
-                    t_type, original_width, original_height
+                    t_type
                 )
             return image, targets
 
