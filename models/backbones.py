@@ -8,6 +8,8 @@ from torchvision.models import (
     resnet101,
 )
 
+from custom_types import ResNetAdapter
+
 class CNNBackbone(nn.Module):
     def __init__(self):
         super().__init__()
@@ -44,20 +46,20 @@ class CNNBackbone(nn.Module):
 
 
 class ResNetBackbone(nn.Module):
-    def __init__(self, pretrained: bool = True, model_type: str = "resnet18"):
+    def __init__(self, pretrained: bool = True, model_type: ResNetAdapter = "res18"):
         super().__init__()
 
-        if model_type == "resnet18":
+        if model_type == "res18":
             if pretrained:
                 base_model = resnet18(weights=ResNet18_Weights.DEFAULT)
             else:
                 base_model = resnet18(weights=None)
-        elif model_type == "resnet50":
+        elif model_type == "res50":
             if pretrained:
                 base_model = resnet50(weights=ResNet50_Weights.DEFAULT)
             else:
                 base_model = resnet50(weights=None)
-        elif model_type == "resnet101":
+        elif model_type == "res101":
             if pretrained:
                 base_model = resnet101(weights=ResNet101_Weights.DEFAULT)
             else:

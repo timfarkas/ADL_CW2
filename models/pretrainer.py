@@ -78,8 +78,6 @@ class Pretrainer:
             f"model_path must be a string, got {type(model_path)}"
         )
 
-        print(model_path)
-
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         self.backbone = backbone
