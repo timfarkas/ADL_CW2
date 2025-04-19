@@ -80,8 +80,8 @@ def get_pretrainer_by_config(
     logs_dir: str,
     logs_file: str,
     device: torch.device,
-    learning_rate: float,
-    weight_decay: float,
+    learning_rate: float | None,
+    weight_decay: float | None,
     dataloaders: tuple[DataLoader] | None,
 ) -> Pretrainer:
     """
@@ -104,10 +104,11 @@ def get_pretrainer_by_config(
     pretrainer.set_target_names(
         model_config["loader_targets"],
     )
-    pretrainer.set_optimizer(
-        learning_rate=learning_rate,
-        weight_decay=weight_decay,
-    )
+    if learning_rate is not None and weight_decay is not None:
+        pretrainer.set_optimizer(
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+        )
 
     if dataloaders is not None:
         train_dataloader, val_dataloader, _ = dataloaders
