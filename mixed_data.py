@@ -1,3 +1,6 @@
+# AI usage statement: AI was used to assist with researching and debugging as well
+# as helping with creating docstrings.
+
 import json
 import os
 import random
@@ -22,6 +25,16 @@ RANDOM_SEED = 27
 
 
 def download_kaggle_dataset(dataset_name, output_path="landscape_data"):
+    """
+    Download and extract a Kaggle dataset.
+
+    Args:
+        dataset_name: Name of Kaggle dataset (username/dataset-slug)
+        output_path: Directory to save extracted dataset
+
+    Returns:
+        Path to extracted dataset or None if download failed
+    """
     # Check if dataset already exists
     if os.path.exists(output_path):
         image_files = list(Path(output_path).glob("**/*.jpg"))
@@ -86,17 +99,18 @@ def create_virtual_splits_for_landscape(
     test_ratio=0.15,
     random_seed=RANDOM_SEED,
 ):
-    """Create virtual splits for any directory containing images.
+    """
+    Split image directory into train/val/test indices.
 
     Args:
-        bg_base_dir: Path to the directory containing background images
-        train_ratio: Proportion for training set
-        val_ratio: Proportion for validation set
-        test_ratio: Proportion for test set
+        bg_base_dir: Image directory path
+        train_ratio: Training set proportion
+        val_ratio: Validation set proportion
+        test_ratio: Test set proportion
         random_seed: Random seed
 
     Returns:
-        tuple: (train_indices, val_indices, test_indices) for the dataset
+        tuple: (train_indices, val_indices, test_indices)
     """
     random.seed(random_seed)
     bg_path = Path(bg_base_dir)
@@ -137,7 +151,9 @@ def create_virtual_splits_for_landscape(
 
 
 class BackgroundDataset(Dataset):
-    """Dataset for background images (without pets)."""
+    """
+    PyTorch Dataset for background (non-pet) images.
+    """
 
     def __init__(
         self,
@@ -147,14 +163,15 @@ class BackgroundDataset(Dataset):
         target_label=-1,
         target_type=["class"],
     ):
-        """Initialize the background dataset.
+        """
+        Initialize dataset for background (non-pet) images.
 
         Args:
-            bg_dir: Directory containing background images
-            indices: Optional indices to use for this dataset (for virtual splits)
-            transform: Transforms to apply to images
-            target_label: Label to use for background images
-            target_type: Types of targets to generate
+            bg_dir: Background images directory
+            indices: Optional indices for virtual splits
+            transform: Image transforms
+            target_label: Label for background images
+            target_type: Target types to generate
         """
         self.bg_dir = Path(bg_dir)
         self.transform = transform
@@ -176,9 +193,15 @@ class BackgroundDataset(Dataset):
         print(f"Using {len(self.bg_files)} background images from {self.bg_dir}")
 
     def __len__(self):
+        """
+        Return total number of samples in dataset.
+        """
         return len(self.bg_files)
 
     def __getitem__(self, idx):
+        """
+        Retrieve item from dataset based on index mapping.
+        """
         img_path = self.bg_files[idx]
 
         # Load image
@@ -204,7 +227,9 @@ class BackgroundDataset(Dataset):
             return image, targets
 
     def _get_target(self, target_type, original_width, original_height):
-        """Generate appropriate targets for background images."""
+        """
+        Generate appropriate targets for background images.
+        """
         if target_type == "is_animal":
             return 0  # Background images have no animals
         elif target_type in ["class", "breed"]:
@@ -224,18 +249,17 @@ class BackgroundDataset(Dataset):
 
 class MixedDataset(Dataset):
     """
-    Dataset that combines the OxfordPetDataset with background images
-    at specified intervals.
+    PyTorch Dataset combining main dataset with background images at specified intervals.
     """
 
     def __init__(self, main_dataset, bg_dataset, mixing_ratio=5):
         """
-        Initialize a mixed dataset with Oxford Pets and background images.
+        Initialize mixed dataset combining pet and background images.
 
         Args:
-            main_dataset: The primary dataset (OxfordPetDataset)
-            bg_dataset: The background dataset
-            mixing_ratio: Insert a background image every 'mixing_ratio' images
+            main_dataset: Primary dataset (OxfordPetDataset)
+            bg_dataset: Background image dataset
+            mixing_ratio: Number of main images between each background image
         """
         self.main_dataset = main_dataset
         self.bg_dataset = bg_dataset
@@ -243,7 +267,9 @@ class MixedDataset(Dataset):
         self._create_index_map()
 
     def _create_index_map(self):
-        """Create a mapping from indices to (dataset, idx) pairs."""
+        """
+        Create index mapping that interleaves main and background datasets.
+        """
         self.index_map = []
         bg_indices = list(range(len(self.bg_dataset)))
         random.shuffle(bg_indices)
@@ -274,9 +300,15 @@ class MixedDataset(Dataset):
         )
 
     def __len__(self):
+        """
+        Return total number of samples in mixed dataset.
+        """
         return len(self.index_map)
 
     def __getitem__(self, idx):
+        """
+        Retrieve item from main or background dataset based on index mapping.
+        """
         dataset_type, dataset_idx = self.index_map[idx]
 
         if dataset_type == "main":
@@ -300,25 +332,26 @@ def create_mixed_dataloaders(
     use_augmentation=False,
     lazy_loading=True,
 ):
-    """Create PyTorch DataLoaders with background image integration.
+    """
+    Create DataLoaders that mix pet and background images.
 
     Args:
-        batch_size: Batch size for DataLoaders
-        train_ratio: Proportion for training set
-        val_ratio: Proportion for validation set
-        test_ratio: Proportion for test set
-        random_seed: Seed for reproducible splitting
-        target_type: Target type for the model ("class", "species", "bbox", or "segmentation")
-        normalize_bbox: Whether to normalize bounding box coordinates
-        data_directory: Directory containing the dataset files
-        bg_directory: Directory containing background images
-        mixing_ratio: Insert a background image every n images (e.g., 5 means every 5th image)
-        bg_label: Class label to use for background images (usually -1 for "no object")
-        use_augmentation: Whether to use data augmentation for training
-        lazy_loading: Whether to load images on-demand (True) or preload into memory (False)
+        batch_size: Samples per batch
+        train_ratio: Training proportion
+        val_ratio: Validation proportion
+        test_ratio: Testing proportion
+        random_seed: For reproducibility
+        target_type: Target type(s) for models
+        normalize_bbox: Use normalized coordinates
+        data_directory: Main dataset location
+        bg_directory: Background images location
+        mixing_ratio: Insert 1 background per n pet images
+        bg_label: Background class label
+        use_augmentation: Enable augmentations
+        lazy_loading: Load on-demand vs preload
 
     Returns:
-        tuple: (train_loader, val_loader, test_loader) DataLoader instances
+        train_loader, val_loader, test_loader
     """
     if bg_directory is None or not os.path.exists(bg_directory):
         print(

@@ -1,3 +1,6 @@
+# AI usage statement: AI was used to assist with researching and debugging as well
+# as helping with creating docstrings.
+
 import os
 import random
 import re
@@ -19,8 +22,9 @@ RANDOM_SEED = 27
 
 class OxfordPetDataset(Dataset):
     """
-    Oxford-IIIT Pet Dataset handler for downloading, extracting, processing images,
-    and providing PyTorch-compatible dataset access.
+    PyTorch Dataset for Oxford-IIIT Pet Dataset providing pet images with classification, species,
+    bounding box, and segmentation annotations. Features automatic downloading, preprocessing, customizable
+    data splits, and optional memory caching. Returns image tensors paired with selected target types.
     """
 
     IMAGES_URL = "https://www.robots.ox.ac.uk/~vgg/data/pets/data/images.tar.gz"
@@ -86,7 +90,8 @@ class OxfordPetDataset(Dataset):
         random_seed=RANDOM_SEED,
         resize_size=64,
     ):
-        """Initialize dataset with directory structure and PyTorch adapter settings.
+        """
+        Initialize dataset with directory structure and PyTorch adapter settings.
 
         Args:
             root_dir: Root directory for storing dataset files
@@ -100,6 +105,7 @@ class OxfordPetDataset(Dataset):
             val_ratio: Proportion for validation set
             test_ratio: Proportion for test set
             random_seed: Seed for reproducible splitting
+            resize_size: Size to resize images and masks to (both width and height)
         """
         # Set up paths and create directories
         self.root_dir = Path(root_dir)
@@ -166,7 +172,8 @@ class OxfordPetDataset(Dataset):
             print(f"Cached {len(self.cached_images)} images in memory")
 
     def prepare_dataset(self):
-        """Download, extract, and setup class mappings for the dataset.
+        """
+        Download, extract, and setup class mappings for the dataset.
 
         Returns:
             self: The initialized dataset object
@@ -178,7 +185,9 @@ class OxfordPetDataset(Dataset):
         return self
 
     def download_files(self):
-        """Download images and annotations if directory not already present."""
+        """
+        Download images and annotations tar files if not already present.
+        """
         # Check if images and annotations are already downloaded
         if self.images_tar_path.exists():
             print(f"Images already downloaded: {self.images_tar_path}")
@@ -193,7 +202,9 @@ class OxfordPetDataset(Dataset):
             urllib.request.urlretrieve(self.ANNOTATIONS_URL, self.annotations_tar_path)
 
     def extract_files(self):
-        """Extract downloaded tar files if not already extracted."""
+        """
+        Extract downloaded tar files if jpg files or xmls directory are missing.
+        """
         # Extract images and annotations
         if not list(self.images_dir.glob("*.jpg")):
             print("Extracting images...")
@@ -206,7 +217,9 @@ class OxfordPetDataset(Dataset):
                 tar.extractall(path=self.root_dir)
 
     def setup_class_mappings(self):
-        """Create mapping between class names, indices, and species."""
+        """
+        Create mapping between class names, indices, and species.
+        """
         # Get all image files
         image_files = list(self.images_dir.glob("*.jpg"))
 
@@ -229,7 +242,8 @@ class OxfordPetDataset(Dataset):
                 self.class_to_species[cls] = "unknown"
 
     def get_all_data_labels(self):
-        """Get all dataset entries.
+        """
+        Get all image paths with their associated class, species, and bounding box data.
 
         Returns:
             list: List of tuples containing (image_path, class_idx, species_idx, bbox)
@@ -253,24 +267,20 @@ class OxfordPetDataset(Dataset):
         return dataset
 
     def load_image(self, image_path):
-        """Load an image from path and convert to RGB.
-
-        Args:
-            image_path: Path to the image file
-
-        Returns:
-            PIL.Image: Loaded RGB image
+        """
+        Load image from path and convert to RGB format.
         """
         return Image.open(image_path).convert("RGB")
 
     def get_head_bbox(self, image_name):
-        """Get pet head bounding box from annotation XML file.
+        """
+        Get pet head bounding box from XML annotation.
 
         Args:
-            image_name: Base name of the image without extension
+            image_name: Image name without extension
 
         Returns:
-            tuple: (xmin, ymin, xmax, ymax) or None if not found
+            tuple: (xmin, ymin, xmax, ymax) or None
         """
         xml_path = self.annotations_dir / "xmls" / f"{image_name}.xml"
 
@@ -302,17 +312,17 @@ class OxfordPetDataset(Dataset):
         test_ratio=0.15,
         random_seed=RANDOM_SEED,
     ):
-        """Split the dataset into training, validation, and test sets.
+        """Split dataset into train, validation, and test sets based on provided ratios.
 
         Args:
             dataset: List of data items
-            train_ratio: Proportion for training set
-            val_ratio: Proportion for validation set
-            test_ratio: Proportion for test set
-            random_seed: Seed for reproducible splitting
+            train_ratio: Training set proportion
+            val_ratio: Validation set proportion
+            test_ratio: Test set proportion
+            random_seed: Seed for reproducibility
 
         Returns:
-            tuple: (train_data, val_data, test_data) lists
+            tuple: (train_data, val_data, test_data)
         """
         random.seed(random_seed)
 
@@ -338,6 +348,12 @@ class OxfordPetDataset(Dataset):
         return train_data, val_data, test_data
 
     def check_all_segmentation_masks(self):
+        """
+        Check for segmentation masks with case sensitivity testing.
+
+        Returns:
+            set: Names of images with missing segmentation masks
+        """
         print("Checking for segmentation masks with case sensitivity testing...")
 
         image_files = list(self.images_dir.glob("*.jpg"))
@@ -389,16 +405,11 @@ class OxfordPetDataset(Dataset):
         return len(self.data_items)
 
     def __getitem__(self, idx):
-        """Get a dataset item by index.
-
-        Args:
-            idx: Index of the item to retrieve
+        """
+        Retrieve (image, target) tuple by index.
 
         Returns:
-            tuple: (image, target) where target depends on target_type
-
-        Raises:
-            ValueError: If target_type is not recognized
+            tuple: (image, target) where target format depends on target_type
         """
         img_path, class_idx, species_idx, bbox = self.data_items[idx]
 
@@ -450,11 +461,12 @@ class OxfordPetDataset(Dataset):
         original_width,
         original_height,
     ):
-        """Get the target based on the specified target type.
+        """
+        Return target based on specified type.
 
         Args:
             target_type: Type of target to retrieve
-            img_path: Path to the image file
+            img_path: Path to image file
             class_idx: Class index
             species_idx: Species index
             bbox: Bounding box coordinates
@@ -462,7 +474,7 @@ class OxfordPetDataset(Dataset):
             original_height: Original image height
 
         Returns:
-            Target based on the specified type
+            Target based on specified type
 
         Raises:
             ValueError: If target_type is not recognized
@@ -550,17 +562,18 @@ class SegmentationToTensor:
 def split_dataset(
     dataset, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=RANDOM_SEED
 ):
-    """Split the dataset into training, validation, and test sets.
+    """
+    Split dataset into train, validation, and test sets.
 
     Args:
-        dataset: OxfordPetDataset instance
-        train_ratio: Proportion for training set
-        val_ratio: Proportion for validation set
-        test_ratio: Proportion for test set
-        random_seed: Seed for reproducible splitting
+        dataset: Dataset to split
+        train_ratio: Training set proportion
+        val_ratio: Validation set proportion
+        test_ratio: Test set proportion
+        random_seed: Seed for reproducibility
 
     Returns:
-        tuple: (train_data, val_data, test_data) lists
+        tuple: (train_data, val_data, test_data)
     """
 
     random.seed(random_seed)
@@ -587,6 +600,17 @@ def split_dataset(
 
 
 def adjust_bbox_for_center_crop(xmin, ymin, xmax, ymax, orig_w, orig_h, final_size):
+    """
+    Adjust bounding box coordinates for resized and center-cropped images.
+
+    Args:
+        xmin, ymin, xmax, ymax: Original bounding box coordinates
+        orig_w, orig_h: Original image dimensions
+        final_size: Target size after resize/crop
+
+    Returns:
+        tuple: Adjusted bounding box coordinates
+    """
     # determine the scale factor used by transform.Resize(256)
     shorter_side = min(orig_w, orig_h)
     scale = final_size / float(shorter_side)
@@ -634,23 +658,25 @@ def create_dataloaders(
     lazy_loading=True,
     shuffle=True,
 ):
-    """Create PyTorch DataLoaders for training, validation, and testing.
+    """
+    Create PyTorch DataLoaders for training, validation, and testing.
 
-
-        Args:
-            batch_size: Batch size for DataLoaders
-            train_ratio: Proportion for training set
-            val_ratio: Proportion for validation set
-            test_ratio: Proportion for test set
-        random_seed: Seed for reproducible splitting
-        target_type: Target type for the model ("class", "species", "bbox", or "segmentation")
-        normalize_bbox: Whether to normalize bounding box coordinates
-        data_directory: Directory containing the dataset files (default: "oxford_pet_data")
-        use_augmentation: Whether to use data augmentation for training
-        lazy_loading: Whether to load images on-demand (True) or preload into memory (False)
+    Args:
+        batch_size: Batch size for DataLoaders
+        train_ratio: Training set proportion
+        val_ratio: Validation set proportion
+        test_ratio: Test set proportion
+        resize_size: Image size after resizing
+        random_seed: Seed for reproducibility
+        target_type: Target type ("class", "species", "bbox", "segmentation")
+        normalize_bbox: Whether to normalize bbox coordinates
+        data_directory: Dataset directory path
+        use_augmentation: Whether to use data augmentation
+        lazy_loading: Whether to load images on-demand
+        shuffle: Whether to shuffle training data
 
     Returns:
-        tuple: (train_loader, val_loader, test_loader) DataLoader instances
+        tuple: (train_loader, val_loader, test_loader)
     """
 
     if use_augmentation:
@@ -767,19 +793,17 @@ def create_dataloaders(
 def create_sample_loader_from_existing_loader(
     loader, num_samples=20, batch_size=20, shuffle=False, seed=42
 ):
-    """
-    Create a new DataLoader containing a subset of (image, segmentation_mask) pairs,
-    extracted from a dataset where targets are dicts containing the 'segmentation' key.
+    """Create DataLoader with subset of image-segmentation pairs from existing loader.
 
     Args:
-        loader (DataLoader): Existing PyTorch DataLoader.
-        num_samples (int): Number of samples to extract.
-        batch_size (int): Batch size for the new DataLoader.
-        shuffle (bool): Whether to shuffle before selecting samples.
-        seed (int): Random seed for reproducibility.
+        loader: Source DataLoader
+        num_samples: Number of samples to extract
+        batch_size: Batch size for new DataLoader
+        shuffle: Whether to shuffle before selection
+        seed: Random seed for reproducibility
 
     Returns:
-        DataLoader: New DataLoader yielding (image, segmentation_mask) batches.
+        DataLoader with (image, segmentation_mask) batches
     """
     dataset = loader.dataset
     dataset_size = len(dataset)
