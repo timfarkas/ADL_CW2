@@ -46,6 +46,8 @@ model_names = [
 
 cam_types = ["ClassicCAM", "GradCAM"]
 
+cam_evaluation_json = "cam_evaluation.json"
+
 def get_checkpoints_and_logs_dirs(run_name: str, model_name: str):
     """
     Get the checkpoints and logs directories for a given run and model name.
