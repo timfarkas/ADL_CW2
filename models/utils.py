@@ -78,6 +78,7 @@ def get_pretrainer_by_config(
     model_config: dict,
     checkpoints_dir: str,
     logs_dir: str,
+    logs_file: str,
     device: torch.device,
     learning_rate: float,
     weight_decay: float,
@@ -87,9 +88,7 @@ def get_pretrainer_by_config(
     Create a pretrainer object based on the model configuration.
     """
 
-    pretrainer = Pretrainer(
-        device=device, log_dir=logs_dir, log_file="pretraining.json"
-    )
+    pretrainer = Pretrainer(device=device, log_dir=logs_dir, log_file=logs_file)
     pretrainer.set_model(
         backbone=model_config["backbone"],
         heads=model_config["heads"],
