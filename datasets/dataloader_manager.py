@@ -18,7 +18,7 @@ class DataloaderManager:
 
     def create_dataloaders(
         self, shuffle_train: bool = True
-    ) -> DataLoader:
+    ) -> tuple[DataLoader, DataLoader, DataLoader]:
         train_dataset, val_dataset, test_dataset = self.dataset_manager.datasets
 
         train_dataloader = DataLoader(
