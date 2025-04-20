@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import torch
 from torch import nn
+import gc
 
 from cam_generation.cam_manager import CAMManager
 from cam_generation.utils import (
@@ -96,7 +97,9 @@ def evaluate_cams(
                         cam_settings=iou_per_layer,
                         json_path=f"{logs_dir}/{cam_evaluation_json}",
                     )
-
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                del model
 
 def find_ioi_per_layer(
     model: PretrainedModel,
