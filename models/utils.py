@@ -120,34 +120,3 @@ def get_pretrainer_by_config(
         )
 
     return pretrainer
-
-
-def log_self_training_performance(
-    log_dir: str, run_name: str, round_name: str, ioi: float, f1: float
-):
-    """
-    Log performance metrics to a JSON file.
-    """
-
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "self_training_log.json")
-
-    # Create or load existing log
-    if os.path.exists(log_file):
-        with open(log_file, "r") as f:
-            log_data = json.load(f)
-    else:
-        log_data = {}
-
-    if run_name not in log_data:
-        log_data[run_name] = {}
-
-    if round_name not in log_data[run_name]:
-        log_data[run_name][round_name] = {}
-
-    log_data[run_name][round_name]["ioi"] = ioi
-    log_data[run_name][round_name]["f1"] = f1
-
-    # Save updated log
-    with open(log_file, "w") as f:
-        json.dump(log_data, f, indent=4)

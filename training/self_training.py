@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
-from models.utils import log_self_training_performance
+from training.utils import log_self_training_performance
 from training.evaluations import evaluate_segmentation_model
 from training.losses import bce_fn
 from new_runs_config import get_checkpoints_and_logs_dirs, cam_dataset_folder
@@ -179,4 +179,3 @@ def run_self_training_process(
                         raise ValueError(
                             f"Unknown dataset management method: {run_config['dataset_management']}"
                         )
-
