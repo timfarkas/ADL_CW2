@@ -18,8 +18,6 @@ from evaluation import (
 from models import SelfTraining, UNet
 
 """Fix randomization seed"""
-
-
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
