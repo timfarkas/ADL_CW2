@@ -45,9 +45,9 @@ if __name__ == "__main__":
     # Set device
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        workers = 12
-        persistent_workers = True
-        batch_size = 64
+        workers = 0
+        persistent_workers = False
+        batch_size = 4 
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         workers = 6
