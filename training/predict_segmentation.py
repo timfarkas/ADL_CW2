@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 
-def prefict_segmentation_dataset(
+def predict_segmentation_dataset(
     model: torch.nn.Module,
     dataloader: torch.utils.data.DataLoader,
     device: torch.device,
@@ -22,7 +22,7 @@ def prefict_segmentation_dataset(
             logits = model(images)  # [B, 1, H, W]
             probs = torch.sigmoid(logits)  # ∈ [0,1]
             batch_size = images.size(0)
-
+            
             if predictions_transform == "filter":
                 output_segmentation = filter_probs(
                     probs=probs,
@@ -58,6 +58,9 @@ def prefict_segmentation_dataset(
                     low_thresh=threshold_value_low,
                     high_thresh=threshold_value_high,
                 )
+            
+            elif predictions_transform is None:
+                output_segmentation = probs
 
             else:
                 raise ValueError(
