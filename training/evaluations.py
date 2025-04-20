@@ -2,7 +2,7 @@ import torch
 
 from new_runs_config import segmentation_output_threshold
 from training.utils import (
-    get_binary_from_normalization,
+    get_binary_masks_from_trimap,
     unnormalize,
     visualize_predicted_masks,
 )
@@ -189,13 +189,13 @@ def evaluate_segmentation_model(
         for i, (images, masks_gt) in enumerate(test_loader):
             images = images.to(device)
             masks_gt = masks_gt.to(device)
-            
+
             logits = model(images)  # raw output
             masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
             masks_pre_binary = (
                 masks_pre > segmentation_output_threshold
             ).long()  # apply threshold to get binary masks
-            masks_gt_binary = get_binary_from_normalization(masks_gt)
+            masks_gt_binary = get_binary_masks_from_trimap(masks_gt)
 
             batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
             total_IoU += batch_iou
@@ -217,8 +217,6 @@ def evaluate_segmentation_model(
     average_IoU = total_IoU / num_samples
     average_f1_score = total_f1_score / num_samples
 
-    print(
-        f"Mean IoU: {average_IoU}, F1 Score: {average_f1_score}"
-    )
+    print(f"Mean IoU: {average_IoU}, F1 Score: {average_f1_score}")
 
     return (average_IoU, average_f1_score)
