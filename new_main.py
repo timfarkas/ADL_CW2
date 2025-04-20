@@ -13,6 +13,7 @@ from new_runs_config import (
 from cam_generation.cam_evaluation import evaluate_cams
 from training.pre_training import run_pretraining_process
 from training.self_training import run_self_training_process
+from training.supervised_training import run_supervised_training_process
 from training.utils import get_best_selftraining
 
 # General run configuration
@@ -111,6 +112,17 @@ if __name__ == "__main__":
             num_epochs=SELFTRAINING_NUM_EPOCHS,
             num_bootstrap_rounds=SELTRAINING_BOOSTRAP_ROUNDS,
             threshold=0.2,
+        )
+    
+    if TRAIN_FULLY_SUPERVISED:
+        supervised_model = run_supervised_training_process(
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            learning_rate=PRETRAIN_LEARNING_RATE,
+            weight_decay=PRETRAIN_WEIGHT_DECAY,
+            num_epochs=PRETRAIN_NUM_EPOCHS,
         )
     
     best_selftraining = get_best_selftraining(

@@ -96,6 +96,10 @@ visualizations_folder = "visualizations"
 
 segmentation_output_threshold = 0.5
 
+baseline_model_folder = "baseline"
+
+baseline_model_name = "unet"
+
 def get_checkpoints_and_logs_dirs(run_name: str, model_name: str):
     """
     Get the checkpoints and logs directories for a given run and model name.
