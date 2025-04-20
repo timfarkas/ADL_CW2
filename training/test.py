@@ -1,0 +1,106 @@
+import json
+import os
+import torch
+
+from datasets.dataloader_manager import DataloaderManager
+from datasets.dataset_manager import DatasetManager
+from models.u_net import UNet
+from new_runs_config import (
+    get_checkpoints_and_logs_dirs,
+    baseline_model_folder,
+    baseline_model_name,
+    visualizations_folder,
+)
+from training.evaluations import evaluate_segmentation_model
+
+
+def test_and_compare_to_baseline(
+    device: torch.device,
+    batch_size: int,
+    workers: int,
+    persistent_workers: bool,
+    self_training_dict: dict,
+    baseline_model: torch.nn.Module | None = None,
+):
+    dataset_manager = DatasetManager(
+        target_type=["segmentation"],
+        mixed=False,
+        use_augmentation=False,
+    )
+    dataloader_manager = DataloaderManager(
+        dataset_manager=dataset_manager,
+        batch_size=batch_size,
+        workers=workers,
+        persistent_workers=persistent_workers,
+    )
+    _, _, test_dataloader = dataloader_manager.create_dataloaders(shuffle_train=False)
+
+    # Get model to compare
+    checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
+        run_name=self_training_dict["dataset_name"],
+        model_name=self_training_dict["run_name"],
+    )
+    model = UNet().to(device)
+    model.load_state_dict(
+        torch.load(
+            os.path.join(checkpoints_dir, f"{self_training_dict['round_name']}.pt"),
+            map_location=device,
+        )
+    )
+
+    if baseline_model is None:
+        checkpoints_dir, _ = get_checkpoints_and_logs_dirs(
+            run_name=baseline_model_folder,
+            model_name=baseline_model_name,
+        )
+        baseline_model = UNet().to(device)
+        baseline_model.load_state_dict(
+            torch.load(
+                os.path.join(checkpoints_dir, f"{baseline_model_name}.pt"),
+                map_location=device,
+            )
+        )
+
+    print("\nEvaluating self-training model")
+    ioi_self_training, f1_self_training = evaluate_segmentation_model(
+        model=model,
+        test_loader=test_dataloader,
+        device=device,
+        storage_path=f"{visualizations_folder}/{self_training_dict['run_name']}-{self_training_dict['run_name']}.png",
+    )
+
+    print("\nEvaluating baseline model")
+    ioi_baseline, f1_baseline = evaluate_segmentation_model(
+        model=baseline_model,
+        test_loader=test_dataloader,
+        device=device,
+        storage_path=f"{visualizations_folder}/{baseline_model_folder}-{baseline_model_name}.png",
+    )
+
+    print("\nResults...")
+    print(
+        f"Self-training model: {self_training_dict['run_name']}, IOI: {ioi_self_training}, F1: {f1_self_training}"
+    )
+    print(
+        f"Baseline model: {baseline_model_folder}, IOI: {ioi_baseline}, F1: {f1_baseline}"
+    )
+
+    # Log in the logs folder (only the first parth of the path) the results of both models as json
+    results = {
+        "self_training": {
+            "dataset_name": self_training_dict["dataset_name"],
+            "run_name": self_training_dict["run_name"],
+            "round_name": self_training_dict["round_name"],
+            "ioi": ioi_self_training,
+            "f1": f1_self_training,
+        },
+        baseline_model_folder: {
+            "model": baseline_model_name,
+            "ioi": ioi_baseline,
+            "f1": f1_baseline,
+        },
+    }
+
+    comparison_json = os.path.join(logs_dir.split("/")[0], "comparison_json.json")
+    with open(comparison_json, "w") as f:
+        json.dump(results, f, indent=4)

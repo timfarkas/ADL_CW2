@@ -14,6 +14,7 @@ from cam_generation.cam_evaluation import evaluate_cams
 from training.pre_training import run_pretraining_process
 from training.self_training import run_self_training_process
 from training.supervised_training import run_supervised_training_process
+from training.test import test_and_compare_to_baseline
 from training.utils import get_best_selftraining
 
 # General run configuration
@@ -21,8 +22,9 @@ RANDOM_SEED = 27
 TEST_MODELS_BEFORE_TRAINING = False
 PRETRAIN_MODELS = False
 EVALUATE_CAMS = False
-GENERATE_CAM_DATASET = True
-TRAIN_SELFTRAINING = True
+GENERATE_CAM_DATASET = False
+TRAIN_SELFTRAINING = False
+TRAIN_FULLY_SUPERVISED = True
 # Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
@@ -30,6 +32,8 @@ PRETRAIN_NUM_EPOCHS = 2
 # Selftraining configuration
 SELFTRAINING_NUM_EPOCHS = 2
 SELTRAINING_BOOSTRAP_ROUNDS = 2
+
+supervised_model = None
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
@@ -125,7 +129,14 @@ if __name__ == "__main__":
             num_epochs=PRETRAIN_NUM_EPOCHS,
         )
     
-    best_selftraining = get_best_selftraining(
+    best_self_training = get_best_selftraining(
         runs_config=self_learning_experiments_config,
     )
-    print(best_selftraining)
+    test_and_compare_to_baseline(
+        device=device,
+        batch_size=batch_size,
+        workers=workers,
+        persistent_workers=persistent_workers,
+        self_training_dict=best_self_training,
+        baseline_model=supervised_model,
+    )
