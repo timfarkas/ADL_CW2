@@ -6,6 +6,7 @@ from torch import nn
 
 from training.evaluations import compute_iou
 from new_runs_config import cam_evaluation_json, get_checkpoints_and_logs_dirs
+from training.pretraining import get_best_epoch_per_model
 
 
 def get_conv_layers(model: nn.Module) -> list[nn.Conv2d]:
@@ -34,6 +35,9 @@ def get_best_cam(runs_config: dict[str, any]):
             run_name=run_name,
             model_name="",
         )
+        best_epoch_dict = get_best_epoch_per_model(
+            run_name=run_name,
+        )
 
         cam_json_path = os.path.join(logs_dir, cam_evaluation_json)
         if os.path.exists(cam_json_path):
@@ -54,6 +58,7 @@ def get_best_cam(runs_config: dict[str, any]):
                             "head_target": settings_name.split("_")[1], 
                             "layer_index": best_iou["layer_index"],
                             "iou": best_iou["iou"],
+                            "best_epoch": best_epoch_dict.get(model_name, 0),
                         }
                     )
             run_best_results.sort(key=lambda x: x["iou"], reverse=True)
@@ -66,6 +71,7 @@ def get_best_cam(runs_config: dict[str, any]):
                     "head_target": run_best_results[0]["head_target"],
                     "layer_index": run_best_results[0]["layer_index"],
                     "iou": run_best_results[0]["iou"],
+                    "best_epoch": best_epoch_dict.get(model_name, 0),
                 }
     # Save the best overall settings to a JSON file
     best_cam_settings_per_run = os.path.join(
