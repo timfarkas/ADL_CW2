@@ -3,6 +3,8 @@ import os
 from matplotlib import pyplot as plt
 import torch
 
+from new_runs_config import cam_dataset_folder, get_checkpoints_and_logs_dirs
+
 
 def unnormalize(img_tensor):
     mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
@@ -109,3 +111,67 @@ def log_self_training_performance(
     # Save updated log
     with open(log_file, "w") as f:
         json.dump(log_data, f, indent=4)
+
+
+def get_best_selftraining(
+    runs_config: dict,
+):
+    datasets = [
+        os.path.join(cam_dataset_folder, f)
+        for f in os.listdir(cam_dataset_folder)
+        if f.endswith(".pt")
+    ]
+
+    results = {}
+    best_overall = {}
+
+    for dataset in datasets:
+        dataset_name = os.path.basename(dataset).split(".")[0]
+        results[dataset_name] = {}
+        for run_name, run_config in runs_config.items():
+            _, logs_dir = get_checkpoints_and_logs_dirs(
+                run_name=dataset_name,
+                model_name=run_name,
+            )
+            with open(os.path.join(logs_dir, "self_training_log.json"), "r") as f:
+                log_data = json.load(f)
+            
+            run_results = []
+            for round_name, metrics in log_data[run_name].items():
+                ioi = metrics["ioi"]
+                f1 = metrics["f1"]
+                run_results.append(
+                    {
+                        "run_name": run_name,
+                        "round_name": round_name,
+                        "dataset_name": dataset_name,
+                        "ioi": ioi,
+                        "f1": f1,
+                    }
+                )
+
+            run_results.sort(key=lambda x: x["ioi"], reverse=True)
+            run_best_result = run_results[0]
+            results[dataset_name][run_name] = run_best_result
+            if run_best_result["ioi"] > best_overall.get("ioi", 0):
+                best_overall = {
+                    "dataset_name": dataset_name,
+                    "run_name": run_name,
+                    "round_name": run_best_result["round_name"],
+                    "ioi": run_best_result["ioi"],
+                    "f1": run_best_result["f1"],
+                    "run": run_best_result["run_name"],
+                }
+
+    # Save the best overall settings to a JSON file
+    best_selftraining_round_per_run = os.path.join(
+        logs_dir.split("/")[0], "best_selftraining_rounds_per_run.json"
+    )
+    with open(best_selftraining_round_per_run, "w") as f:
+        json.dump(results, f, indent=4)
+    
+    print(
+        f"Best self-training settings overall: run: {best_overall['run_name']}, dataset: {best_overall['dataset_name']}, ioi: {best_overall['ioi']}, f1: {best_overall['f1']}"
+    )
+
+    return best_overall

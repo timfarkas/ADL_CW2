@@ -13,6 +13,7 @@ from new_runs_config import (
 from cam_generation.cam_evaluation import evaluate_cams
 from training.pretraining import run_pretraining_process
 from training.self_training import run_self_training_process
+from training.utils import get_best_selftraining
 
 # General run configuration
 RANDOM_SEED = 27
@@ -111,3 +112,8 @@ if __name__ == "__main__":
             num_bootstrap_rounds=SELTRAINING_BOOSTRAP_ROUNDS,
             threshold=0.2,
         )
+    
+    best_selftraining = get_best_selftraining(
+        runs_config=self_learning_experiments_config,
+    )
+    print(best_selftraining)
