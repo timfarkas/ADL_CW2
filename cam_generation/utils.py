@@ -7,7 +7,7 @@ from torch import nn
 
 from training.evaluations import compute_iou
 from new_runs_config import cam_evaluation_json, get_checkpoints_and_logs_dirs
-from training.pretraining import get_best_epoch_per_model
+from training.pre_training import get_best_epoch_per_model
 
 
 def get_conv_layers(model: nn.Module) -> list[nn.Conv2d]:

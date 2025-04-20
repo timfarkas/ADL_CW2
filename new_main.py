@@ -11,7 +11,7 @@ from new_runs_config import (
     self_learning_experiments_config,
 )
 from cam_generation.cam_evaluation import evaluate_cams
-from training.pretraining import run_pretraining_process
+from training.pre_training import run_pretraining_process
 from training.self_training import run_self_training_process
 from training.utils import get_best_selftraining
 

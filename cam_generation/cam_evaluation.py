@@ -13,7 +13,7 @@ from datasets.dataset_manager import DatasetManager
 from models.pretrainer import PretrainedModel
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
 from new_runs_config import get_checkpoints_and_logs_dirs
-from training.pretraining import get_best_epoch_per_model
+from training.pre_training import get_best_epoch_per_model
 from new_runs_config import cam_evaluation_json
 
 
