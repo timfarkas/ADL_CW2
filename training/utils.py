@@ -6,9 +6,9 @@ import torch
 from new_runs_config import cam_dataset_folder, get_checkpoints_and_logs_dirs
 
 
-def unnormalize(img_tensor):
-    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+def unnormalize(img_tensor: torch.Tensor, device: torch.device = torch.device("cpu")):
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(device)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(device)
     return (img_tensor * std + mean).clamp(0, 1)
 
 
@@ -62,7 +62,7 @@ def get_binary_from_normalization(
     return categories
 
 
-def visualize_predicted_masks(images, masks, masks_gt, storage_path=None):
+def visualize_predicted_masks(images, masks, masks_gt, device, storage_path=None):
     """
     Visualize predicted masks and ground-truth masks with 3xN layout:
     Row 1: Input images
@@ -74,9 +74,9 @@ def visualize_predicted_masks(images, masks, masks_gt, storage_path=None):
     fig, axs = plt.subplots(3, num_samples, figsize=(num_samples * 3, 3 * 3))
 
     for i in range(num_samples):
-        img = unnormalize(images[i]).permute(1, 2, 0).cpu().numpy()
+        img = unnormalize(images[i], device).permute(1, 2, 0).cpu().numpy()
         pred_mask = masks[i][0].cpu().numpy()
-        gt_mask = masks_gt[i][0].cpu().numpy()
+        gt_mask = masks_gt[i].cpu().numpy()
 
         axs[0, i].imshow(img)
         axs[0, i].set_title(f"Image {i + 1}")
@@ -146,7 +146,7 @@ def get_best_selftraining(
     for dataset in datasets:
         dataset_name = os.path.basename(dataset).split(".")[0]
         results[dataset_name] = {}
-        for run_name, run_config in runs_config.items():
+        for run_name, _ in runs_config.items():
             _, logs_dir = get_checkpoints_and_logs_dirs(
                 run_name=dataset_name,
                 model_name=run_name,
@@ -178,7 +178,6 @@ def get_best_selftraining(
                     "round_name": run_best_result["round_name"],
                     "ioi": run_best_result["ioi"],
                     "f1": run_best_result["f1"],
-                    "run": run_best_result["run_name"],
                 }
 
     # Save the best overall settings to a JSON file

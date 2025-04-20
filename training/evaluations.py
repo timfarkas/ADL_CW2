@@ -203,15 +203,12 @@ def evaluate_segmentation_model(
             num_samples += images.size(0)
 
             if storage_path and i == 0:
-                images_to_store = unnormalize(images[:image_number])
-                masks_pre_binary_to_store = masks_pre_binary[:image_number]
-                masks_gt_to_store = masks_gt_binary[:image_number]
-
                 visualize_predicted_masks(
-                    images_to_store,
-                    masks_pre_binary_to_store,
-                    masks_gt_to_store,
+                    images[:image_number],
+                    masks_pre_binary[:image_number],
+                    masks_gt_binary[:image_number],
                     storage_path=storage_path,
+                    device=device,
                 )
 
     average_IoU = total_IoU / num_samples
