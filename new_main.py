@@ -4,9 +4,15 @@ import random
 
 from cam_generation.cam_dataset import generate_cam_dataset
 from cam_generation.utils import get_best_cam
-from new_runs_config import runs_config, model_names, cam_types
+from new_runs_config import (
+    runs_config,
+    model_names,
+    cam_types,
+    self_learning_experiments_config,
+)
 from cam_generation.cam_evaluation import evaluate_cams
 from training.pretraining import run_pretraining_process
+from training.self_training import run_self_training_process
 
 # General run configuration
 RANDOM_SEED = 27
@@ -14,10 +20,14 @@ TEST_MODELS_BEFORE_TRAINING = False
 PRETRAIN_MODELS = False
 EVALUATE_CAMS = False
 GENERATE_CAM_DATASET = True
+TRAIN_SELFTRAINING = True
 # Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
 PRETRAIN_NUM_EPOCHS = 2
+# Selftraining configuration
+SELFTRAINING_NUM_EPOCHS = 2
+SELTRAINING_BOOSTRAP_ROUNDS = 2
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
@@ -86,4 +96,18 @@ if __name__ == "__main__":
             workers=workers,
             persistent_workers=persistent_workers,
             visualize=5,
+        )
+
+    if TRAIN_SELFTRAINING:
+        run_self_training_process(
+            runs_config=self_learning_experiments_config,
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            learning_rate=PRETRAIN_LEARNING_RATE,
+            weight_decay=PRETRAIN_WEIGHT_DECAY,
+            num_epochs=SELFTRAINING_NUM_EPOCHS,
+            num_bootstrap_rounds=SELTRAINING_BOOSTRAP_ROUNDS,
+            threshold=0.2,
         )

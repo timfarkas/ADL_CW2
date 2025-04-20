@@ -1,5 +1,48 @@
 DEFAULT_IMAGE_SIZE = (224, 224)
 
+self_learning_experiments_config = {
+    "self_learning_replace_filter": {
+        "dataset_management": "replace",
+        "predictions_transform": "filter",
+        "seed_loss": False,
+    },
+    "self_learning_replace_grabcut": {
+        "dataset_management": "replace",
+        "predictions_transform": "grabcut",
+        "seed_loss": False,
+    },
+    "self_learning_replace_mixlabel": {
+        "dataset_management": "replace",
+        "predictions_transform": "mixlabel",
+        "seed_loss": False,
+    },
+    "self_learning_add_none": {
+        "dataset_management": "add",
+        "predictions_transform": None,
+        "seed_loss": False,
+    },
+    "self_learning_add_none_seedloss": {
+        "dataset_management": "add",
+        "predictions_transform": None,
+        "seed_loss": True,
+    },
+    "self_learning_add_filter": {
+        "dataset_management": "add",
+        "predictions_transform": "filter",
+        "seed_loss": False,
+    },
+    "self_learning_add_grabcut": {
+        "dataset_management": "add",
+        "predictions_transform": "grabcut",
+        "seed_loss": False,
+    },
+    "self_learning_add_mixlabel": {
+        "dataset_management": "add",
+        "predictions_transform": "mixlabel",
+        "seed_loss": False,
+    },
+}
+
 # TODO: if possible, create some validation
 runs_config = {
     "run_1": {
@@ -70,6 +113,8 @@ cam_evaluation_json = "cam_evaluation.json"
 cam_dataset_folder = "cam_datasets"
 
 visualizations_folder = "visualizations"
+
+segmentation_output_threshold = 0.5
 
 def get_checkpoints_and_logs_dirs(run_name: str, model_name: str):
     """
