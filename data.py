@@ -682,7 +682,7 @@ def create_dataloaders(
     if use_augmentation:
         train_transform = transforms.Compose(
             [
-                transforms.Resize(resize_size),
+                transforms.Resize(resize_size,interpolation=Image.NEAREST),
                 transforms.CenterCrop(resize_size),
                 transforms.ColorJitter(
                     brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
@@ -697,7 +697,7 @@ def create_dataloaders(
     else:
         train_transform = transforms.Compose(
             [
-                transforms.Resize(resize_size),
+                transforms.Resize(resize_size, interpolation=Image.NEAREST),
                 transforms.CenterCrop(resize_size),
                 transforms.ToTensor(),
                 transforms.Normalize(
@@ -708,7 +708,7 @@ def create_dataloaders(
 
     val_test_transform = transforms.Compose(
         [
-            transforms.Resize(resize_size),
+            transforms.Resize(resize_size,interpolation=Image.NEAREST),
             transforms.CenterCrop(resize_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -788,57 +788,6 @@ def create_dataloaders(
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
     return train_loader, val_loader, test_loader
-
-
-def create_sample_loader_from_existing_loader(
-    loader, num_samples=20, batch_size=20, shuffle=False, seed=42
-):
-    """Create DataLoader with subset of image-segmentation pairs from existing loader.
-
-    Args:
-        loader: Source DataLoader
-        num_samples: Number of samples to extract
-        batch_size: Batch size for new DataLoader
-        shuffle: Whether to shuffle before selection
-        seed: Random seed for reproducibility
-
-    Returns:
-        DataLoader with (image, segmentation_mask) batches
-    """
-    dataset = loader.dataset
-    dataset_size = len(dataset)
-
-    if num_samples > dataset_size:
-        raise ValueError(
-            f"Requested {num_samples} samples, but dataset only has {dataset_size} items."
-        )
-
-    # Choose random or sequential indices
-    indices = list(range(dataset_size))
-    if shuffle:
-        random.seed(seed)
-        random.shuffle(indices)
-
-    selected_indices = indices[:num_samples]
-
-    # Extract (image, segmentation) pairs and store as tensors
-    image_list = []
-    mask_list = []
-    for idx in selected_indices:
-        image, target = dataset[idx]
-        mask = target["segmentation"]
-        image_list.append(image.unsqueeze(0))
-        mask_list.append(mask.unsqueeze(0))
-
-    # Stack to tensors
-    images_tensor = torch.cat(image_list, dim=0)
-    masks_tensor = torch.cat(mask_list, dim=0)
-
-    # Wrap into a TensorDataset
-    tensor_dataset = TensorDataset(images_tensor, masks_tensor)
-
-    # Return standard DataLoader
-    return DataLoader(tensor_dataset, batch_size=batch_size, shuffle=False)
 
 
 # Example usage:
