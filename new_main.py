@@ -20,8 +20,8 @@ from training.utils import get_best_self_training
 # General run configuration
 RANDOM_SEED = 27
 TEST_MODELS_BEFORE_TRAINING = False
-PRETRAIN_MODELS = False
-EVALUATE_CAMS = False
+PRETRAIN_MODELS = True
+EVALUATE_CAMS = True
 GENERATE_CAM_DATASET = False
 TRAIN_SELFTRAINING = False
 TRAIN_FULLY_SUPERVISED = True
