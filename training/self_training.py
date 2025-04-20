@@ -25,7 +25,6 @@ def run_self_training_process(
     num_bootstrap_rounds: int,
     threshold: float,
 ):
-    # TODO: still missing validation logic
     # Open the datasets folder and get each file, then load each dataset if its a .pt file
     datasets = [
         os.path.join(cam_dataset_folder, f)
