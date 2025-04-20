@@ -43,12 +43,11 @@ def evaluate_cams(
             workers=workers,
             persistent_workers=persistent_workers,
         )
+        dataloaders = dataloader_manager.create_dataloaders(
+            shuffle_train=False
+        )  # No need to shuffle for this
         for model_name, best_epoch in models_dict.items():
             print(f"\nEvaluating {model_name} for run {run_name} at epoch {best_epoch}")
-
-            dataloaders = dataloader_manager.create_dataloaders(
-                shuffle_train=False
-            )  # No need to shuffle for this
             checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
                 run_name=run_name,
                 model_name=model_name,
