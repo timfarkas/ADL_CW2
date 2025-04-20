@@ -8,7 +8,7 @@ def prefict_segmentation_dataset(
     model: torch.nn.Module,
     dataloader: torch.utils.data.DataLoader,
     device: torch.device,
-    predictions_tranform: Literal["filter", "grabcut", "mixlabel"],
+    predictions_transform: Literal["filter", "grabcut", "mixlabel"],
     threshold: float,
 ):
     model.eval()
@@ -23,13 +23,13 @@ def prefict_segmentation_dataset(
             probs = torch.sigmoid(logits)  # ∈ [0,1]
             batch_size = images.size(0)
 
-            if predictions_tranform == "filter":
+            if predictions_transform == "filter":
                 output_segmentation = filter_probs(
                     probs=probs,
                     threshold=threshold,
                 )
 
-            elif predictions_tranform == "grabcut":
+            elif predictions_transform == "grabcut":
                 refined_masks = []
 
                 # Convert images and probs to CPU for OpenCV
@@ -49,7 +49,7 @@ def prefict_segmentation_dataset(
 
                 output_segmentation = torch.stack(refined_masks, dim=0)  # [B, 1, H, W]
 
-            elif predictions_tranform == "mixlabel":
+            elif predictions_transform == "mixlabel":
                 threshold_value_low = threshold
                 threshold_value_high = 1 - threshold
                 output_segmentation = refine_probs_with_mixlabel(
@@ -61,7 +61,7 @@ def prefict_segmentation_dataset(
 
             else:
                 raise ValueError(
-                    f"Unknown prediction transform: {predictions_tranform}. "
+                    f"Unknown prediction transform: {predictions_transform}. "
                     "Choose from ['filter', 'grabcut', 'mixlabel']."
                 )
 
