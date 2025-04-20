@@ -62,6 +62,51 @@ dataloader_train, dataloader_val, dataloader_test = create_dataloaders(
     lazy_loading=True,
     shuffle=False)
 
+import matplotlib.pyplot as plt
+import torch
+
+# Get a single batch from the validation loader
+batch = next(iter(dataloader_val))
+images, targets = batch
+
+# targets is expected to be a dict with classification and segmentation labels
+cls_labels = targets["breed"]
+seg_masks = targets["segmentation"]
+
+# Denormalization parameters (ImageNet)
+mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+# Visualize the first N samples
+n_samples = 8
+fig, axs = plt.subplots(3, n_samples, figsize=(n_samples * 3, 3 * 3))
+
+for i in range(n_samples):
+    # De-normalize image
+    img = images[i] * std + mean
+    img = img.permute(1, 2, 0).clamp(0, 1).cpu().numpy()
+
+    # Segmentation mask
+    mask = seg_masks[i].squeeze().cpu().numpy()
+
+    # Classification label (just integer index)
+    label = cls_labels[i].item()
+
+    axs[0, i].imshow(img)
+    axs[0, i].axis("off")
+    axs[0, i].set_title(f"Image {i}")
+
+    axs[1, i].imshow(mask, cmap="gray")
+    axs[1, i].axis("off")
+    axs[1, i].set_title("Seg. Mask")
+
+    axs[2, i].text(0.5, 0.5, f"Breed: {label}", ha="center", va="center", fontsize=12)
+    axs[2, i].axis("off")
+
+plt.tight_layout()
+plt.show()
+
+
 print("Loading CAM dataset...")
 resized_data = (torch.load("cam_data/resized_64_species_breed_cam_mask_raw.pt"))
 #
