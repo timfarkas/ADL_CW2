@@ -1,11 +1,10 @@
 import os
-from matplotlib import pyplot as plt
 import torch
 
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
-from training.utils import get_binary_from_normalization, get_binary_masks_from_trimap
+from training.utils import get_binary_masks_from_trimap
 from training.losses import bce_fn
 from new_runs_config import (
     get_checkpoints_and_logs_dirs,
@@ -24,7 +23,6 @@ def run_supervised_training_process(
     weight_decay: float,
     num_epochs: int,
 ):
-    # Open the datasets folder and get each file, then load each dataset if its a .pt file
     dataset_manager = DatasetManager(
         target_type=["segmentation"],
         mixed=False,
@@ -38,7 +36,7 @@ def run_supervised_training_process(
     )
     train_dataloader, _, _ = dataloader_manager.create_dataloaders(
         shuffle_train=True
-    )  # No need to shuffle for this
+    )
 
     print(f"\nTraining fully supervised model (baseline)")
     model = UNet(3, 1).to(device)
