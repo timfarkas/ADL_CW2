@@ -4,6 +4,7 @@ oxford_pet_data
 
 *.png
 *.jpg
+*.pt
 CAM/data/
 resized_64_species_breed_cam_mask_raw.pt
 resized_64_species_breed_cam_mask.pt
