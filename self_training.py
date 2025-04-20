@@ -154,7 +154,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
 
     if round_num == 1 and Skip_first_round:  # since firstround process will always be the same(only number of epochs may be different), can used saved first round model to save time
         model_new = UNet(3, 1).to(device)
-        model_new.load_state_dict(torch.load(f"checkpoints/first_round_model.pt"))
+        model_new.load_state_dict(torch.load(f"checkpoints/EVA/first_round_model.pt"))
         print("Model loaded successfully.")
     elif Use_Bootstrap_Models and os.path.exists(model_path):  # if going to use pre-saved boostrap models
         model_new = UNet(3, 1).to(device)

@@ -3,12 +3,13 @@ oxford_pet_data
 
 
 *.png
-*.pt
 *.jpg
 CAM/data/
-checkpoints/Bootstrap
-checkpoints/EVA/visualization
-checkpoints/SEG
+resized_64_species_breed_cam_mask_raw.pt
+res_species_breed_bbox_50_ClassifierHead(2)_GradCAM_idx46_cams.pt
+checkpoints/Bootstrap/
+checkpoints/EVA/visualization/
+checkpoints/SEG/
 visualizations/
 
 
@@ -204,5 +205,5 @@ cython_debug/
 #data
 /data
 test_dataloader.py
-checkpoints/*
+#checkpoints/*
 cam_datasets/
