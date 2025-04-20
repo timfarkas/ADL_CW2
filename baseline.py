@@ -1,16 +1,13 @@
 import os
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from PIL import ImageFile
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader, TensorDataset
-
-from CAM.cam_model import CNN, ResNetBackbone, fit_sgd
-from models import CAMManager, SelfTraining, UNet
+from torch.utils.data import DataLoader
 
 from data import OxfordPetDataset,create_dataloaders,create_sample_loader_from_existing_loader
-from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization
+from evaluation import  evaluate_dataset, evaluate_model, get_binary_from_normalization
+from models import SelfTraining, UNet
 
 device = torch.device(
     "cuda"
@@ -30,12 +27,17 @@ dataloader_train, dataloader_val, dataloader_test = create_dataloaders(
     resize_size=64,
     target_type=[classification_mode, "segmentation"],
     lazy_loading=True,
+
     shuffle=False)
 gt_sample_loader = create_sample_loader_from_existing_loader(dataloader_val,100,64,False)
 dataset = dataloader_train.dataset  # get the dataset used inside the original DataLoader
 
 tripled_data = [
-    (img, get_binary_from_normalization(mask["segmentation"]), get_binary_from_normalization(mask["segmentation"]),)
+    (
+        img,
+        get_binary_from_normalization(mask["segmentation"]),
+        get_binary_from_normalization(mask["segmentation"]),
+    )
     for img, mask in dataset
 ]
 
@@ -44,9 +46,11 @@ dataloader_train_triple = DataLoader(
     tripled_data,
     batch_size=dataloader_train.batch_size,
     shuffle=False,  # or True if you want
-    num_workers=0)
+    num_workers=0,
+)
 
 #
+
 # images, masks, masks_gt = next(iter(dataloader_train_triple))
 
 # # Plot the first N samples
@@ -76,9 +80,12 @@ dataloader_train_triple = DataLoader(
 #     plt.tight_layout()
 #     plt.show()
 
+
 model_new = UNet(3, 1).to(device)
 
 loss_function = nn.BCEWithLogitsLoss()
+
+
 
 epochs_previous=0
 # model_path_previous = os.path.join(model_dir, f"baseline_model_epoch{epochs_previous}.pt")
@@ -88,6 +95,7 @@ model_new = UNet(3, 1).to(device)
 epochs=40
 model_path= os.path.join(model_dir, f"baseline_model_epoch{epochs}.pt")
 SelfTraining.fit_sgd_pixel(
+
     model_new, dataloader_train_triple, epochs-epochs_previous, 0.05, loss_function, model_path, device=device
 )
 
