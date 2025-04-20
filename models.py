@@ -866,8 +866,8 @@ class SelfTraining:
                 batch_size = images.size(0)
                 for i in range(batch_size):
                     sample_count += 1
-                    if sample_count % 1000 == 0:
-                        print(sample_count)
+                    # if sample_count % 1000 == 0:
+                    #     print(sample_count)
                     refined_mask_np = SelfTraining.grabcut_from_mask(
                         images[i], probs[i], threshold
                     )
