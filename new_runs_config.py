@@ -52,17 +52,6 @@ runs_config = {
     "run_2": {
         "use_augmentation": True,
         "use_mixed_data": False,
-    }
-}
-
-""" runs_config = {
-    "run_1": {
-        "use_augmentation": False,
-        "use_mixed_data": False,
-    },
-    "run_2": {
-        "use_augmentation": True,
-        "use_mixed_data": False,
     },
     "run_3": {
         "use_augmentation": False,
@@ -72,17 +61,8 @@ runs_config = {
         "use_augmentation": True,
         "use_mixed_data": True,
     },
-} """
-
+}
 model_names = [
-    "cnn_bbox",
-    "cnn_species",
-    "cnn_species_breed_bbox",
-    "res18_breed",
-    "res18_species_breed_bbox",
-]
-
-""" model_names = [
     "cnn_species",
     "cnn_breed",
     "cnn_bbox",
@@ -104,7 +84,7 @@ model_names = [
     "res50_species_bbox",
     "res18_species_breed_bbox",
     "res50_species_breed_bbox",
-] """
+]
 
 cam_types = ["ClassicCAM", "GradCAM"]
 
