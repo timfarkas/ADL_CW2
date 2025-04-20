@@ -7,6 +7,22 @@ import torchvision
 from utils import save_image_grid, unnormalize
 
 
+
+def remap_mask(x: torch.Tensor):
+    '''
+    1-> frontground
+    2-> background
+    3-> boundary
+    '''
+    categories = x
+    return torch.where(
+        categories == 2,
+        torch.tensor(0, device=x.device),  # 0 → 1 (foreground)
+        torch.tensor(1, device=x.device),  # else → 0 (background)
+    )
+
+
+
 def get_categories_from_normalization(x: torch.Tensor) -> torch.Tensor:
     """
     Converts the input tensor, which is normalized between 0 and 1, to categories
@@ -154,16 +170,16 @@ def evaluate_model(
     output_dir = output_dir
     os.makedirs(output_dir, exist_ok=True)
     loss_funciton = nn.BCEWithLogitsLoss()
+
     for i, (images, masks_gt) in enumerate(test_loader):
         logits = model(images)  # raw output
-        # print(f"[Logits] min: {logits.min().item():.4f}, max: {logits.max().item():.4f}")
         masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
-        # masks_pre=logits
-        # print(f"[Sigmoid Output] min: {masks_pre.min().item():.4f}, max: {masks_pre.max().item():.4f}")
+        masks_gt = masks_gt.unsqueeze(1) if masks_gt.dim() == 3 else masks_gt
+        masks_gt = masks_gt.float()
         batch_loss = loss_funciton(masks_pre, masks_gt)
         masks_pre_binary = binarise_predictions(masks_pre, threshold)
         masks_gt = masks_gt.to(device)
-        masks_gt_binary = get_binary_from_normalization(masks_gt)
+        masks_gt_binary = masks_gt
 
         batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
         total_IoU += batch_iou
@@ -184,79 +200,12 @@ def evaluate_model(
                 masks_gt_to_store,
                 os.path.join(output_dir, f"{image_name}_thres_{threshold}.jpg"),
             )
-            #
-            # store_images(images_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_images.jpg"))
-            # store_images(masks_pre_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks.jpg"), is_segmentation=True)
-            # store_images(masks_pre_binary_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_masks_binary.jpg"), is_segmentation=True)
-            # store_images(masks_gt_to_store, os.path.join(output_dir, f"{image_name}_{threshold}_gt.jpg"), is_segmentation=True)
-
         else:
             break
     mean_loss = total_loss / num_samples
     print(
-        f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples}, CE Loss: {mean_loss}"
+        f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples},Mean Loss: {mean_loss}"
     )
-
-
-def evaluate_model_with_grabcut(
-    model: torch.nn.Module,
-    test_loader: torch.utils.data.DataLoader,
-    image_number: int,
-    image_name: str,
-    device: str = None,
-    threshold: float = 0.5,
-    output_dir="evaluation_visualization",
-    grabcut_thres: float = 0.2,
-) -> None:
-    """
-    Evaluates the model on the test data and stores the images.
-    """
-    from models import SelfTraining
-
-    print(f"Evaluating model with theshold:{threshold}")
-    total_IoU = 0
-    total_f1_score = 0
-    num_samples = 0
-    total_loss = 0.0
-    output_dir = output_dir
-    os.makedirs(output_dir, exist_ok=True)
-    loss_funciton = nn.BCEWithLogitsLoss()
-    for i, (images, masks_gt) in enumerate(test_loader):
-        logits = model(images)
-        masks_pre = torch.sigmoid(logits)
-        batch_loss = loss_funciton(masks_pre, masks_gt)
-
-        images = images.to(device)
-        masks_gt = masks_gt.to(device)
-
-        batch_size = images.size(0)
-        batch_iou, batch_f1 = 0.0, 0.0
-
-        for j in range(batch_size):
-            img = images[j]  # [C, H, W]
-            prob = masks_pre[j]  # [1, H, W]
-            gt = masks_gt[j]  # [1, H, W]
-            pred_binary = SelfTraining.grabcut_from_mask(img, prob, grabcut_thres)
-            pred_binary = torch.from_numpy(pred_binary).to(device)
-            gt_binary = get_binary_from_normalization(gt)
-
-            iou, f1 = compute_iou_and_f1(
-                pred_binary.unsqueeze(0),  # [1, H, W]
-                gt_binary.unsqueeze(0),  # [1, H, W]
-            )
-            batch_iou += iou
-            batch_f1 += f1
-
-        total_IoU += batch_iou
-        total_f1_score += batch_f1
-        total_loss += batch_loss.item() * batch_size
-        num_samples += batch_size
-
-    mean_loss = total_loss / num_samples
-    print(
-        f"Mean IoU: {total_IoU / num_samples}, F1 Score: {total_f1_score / num_samples}, CE Loss: {mean_loss}"
-    )
-
 
 def evaluate_dataset(
     dataset,
