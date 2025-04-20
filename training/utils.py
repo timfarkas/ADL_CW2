@@ -12,6 +12,24 @@ def unnormalize(img_tensor):
     return (img_tensor * std + mean).clamp(0, 1)
 
 
+def get_binary_masks_from_trimap(
+    x: torch.Tensor, include_boundary: bool = True
+) -> torch.Tensor:
+    """
+    Converts trimap segmentation which is already in labels to tensor into:
+
+    - label 1 → 1 (foreground)
+    - label 2 → 0 (background)
+    - label 3 → 1 (boundary → treated as foreground)
+    """
+    if include_boundary:
+        binary_mask = (x == 1) | (x == 3)
+    else:
+        binary_mask = x == 1
+
+    return binary_mask.float()
+
+
 def get_binary_from_normalization(
     x: torch.Tensor, include_boundary: bool = True
 ) -> torch.Tensor:
@@ -135,7 +153,7 @@ def get_best_selftraining(
             )
             with open(os.path.join(logs_dir, "self_training_log.json"), "r") as f:
                 log_data = json.load(f)
-            
+
             run_results = []
             for round_name, metrics in log_data[run_name].items():
                 ioi = metrics["ioi"]
@@ -169,7 +187,7 @@ def get_best_selftraining(
     )
     with open(best_selftraining_round_per_run, "w") as f:
         json.dump(results, f, indent=4)
-    
+
     print(
         f"Best self-training settings overall: run: {best_overall['run_name']}, dataset: {best_overall['dataset_name']}, ioi: {best_overall['ioi']}, f1: {best_overall['f1']}"
     )
