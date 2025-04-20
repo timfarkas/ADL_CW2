@@ -95,7 +95,7 @@ class BackgroundDataset(Dataset):
             return self.target_label
         # No species for background images
         elif target_type == "species":
-            return -1
+            return self.target_label
             # Return empty/zero bounding box
         elif target_type == "bbox":
             return torch.zeros(4, dtype=torch.float32)
