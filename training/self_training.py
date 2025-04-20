@@ -9,7 +9,11 @@ from models.u_net import UNet
 from training.utils import log_self_training_performance
 from training.evaluations import evaluate_segmentation_model
 from training.losses import bce_fn
-from new_runs_config import get_checkpoints_and_logs_dirs, cam_dataset_folder
+from new_runs_config import (
+    get_checkpoints_and_logs_dirs,
+    cam_dataset_folder,
+    segmentation_output_threshold,
+)
 from training.predict_segmentation import predict_segmentation_dataset
 
 
@@ -131,7 +135,9 @@ def run_self_training_process(
 
                         # Calculate pixel-wise accuracy
                         probs = torch.sigmoid(outputs)
-                        predictions = probs > 0.5  # threshold logits
+                        predictions = (
+                            probs > segmentation_output_threshold
+                        )  # threshold logits
                         correct_pixels += (predictions == masks.bool()).sum().item()
                         total_pixels += masks.numel()
                         total_loss += loss.item() * images.size(0)
