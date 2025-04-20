@@ -2,12 +2,16 @@ import os
 import torch
 
 from cam_generation.cam_manager import CAMManager
-from cam_generation.utils import find_conv_layer_by_index
+from cam_generation.utils import find_conv_layer_by_index, visualize_cam_samples
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.pretrainer import PretrainedModel
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
-from new_runs_config import get_checkpoints_and_logs_dirs, cam_dataset_folder
+from new_runs_config import (
+    get_checkpoints_and_logs_dirs,
+    cam_dataset_folder,
+    visualizations_folder,
+)
 
 
 def generate_cam_dataset(
@@ -17,9 +21,10 @@ def generate_cam_dataset(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    visualize: int | None = None,
 ):
     print(
-        f"\Generating {cam_dict['cam_type']} dataset for model {cam_dict['model_name']} for run {cam_dict['run_name']} head {cam_dict['head_target']}"
+        f"\nGenerating {cam_dict['cam_type']} dataset for model {cam_dict['model_name']} for run {cam_dict['run_name']} head {cam_dict['head_target']}"
     )
     run_config = runs_config[cam_dict["run_name"]]
 
@@ -76,14 +81,21 @@ def generate_cam_dataset(
         method=cam_dict["cam_type"],
     )
     dataset = manager.get_cam_dataset()
-    os.makedirs(cam_dataset_folder, exist_ok=True) 
+    os.makedirs(cam_dataset_folder, exist_ok=True)
+    cam_name = f"{cam_dict['model_name']}_head_{cam_dict['head_target']}_idx{cam_dict['layer_index']}_{cam_dict['cam_type']}"
     target_path = os.path.join(
         cam_dataset_folder,
-        cam_dict["model_name"]
-        + "_"
-        + "head"
-        + "_"
-        + cam_dict["head_target"]
-        + f"_idx{cam_dict['layer_index']}_{cam_dict['cam_type']}.pt",
+        f"{cam_name}.pt",
     )
     torch.save(dataset, target_path)
+
+    if visualize:
+        os.makedirs(visualizations_folder, exist_ok=True)
+        dataloader = torch.utils.data.DataLoader(
+            dataset=dataset, batch_size=batch_size, num_workers=0
+        )
+        visualize_cam_samples(
+            dataloader,
+            num_samples=4,
+            storage_path=f"{visualizations_folder}/{cam_name}.png",
+        )

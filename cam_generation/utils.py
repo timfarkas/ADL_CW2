@@ -1,5 +1,6 @@
 import json
 import os
+from matplotlib import pyplot as plt
 import torch
 
 from torch import nn
@@ -55,7 +56,7 @@ def get_best_cam(runs_config: dict[str, any]):
                         {
                             "model_name": model_name,
                             "cam_type": settings_name.split("_")[0],
-                            "head_target": settings_name.split("_")[1], 
+                            "head_target": settings_name.split("_")[1],
                             "layer_index": best_iou["layer_index"],
                             "iou": best_iou["iou"],
                             "best_epoch": best_epoch_dict.get(model_name, 0),
@@ -163,3 +164,57 @@ def save_model_cam_settings_to_json(
         json.dump(data, f, indent=4)
 
     print(f"CAM settings for {model_name} saved to {json_path}")
+
+
+def visualize_cam_samples(dataloader, num_samples=4, storage_path: str | None = None):
+    """
+    Visualize image, CAM, and GT mask for a few samples from a DataLoader.
+
+    Args:
+        dataloader (DataLoader): DataLoader yielding (image, CAM, GT mask) batches
+        num_samples (int): Number of samples to visualize
+    """
+    # Get one batch
+    batch = next(iter(dataloader))
+    if isinstance(batch, (list, tuple)) and len(batch) == 3:
+        images, cams, masks = batch
+    else:
+        raise ValueError("Expected DataLoader to return (image, cam, mask) tuples.")
+
+    # Slice to desired number of samples
+    images = images[:num_samples].cpu()
+    cams = cams[:num_samples].cpu()
+    masks = masks[:num_samples].cpu()
+
+    # Unnormalize images for visualization
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+    unnormalized_images = images * std + mean
+    unnormalized_images = unnormalized_images.clamp(0, 1)
+
+    # Setup plot
+    fig, axs = plt.subplots(3, num_samples, figsize=(num_samples * 3, 9))
+
+    for i in range(num_samples):
+        # Image
+        img = unnormalized_images[i].permute(1, 2, 0).cpu().numpy()
+        axs[0, i].imshow(img)
+        axs[0, i].set_title(f"Image {i + 1}")
+        axs[0, i].axis("off")
+
+        # CAM (assumes shape (1, H, W))
+        cam = cams[i].squeeze().cpu().numpy()
+        axs[1, i].imshow(cam, cmap="jet")
+        axs[1, i].set_title(f"CAM {i + 1}")
+        axs[1, i].axis("off")
+
+        # Ground Truth Mask (assumes shape (1, H, W))
+        mask = masks[i].squeeze().cpu().numpy()
+        axs[2, i].imshow(mask, cmap="gray")
+        axs[2, i].set_title(f"GT Mask {i + 1}")
+        axs[2, i].axis("off")
+
+    plt.tight_layout()
+    if storage_path:
+        plt.savefig(storage_path, dpi=300, bbox_inches="tight")
+    plt.show()

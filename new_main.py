@@ -84,4 +84,5 @@ if __name__ == "__main__":
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            visualize=5,
         )
