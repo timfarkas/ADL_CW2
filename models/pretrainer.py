@@ -620,7 +620,7 @@ class Pretrainer:
 
             # Log performance metrics to JSON
             model_name = os.path.basename(self.model_path).split(".")[0]
-            print(f"Logging performance")
+            print("Logging performance")
             self.log_performance(model_name, epoch + 1, metrics_to_log)
 
             if avg_val_loss < crr_best_val_loss:
