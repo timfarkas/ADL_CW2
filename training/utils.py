@@ -131,7 +131,7 @@ def log_self_training_performance(
         json.dump(log_data, f, indent=4)
 
 
-def get_best_selftraining(
+def get_best_self_training(
     runs_config: dict,
 ):
     datasets = [

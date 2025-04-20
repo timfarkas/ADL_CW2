@@ -15,7 +15,7 @@ from training.pre_training import run_pretraining_process
 from training.self_training import run_self_training_process
 from training.supervised_training import run_supervised_training_process
 from training.test import test_and_compare_to_baseline
-from training.utils import get_best_selftraining
+from training.utils import get_best_self_training
 
 # General run configuration
 RANDOM_SEED = 27
@@ -117,7 +117,7 @@ if __name__ == "__main__":
             num_bootstrap_rounds=SELTRAINING_BOOSTRAP_ROUNDS,
             threshold=0.2,
         )
-    
+
     if TRAIN_FULLY_SUPERVISED:
         supervised_model = run_supervised_training_process(
             device=device,
@@ -128,8 +128,8 @@ if __name__ == "__main__":
             weight_decay=PRETRAIN_WEIGHT_DECAY,
             num_epochs=PRETRAIN_NUM_EPOCHS,
         )
-    
-    best_self_training = get_best_selftraining(
+
+    best_self_training = get_best_self_training(
         runs_config=self_learning_experiments_config,
     )
     test_and_compare_to_baseline(
