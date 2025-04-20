@@ -39,7 +39,7 @@ def run_supervised_training_process(
     )
 
     print(f"\nTraining fully supervised model (baseline)")
-    model = UNet(3, 1).to(device)
+    model = UNet().to(device)
     all_params = list(model.parameters())
     optimizer = torch.optim.AdamW(
         all_params, lr=learning_rate, weight_decay=weight_decay

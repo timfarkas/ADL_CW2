@@ -68,7 +68,7 @@ def run_self_training_process(
             print(
                 f"\nRunning self-training for experiment {run_name} with dataset {dataset_name}"
             )
-            model = UNet(3, 1).to(device)
+            model = UNet().to(device)
             boostrap_dataset = torch.utils.data.TensorDataset(
                 torch.stack([x[0] for x in binarized_data]),
                 torch.stack([x[1] for x in binarized_data]),
