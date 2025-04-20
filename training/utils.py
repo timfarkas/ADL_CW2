@@ -1,0 +1,48 @@
+import os
+from matplotlib import pyplot as plt
+import torch
+
+def unnormalize(img_tensor):
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+    return (img_tensor * std + mean).clamp(0, 1)
+
+def visualize_predicted_masks(dataset, num_samples=8, storage_path=None):
+    """
+    Visualize predicted masks and ground-truth masks with 3xN layout:
+    Row 1: Input images
+    Row 2: Predicted masks
+    Row 3: Ground truth masks
+    """
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=num_samples, shuffle=False
+    )
+    images, masks, masks_gt = next(iter(dataloader))
+
+    fig, axs = plt.subplots(3, num_samples, figsize=(num_samples * 3, 3 * 3))
+
+    for i in range(num_samples):
+        img = unnormalize(images[i]).permute(1, 2, 0).cpu().numpy()
+        pred_mask = masks[i][0].cpu().numpy()
+        gt_mask = masks_gt[i][0].cpu().numpy()
+
+        axs[0, i].imshow(img)
+        axs[0, i].set_title(f"Image {i + 1}")
+        axs[1, i].imshow(pred_mask, cmap="gray")
+        axs[1, i].set_title("Predicted")
+        axs[2, i].imshow(gt_mask, cmap="gray")
+        axs[2, i].set_title("Ground Truth")
+
+        for row in range(3):
+            axs[row, i].axis("off")
+
+    plt.tight_layout()
+
+    if storage_path:
+        dir_name = os.path.dirname(storage_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        plt.savefig(storage_path)
+        print(f"Saved visualization to {storage_path}")
+
+    plt.close()
