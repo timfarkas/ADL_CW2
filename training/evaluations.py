@@ -1,5 +1,13 @@
 import torch
 
+from new_runs_config import segmentation_output_threshold
+from training.utils import (
+    get_binary_from_normalization,
+    unnormalize,
+    visualize_predicted_masks,
+)
+
+
 def compute_iou(outputs, targets) -> float:
     """
     Calculate average intersection over union.
@@ -15,6 +23,7 @@ def compute_iou(outputs, targets) -> float:
     union = torch.logical_or(outputs, targets).sum().item()
     iou = intersection / union if union != 0 else 0.0
     return iou
+
 
 def compute_accuracy(outputs, targets) -> float:
     """
@@ -110,3 +119,106 @@ def convert_and_get_iou(outputs, targets) -> float:
     targets = convert_voc_bbox_format_to_anchor_format(targets)
     iou = compute_bbox_iou(outputs, targets)
     return iou
+
+
+def compute_iou_and_f1(predictions: torch.Tensor, true_masks: torch.Tensor) -> tuple:
+    """
+    Computes IoU and F1 score for a batch of predictions and true masks.
+
+    Args:
+        predictions: Tensor of shape (batch_size, C, H, W) with model predictions
+        true_masks: Tensor of shape (batch_size, C, H, W) with ground truth masks
+
+    Returns:
+        tuple: (total_iou, total_f1) - sum of IoU and F1 scores for the batch
+    """
+    eps = 1e-6
+    batch_size = predictions.shape[0]
+    total_iou = 0
+    total_f1 = 0
+
+    for j in range(batch_size):
+        prediction = predictions[j]
+        true_mask = true_masks[j]
+
+        # Calculate IoU
+        intersection = torch.logical_and(prediction, true_mask)
+        union = torch.logical_or(prediction, true_mask)
+        if torch.sum(union) == 0:
+            iou = torch.tensor(1.0)  # This seems to be a bug in the dataset
+        else:
+            iou = torch.sum(intersection) / torch.sum(union)
+        total_iou += iou.item()
+
+        # Calculate precision and recall
+        true_positive = torch.sum(intersection)
+        false_positive = (prediction > 0).sum() - true_positive
+        false_negative = (true_mask > 0).sum() - true_positive
+        precision = true_positive / (true_positive + false_positive + eps)
+        recall = true_positive / (true_positive + false_negative + eps)
+        if precision.isnan() or recall.isnan():
+            f1_score = torch.tensor(0.0)
+        else:
+            f1_score = 2 * (precision * recall) / (precision + recall + eps)
+
+        total_f1 += f1_score.item()
+
+    return total_iou, total_f1
+
+
+def evaluate_segmentation_model(
+    model: torch.nn.Module,
+    test_loader: torch.utils.data.DataLoader,
+    image_number: int = 5,
+    device: str = None,
+    storage_path: str = None,
+) -> tuple[float, float]:
+    """
+    Evaluates the model on the test data and stores the images.
+
+    Returns:
+        tuple: (average_IoU, average_f1_score)
+    """
+    print(f"Evaluating model with threshold: {segmentation_output_threshold}")
+    total_IoU = 0
+    total_f1_score = 0
+    num_samples = 0
+    model.eval()
+
+    with torch.no_grad():
+        for i, (images, masks_gt) in enumerate(test_loader):
+            images = images.to(device)
+            masks_gt = masks_gt.to(device)
+            
+            logits = model(images)  # raw output
+            masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
+            masks_pre_binary = (
+                masks_pre > segmentation_output_threshold
+            ).long()  # apply threshold to get binary masks
+            masks_gt_binary = get_binary_from_normalization(masks_gt)
+
+            batch_iou, batch_f1 = compute_iou_and_f1(masks_pre_binary, masks_gt_binary)
+            total_IoU += batch_iou
+            total_f1_score += batch_f1
+            num_samples += images.size(0)
+
+            if storage_path and i == 0:
+                images_to_store = unnormalize(images[:image_number])
+                masks_pre_binary_to_store = masks_pre_binary[:image_number]
+                masks_gt_to_store = masks_gt_binary[:image_number]
+
+                visualize_predicted_masks(
+                    images_to_store,
+                    masks_pre_binary_to_store,
+                    masks_gt_to_store,
+                    storage_path=storage_path,
+                )
+
+    average_IoU = total_IoU / num_samples
+    average_f1_score = total_f1_score / num_samples
+
+    print(
+        f"Mean IoU: {average_IoU}, F1 Score: {average_f1_score}"
+    )
+
+    return (average_IoU, average_f1_score)

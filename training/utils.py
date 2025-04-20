@@ -2,23 +2,54 @@ import os
 from matplotlib import pyplot as plt
 import torch
 
+
 def unnormalize(img_tensor):
     mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
     std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
     return (img_tensor * std + mean).clamp(0, 1)
 
-def visualize_predicted_masks(dataset, num_samples=8, storage_path=None):
+
+def get_binary_from_normalization(
+    x: torch.Tensor, include_boundary: bool = True
+) -> torch.Tensor:
+    """
+    Converts normalized [0,1] segmentation tensor into:
+
+    - 0.0039 (label 1) → 1 (foreground)
+    - 0.0078 (label 2) → 0 (background)
+    - 0.0118 (label 3) → 1 (boundary → treated as foreground)
+    """
+    categories = (x * 255 - 1).round().long()  # Convert to int labels: 0, 1, 2
+    if include_boundary:
+        # Map: 0 → 1, 1 → 0, 2 → 1
+        categories = torch.where(
+            categories == 0,
+            torch.tensor(1, device=x.device),
+            torch.where(
+                categories == 1,
+                torch.tensor(0, device=x.device),
+                torch.tensor(1, device=x.device),
+            ),
+        )
+    else:
+        # Map: 0 → 1, 1 → 0, 2 → 0
+        categories = torch.where(
+            categories == 0,
+            torch.tensor(1, device=x.device),  # 0 → 1 (foreground)
+            torch.tensor(0, device=x.device),  # else → 0 (background)
+        )
+    return categories
+
+
+def visualize_predicted_masks(images, masks, masks_gt, storage_path=None):
     """
     Visualize predicted masks and ground-truth masks with 3xN layout:
     Row 1: Input images
     Row 2: Predicted masks
     Row 3: Ground truth masks
     """
-    dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=num_samples, shuffle=False
-    )
-    images, masks, masks_gt = next(iter(dataloader))
 
+    num_samples = min(images.size(0), masks.size(0), masks_gt.size(0))
     fig, axs = plt.subplots(3, num_samples, figsize=(num_samples * 3, 3 * 3))
 
     for i in range(num_samples):
