@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import random
 
+from cam_generation.cam_dataset import generate_cam_dataset
 from cam_generation.utils import get_best_cam
 from new_runs_config import runs_config, model_names, cam_types
 from cam_generation.cam_evaluation import evaluate_cams
@@ -75,4 +76,12 @@ if __name__ == "__main__":
     if GENERATE_CAM_DATASET:
         best_cam_dict = get_best_cam(
             runs_config=runs_config,
+        )
+        generate_cam_dataset(
+            runs_config=runs_config,
+            cam_dict=best_cam_dict,
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
         )
