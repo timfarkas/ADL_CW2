@@ -216,5 +216,10 @@ def visualize_cam_samples(dataloader, num_samples=4, storage_path: str | None = 
 
     plt.tight_layout()
     if storage_path:
+        dir_name = os.path.dirname(storage_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
         plt.savefig(storage_path, dpi=300, bbox_inches="tight")
-    plt.show()
+        plt.close()
+    else:
+        plt.show()
