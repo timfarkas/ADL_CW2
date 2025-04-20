@@ -160,22 +160,23 @@ def run_self_training_process(
                     f1=f1,
                 )
 
-                new_dataset = predict_segmentation_dataset(
-                    model=model,
-                    dataloader=dataloader,
-                    device=device,
-                    predictions_transform=run_config["predictions_transform"],
-                    threshold=threshold,
-                )
+                if rounds_num + 1 < num_bootstrap_rounds:
+                    new_dataset = predict_segmentation_dataset(
+                        model=model,
+                        dataloader=dataloader,
+                        device=device,
+                        predictions_transform=run_config["predictions_transform"],
+                        threshold=threshold,
+                    )
 
-                if run_config["dataset_management"] == "add":
-                    boostrap_dataset = torch.utils.data.ConcatDataset(
-                        [boostrap_dataset, new_dataset]
-                    )
-                elif run_config["dataset_management"] == "replace":
-                    boostrap_dataset = new_dataset
-                else:
-                    raise ValueError(
-                        f"Unknown dataset management method: {run_config['dataset_management']}"
-                    )
+                    if run_config["dataset_management"] == "add":
+                        boostrap_dataset = torch.utils.data.ConcatDataset(
+                            [boostrap_dataset, new_dataset]
+                        )
+                    elif run_config["dataset_management"] == "replace":
+                        boostrap_dataset = new_dataset
+                    else:
+                        raise ValueError(
+                            f"Unknown dataset management method: {run_config['dataset_management']}"
+                        )
 
