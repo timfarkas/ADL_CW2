@@ -68,7 +68,6 @@ class BackgroundDataset(Dataset):
 
         # Load image
         image = Image.open(img_path).convert("RGB")
-        original_width, original_height = image.size
 
         # Apply transforms
         if self.transform:
@@ -102,7 +101,7 @@ class BackgroundDataset(Dataset):
             return torch.zeros(4, dtype=torch.float32)
         # Return blank mask (1-channel, 256x256)
         elif target_type == "segmentation":
-            return torch.zeros(self.image_size, dtype=torch.float32)
+            return torch.zeros(self.image_size, dtype=torch.long)
         else:
             raise ValueError(f"Unknown target_type: {target_type}")
 

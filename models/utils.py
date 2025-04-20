@@ -57,7 +57,7 @@ def get_model_dict_by_name(model_name: str, is_mixed_data: bool):
 
     if is_mixed_data:
         # Add the mixed data head
-        loader_targets.append("mixed_data")
+        loader_targets.append("is_animal")
         heads.append(PretrainHead(adapter=backbone_name, output_type="is_animal"))
         loss_functions.append(cel_fn)
         eval_functions.append(compute_accuracy)
