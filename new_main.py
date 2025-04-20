@@ -11,9 +11,10 @@ from training.pretraining import run_pretraining_process
 # General run configuration
 RANDOM_SEED = 27
 TEST_MODELS_BEFORE_TRAINING = False
-PRETRAIN_MODELS = True
-EVALUATE_CAMS = True
+PRETRAIN_MODELS = False
+EVALUATE_CAMS = False
 GENERATE_CAM_DATASET = True
+# Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
 PRETRAIN_NUM_EPOCHS = 2
