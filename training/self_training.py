@@ -3,7 +3,11 @@ import torch
 
 from torch.utils.data import DataLoader
 
+from datasets.dataloader_manager import DataloaderManager
+from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
+from models.utils import log_self_training_performance
+from training.evaluations import evaluate_segmentation_model
 from training.losses import bce_fn
 from new_runs_config import get_checkpoints_and_logs_dirs, cam_dataset_folder
 from training.predict_segmentation import predict_segmentation_dataset
@@ -28,6 +32,22 @@ def run_self_training_process(
         for f in os.listdir(cam_dataset_folder)
         if f.endswith(".pt")
     ]
+
+    dataset_manager = DatasetManager(
+        target_type=["segmentation"],
+        mixed=False,
+        use_augmentation=False,
+    )
+    dataloader_manager = DataloaderManager(
+        dataset_manager=dataset_manager,
+        batch_size=batch_size,
+        workers=workers,
+        persistent_workers=persistent_workers,
+    )
+    _, val_dataloader, _ = dataloader_manager.create_dataloaders(
+        shuffle_train=False
+    )  # No need to shuffle for this
+
     for dataset in datasets:
         dataset_name = os.path.basename(dataset).split(".")[0]
         print(f"Loading dataset: {dataset_name}")
@@ -59,10 +79,13 @@ def run_self_training_process(
             checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
                 run_name=dataset_name,
                 model_name=run_name,
-            ) # Create one folder per dataset even though we expect only one, so run info is at the same level
+            )  # Create one folder per dataset even though we expect only one, so run info is at the same level
 
             for rounds_num in range(num_bootstrap_rounds):
-                print(f"Running bootstrap round {rounds_num + 1} on a dataset length of {len(boostrap_dataset)}")
+                print(
+                    f"Running bootstrap round {rounds_num + 1} on a dataset length of {len(boostrap_dataset)}"
+                )
+                round_name = f"round_{rounds_num + 1}"
                 dataloader = DataLoader(
                     boostrap_dataset,
                     batch_size=batch_size,
@@ -121,8 +144,20 @@ def run_self_training_process(
                         f"Epoch {epoch + 1}/{num_epochs}, Pixel Accuracy: {pixel_accuracy:.4f}, Loss: {avg_loss:.4f}"
                     )
 
-                torch.save(
-                    model.state_dict(), f"{checkpoints_dir}/round_{rounds_num + 1}.pt"
+                torch.save(model.state_dict(), f"{checkpoints_dir}/{round_name}.pt")
+
+                ioi, f1 = evaluate_segmentation_model(
+                    model=model,
+                    test_loader=val_dataloader,
+                    device=device,
+                )
+
+                log_self_training_performance(
+                    log_dir=logs_dir,
+                    run_name=run_name,
+                    round_name=round_name,
+                    ioi=ioi,
+                    f1=f1,
                 )
 
                 new_dataset = predict_segmentation_dataset(
@@ -143,3 +178,4 @@ def run_self_training_process(
                     raise ValueError(
                         f"Unknown dataset management method: {run_config['dataset_management']}"
                     )
+
