@@ -87,6 +87,6 @@ def run_supervised_training_process(
         )
 
     print("Saving model...")
-    torch.save(model.state_dict(), f"{checkpoints_dir}/epoch_{num_epochs}.pt")
+    torch.save(model.state_dict(), f"{checkpoints_dir}/{baseline_model_name}.pt")
 
     return model
