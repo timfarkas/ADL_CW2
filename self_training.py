@@ -1,18 +1,24 @@
 import os
 
+# from utils import save_tensor_dataset, unnormalize
+import random
+
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from models import CAMManager, SelfTraining, UNet
+from data import (
+    create_dataloaders,
+    create_sample_loader_from_existing_loader,
+)
+from evaluation import (
+    evaluate_model,
+    get_binary_from_normalization,
+)
+from models import SelfTraining, UNet
 
-from data import OxfordPetDataset, create_dataloaders, create_sample_loader_from_existing_loader
-from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization, evaluate_model_with_grabcut
-# from utils import save_tensor_dataset, unnormalize
-import random
-import numpy as np
-
-'''Fix randomization seed'''
+"""Fix randomization seed"""
 
 
 def set_seed(seed=42):
@@ -247,7 +253,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
         dataloader_bootstrap = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 
     elif Add_Groundtruth: #this will add some ground truth samples in the training loop
-        replication_factor = 10
+        replication_factor = 1
 
         gt_images_repeated = torch.cat([gt_data_for_train.tensors[0]] * replication_factor, dim=0)
         gt_labels_repeated = torch.cat([gt_data_for_train.tensors[1]] * replication_factor, dim=0)

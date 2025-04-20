@@ -1,14 +1,10 @@
 import os
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from PIL import ImageFile
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader, TensorDataset
-
-from CAM.cam_model import CNN, ResNetBackbone, fit_sgd
+from torch.utils.data import DataLoader
 from models import CAMManager, SelfTraining, UNet
-
 from data import OxfordPetDataset,create_dataloaders,create_sample_loader_from_existing_loader
 from evaluation import evaluate_dataset, evaluate_model, get_binary_from_normalization
 
@@ -35,7 +31,11 @@ gt_sample_loader = create_sample_loader_from_existing_loader(dataloader_val,100,
 dataset = dataloader_train.dataset  # get the dataset used inside the original DataLoader
 
 tripled_data = [
-    (img, get_binary_from_normalization(mask["segmentation"]), get_binary_from_normalization(mask["segmentation"]),)
+    (
+        img,
+        get_binary_from_normalization(mask["segmentation"]),
+        get_binary_from_normalization(mask["segmentation"]),
+    )
     for img, mask in dataset
 ]
 
@@ -44,7 +44,8 @@ dataloader_train_triple = DataLoader(
     tripled_data,
     batch_size=dataloader_train.batch_size,
     shuffle=False,  # or True if you want
-    num_workers=0)
+    num_workers=0,
+)
 
 #
 # images, masks, masks_gt = next(iter(dataloader_train_triple))
@@ -78,7 +79,13 @@ dataloader_train_triple = DataLoader(
 
 model_new = UNet(3, 1).to(device)
 
+# print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
 loss_function = nn.BCEWithLogitsLoss()
+# loss_function = nn.MSELoss()
+model_path = os.path.join(model_dir, "baseline_model.pt")
+
+
+epochs = 10
 
 epochs_previous=0
 # model_path_previous = os.path.join(model_dir, f"baseline_model_epoch{epochs_previous}.pt")
