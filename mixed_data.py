@@ -535,7 +535,7 @@ if __name__ == "__main__":
     train_loader, val_loader, test_loader = create_mixed_dataloaders(
         batch_size=32,
         data_directory="oxford_pet_data",
-        bg_directory="landscape_data",
+        bg_directory=bg_directory,
         target_type=["species", "class", "bbox", "segmentation"],
         mixing_ratio=5,
         use_augmentation=True,
