@@ -38,7 +38,7 @@ def run_supervised_training_process(
         shuffle_train=True
     )
 
-    print(f"\nTraining fully supervised model (baseline)")
+    print("\nTraining fully supervised model (baseline)")
     model = UNet().to(device)
     all_params = list(model.parameters())
     optimizer = torch.optim.AdamW(
