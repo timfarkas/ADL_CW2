@@ -6,7 +6,9 @@ oxford_pet_data
 *.pt
 *.jpg
 CAM/data/
-checkpoints/
+checkpoints/Bootstrap
+checkpoints/EVA/visualization
+checkpoints/SEG
 visualizations/
 
 
