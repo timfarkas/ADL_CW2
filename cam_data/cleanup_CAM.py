@@ -1,9 +1,5 @@
+
 import torch
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-import torch
-import torch.nn.functional as F
 import numpy as np
 
 # Patch-fill to repair background pixels enclosed by boundary + foreground
@@ -44,7 +40,7 @@ data = torch.load("resized_64_species_breed_cam_mask_raw.pt")
 # Visualize a few cleaned samples
 
 cleaned_data = []
-for i, (image, cam, mask) in enumerate(tqdm(data, desc="Cleaning with patch fill")):
+for image, cam, mask in data:
     patched_mask = promote_background_to_boundary(mask)
     cleaned_data.append((image, cam, patched_mask))
     # if i == 0:  # visualize only the first sample
