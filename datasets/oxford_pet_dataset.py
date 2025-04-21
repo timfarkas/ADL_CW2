@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from custom_types import DatasetGroup
+from new_runs_config import DATASET_SIZE
 
 
 class OxfordPetDataset(Dataset):
@@ -233,7 +234,9 @@ class OxfordPetDataset(Dataset):
         dataset = []
         species_to_idx = {"cat": 0, "dog": 1, "unknown": 2}
 
-        for img_path in image_files:
+        for i, img_path in enumerate(image_files):
+            if DATASET_SIZE and i == DATASET_SIZE:
+                break
             # Get class info
             class_name = re.sub(r"_\d+$", "", img_path.stem.lower())
             class_idx = self.class_to_idx[class_name]

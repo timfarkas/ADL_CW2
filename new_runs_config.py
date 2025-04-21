@@ -1,3 +1,4 @@
+DATASET_SIZE = None
 DEFAULT_IMAGE_SIZE = (224, 224)
 
 self_learning_experiments_config = {
