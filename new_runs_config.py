@@ -87,6 +87,11 @@ model_names = [
     "res50_species_breed_bbox",
 ]
 
+pretraining_start_model = {
+    "run_name": "run_1",
+    "model_index": model_names.index("res18_species_breed_bbox"),
+}
+
 cam_types = ["ClassicCAM", "GradCAM"]
 
 cam_evaluation_json = "cam_evaluation.json"

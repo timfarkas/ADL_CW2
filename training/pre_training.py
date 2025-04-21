@@ -5,7 +5,7 @@ import torch
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
-from new_runs_config import get_checkpoints_and_logs_dirs
+from new_runs_config import get_checkpoints_and_logs_dirs, pretraining_start_model
 
 
 logs_file = "pretraining.json"
@@ -35,7 +35,13 @@ def run_pretraining_process(
             persistent_workers=persistent_workers,
             pin_memory=pin_memory,
         )
-        for model_name in model_names:
+        for idx, model_name in enumerate(model_names):
+            if (
+                run_name == pretraining_start_model["run_name"]
+                and idx < pretraining_start_model["model_index"]
+            ):
+                print(f"Skipping model {model_name} in run {run_name}")
+                continue
             model_config = get_model_dict_by_name(
                 model_name=model_name,
                 is_mixed_data=run_config["use_mixed_data"],
