@@ -326,7 +326,7 @@ def create_mixed_dataloaders(
     target_type=["class"],
     normalize_bbox=True,
     data_directory="oxford_pet_data",
-    bg_directory=None,
+    bg_directory="landscape_data",
     mixing_ratio=5,
     bg_label=-1,
     use_augmentation=False,
@@ -358,16 +358,16 @@ def create_mixed_dataloaders(
             "Warning: Background directory not found or not specified. Using standard dataloaders."
         )
         return create_dataloaders(
-            batch_size,
-            train_ratio,
-            val_ratio,
-            test_ratio,
-            random_seed,
-            target_type,
-            normalize_bbox,
-            data_directory,
-            use_augmentation,
-            lazy_loading,
+            batch_size=batch_size,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            random_seed=random_seed,
+            target_type=target_type,
+            normalize_bbox=normalize_bbox,
+            data_directory=data_directory,
+            use_augmentation=use_augmentation,
+            lazy_loading=lazy_loading,
         )
 
     if use_augmentation:
@@ -532,26 +532,19 @@ if __name__ == "__main__":
     # Download the landscape pictures dataset
     bg_directory = download_kaggle_dataset("arnaud58/landscape-pictures")
 
-    if bg_directory:
-        # Check if images were downloaded properly
-        image_paths = list(Path(bg_directory).glob("**/*.jpg"))
-        image_count = len(image_paths)
+    train_loader, val_loader, test_loader = create_mixed_dataloaders(
+        batch_size=32,
+        data_directory="oxford_pet_data",
+        bg_directory=bg_directory,
+        target_type=["species", "class", "bbox", "segmentation"],
+        mixing_ratio=5,
+        use_augmentation=True,
+        lazy_loading=True,
+    )
 
-        if image_count > 0:
-            # Create the mixed dataloaders with the landscape images
-            train_loader, val_loader, test_loader = create_mixed_dataloaders(
-                batch_size=32,
-                data_directory="oxford_pet_data",
-                bg_directory=bg_directory,
-                target_type=["species", "class", "bbox", "segmentation"],
-                mixing_ratio=5,
-                use_augmentation=True,
-                lazy_loading=True,
-            )
-
-            print(f"\nTraining images: {len(train_loader.dataset)}")
-            print(f"Validation images: {len(val_loader.dataset)}")
-            print(f"Testing images: {len(test_loader.dataset)}")
+    print(f"\nTraining images: {len(train_loader.dataset)}")
+    print(f"Validation images: {len(val_loader.dataset)}")
+    print(f"Testing images: {len(test_loader.dataset)}")
 
     def visualize_batch(dataloader, num_samples=5):
         # Get a batch
