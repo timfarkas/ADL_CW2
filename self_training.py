@@ -67,59 +67,16 @@ dataloader_train, dataloader_val, dataloader_test = create_dataloaders(
     lazy_loading=True,
     shuffle=False)
 
-import matplotlib.pyplot as plt
-import torch
-
-# Get a single batch from the validation loader
-batch = next(iter(dataloader_val))
-images, targets = batch
-
-# targets is expected to be a dict with classification and segmentation labels
-cls_labels = targets["breed"]
-seg_masks = targets["segmentation"]
-
-# Denormalization parameters (ImageNet)
-mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-
-# Visualize the first N samples
-n_samples = 8
-fig, axs = plt.subplots(3, n_samples, figsize=(n_samples * 3, 3 * 3))
-
-for i in range(n_samples):
-    # De-normalize image
-    img = images[i] * std + mean
-    img = img.permute(1, 2, 0).clamp(0, 1).cpu().numpy()
-
-    # Segmentation mask
-    mask = seg_masks[i].squeeze().cpu().numpy()
-
-    # Classification label (just integer index)
-    label = cls_labels[i].item()
-
-    axs[0, i].imshow(img)
-    axs[0, i].axis("off")
-    axs[0, i].set_title(f"Image {i}")
-
-    axs[1, i].imshow(mask, cmap="gray")
-    axs[1, i].axis("off")
-    axs[1, i].set_title("Seg. Mask")
-
-    axs[2, i].text(0.5, 0.5, f"Breed: {label}", ha="center", va="center", fontsize=12)
-    axs[2, i].axis("off")
-
-plt.tight_layout()
-plt.show()
-
-
 print("Loading CAM dataset...")
-resized_data = (torch.load("cam_data/resized_64_species_breed_cam_mask_raw.pt"))
-#
+resized_data = (torch.load("cam_data/resized_64_species_breed_cam_mask.pt"))
+
 '''Evaluating CAM'''
-# threshold = 0
-# for i in range(1, 7):
-#     evaluate_dataset(resized_data, 8, f"evaluation_tred{threshold}", threshold=threshold, output_dir=eva_dir)
-#     threshold = round(threshold + 0.1, 2)
+Evaluating_CAM=True
+if Evaluating_CAM:
+    threshold = 0
+    for i in range(1, 7):
+        evaluate_dataset(resized_data, 8, f"evaluation_tred{threshold}", threshold=threshold, output_dir=eva_dir)
+        threshold = round(threshold + 0.1, 2)
 
 '''Binarize CAM as training labels and create dataloader'''
 cam_threshold = 0.2
@@ -144,13 +101,22 @@ SelfTraining.visualize_predicted_masks(
 )
 dataloader_new = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 
-'''Get ground truth samples for evaluation'''
-gt_sample_loader = create_sample_loader_from_existing_loader(dataloader_val, 100, 64, False)
 
-'''Get ground truth samples for add-on training'''
+'''Get ground truth samples for evaluation'''
+val_data = [dataloader_val.dataset[i] for i in range(100)]
+gt_data_for_val = [
+    (img,remap_mask(mask["segmentation"]))
+    for img, mask in val_data]
+gt_data_for_train = TensorDataset(
+    torch.stack([x[0] for x in gt_data_for_val]),
+    torch.stack([x[1] for x in gt_data_for_val]),
+)
+gt_sample_loader = DataLoader(gt_data_for_train,batch_size=batch_size, shuffle=False)
+
+'''Get ground truth samples for add-on training''' # our raining dataset have 3 features as image, mask and gt_mask(mask is the training label, while gt_mask is only used for visualisation). For add-on traing data with true_labels we are using three featurs as image, gt_mask, gt_mask
 train_data = [dataloader_train.dataset[i] for i in range(100)]
 gt_data_for_train = [
-    (img, get_binary_from_normalization(mask["segmentation"]), get_binary_from_normalization(mask["segmentation"]),)
+    (img, remap_mask(mask["segmentation"]), remap_mask(mask["segmentation"]),)
     for img, mask in train_data]
 gt_data_for_train = TensorDataset(
     torch.stack([x[0] for x in gt_data_for_train]),
@@ -158,36 +124,40 @@ gt_data_for_train = TensorDataset(
     torch.stack([x[2] for x in gt_data_for_train]),
 )
 
+
+
 '''Preparing for selflearning(bootstraping)'''
-Skip_first_round = True # if true, will use the model"first_round_model.pt" saved at current folder to save time
+Skip_first_round = False # if true, will use the model"first_round_model.pt" saved at current folder to save time
 Use_Bootstrap_Models = False  # if true, will used saved models in bootstrap interations
 Addon_Dataset = False  # if true, new dataset will be added on original dataset and passed to the next round altogether
-Add_Groundtruth = True  # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
+Add_Groundtruth = False    # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
 TrainSeed = False  # if true, will use seed-loss in training process (not quite work with Add_on)
 GrabCut = False # if true, will use GrabCut in the process of generating new pseudo labels
 Mixlabel = False  # if true, will use mixlabel in the process generating new pseudo labels
-filter = 0 # value of threshold for simple filter
+Basicfilter = 0 # value of threshold for simple filter
 
 
-epochs = 5 # number of epochs each round
-BOOTSTRAP_ROUNDS = 10 # maximum number of self-training
+epochs = 1 # number of epochs each round
+BOOTSTRAP_ROUNDS = 5 # maximum number of self-training
 '''Running Bootstrap'''
 for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     print(f"\nBootstrapping Round {round_num}")
     model_new = UNet(3, 1).to(device)  # each round, create a new model
 
-    if round_num == 1:  # the first round should always use the dataset get from CAM, while other rounds should use dataset from previous round
+    if round_num == 1:  # the first round should always use the dataset get from CAM, while other rounds should use dataset from the previous round
         dataloader_bootstrap = dataloader_new
     print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
 
     loss_function = nn.BCEWithLogitsLoss()
-
-    model_path = os.path.join(model_dir,
-                              f"Grabct{GrabCut}_Seed{TrainSeed}_filter{filter}_epoch{epochs}_addon{Addon_Dataset}_bootstrap_round{round_num}.pt")
+    if round_num==1 and not Skip_first_round:
+        model_path = f"checkpoints/EVA/first_round_model.pt"
+    else:
+        model_path = os.path.join(model_dir,
+                              f"Grabct{GrabCut}_Seed{TrainSeed}_Filter{Basicfilter}_GT{Add_Groundtruth}_Epoch{epochs}_Addon{Addon_Dataset}_bootstrap_round{round_num}.pt")
 
     if round_num == 1 and Skip_first_round:  # since firstround process will always be the same(only number of epochs may be different), can used saved first round model to save time
         model_new = UNet(3, 1).to(device)
-        model_new.load_state_dict(torch.load(f"first_round_model.pt"))
+        model_new.load_state_dict(torch.load(f"checkpoints/EVA/first_round_model.pt"))
         print("Model loaded successfully.")
     elif Use_Bootstrap_Models and os.path.exists(model_path):  # if going to use pre-saved boostrap models
         model_new = UNet(3, 1).to(device)
@@ -217,7 +187,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
 
     if GrabCut: # use GrabCut as filter when generating new labels
         new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_grabcut(
-            model_new, dataloader_new, threshold=0.2)
+            model_new, dataloader_new, threshold=0.1)
     elif Mixlabel:  # The Mixlabel method needs to take probability input, however the input for the first round is binary (binaried CAM). We have to skip first round when mixlabels
         if round_num == 1:
             new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_basicfilter(
@@ -227,7 +197,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
                 model_new, dataloader_bootstrap, threshold=0.2)
     else: # basic way of generating new labels by simply applying a filter based on a threshold value
         new_dataset_predict = SelfTraining.predict_segmentation_dataset_with_basicfilter(
-            model_new, dataloader_new, threshold=filter)
+            model_new, dataloader_new, threshold=Basicfilter)
 
     #saved the newly-generated dataset for visualization
     SelfTraining.visualize_predicted_masks(
@@ -250,7 +220,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
         dataloader_bootstrap = DataLoader(new_dataset, batch_size=batch_size, shuffle=False)
 
     elif Add_Groundtruth: #this will add some ground truth samples in the training loop
-        replication_factor = 1
+        replication_factor = 10
 
         gt_images_repeated = torch.cat([gt_data_for_train.tensors[0]] * replication_factor, dim=0)
         gt_labels_repeated = torch.cat([gt_data_for_train.tensors[1]] * replication_factor, dim=0)

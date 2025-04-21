@@ -58,7 +58,7 @@ epochs_previous=0
 # model_path_previous = os.path.join(model_dir, f"baseline_model_epoch{epochs_previous}.pt")
 model_new = UNet(3, 1).to(device)
 # model_new.load_state_dict(torch.load(f"{model_path_previous}"))
-epochs=3
+epochs=1
 model_path= os.path.join(model_dir, f"baseline_model_epoch{epochs}.pt")
 SelfTraining.fit_sgd_pixel(
     model_new, dataloader_train_triple, epochs-epochs_previous, 0.05, loss_function, model_path, device=device
