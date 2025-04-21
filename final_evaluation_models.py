@@ -54,7 +54,7 @@ dataloader_test_new = DataLoader(
 epochs=40
 
 '''Pick which model to test'''
-# model_name=f"baseline_model_epoch{epochs}"
+# model_name=f"baseline_model_epoch{1}"
 # model_name=f"best_model_selftrain"
 model_name=f"first_round_model"
 

@@ -71,7 +71,7 @@ print("Loading CAM dataset...")
 resized_data = (torch.load("cam_data/resized_64_species_breed_cam_mask.pt"))
 
 '''Evaluating CAM'''
-Evaluating_CAM=False
+Evaluating_CAM=True
 if Evaluating_CAM:
     threshold = 0
     for i in range(1, 7):
@@ -127,7 +127,7 @@ gt_data_for_train = TensorDataset(
 
 
 '''Preparing for selflearning(bootstraping)'''
-Skip_first_round = True # if true, will use the model"first_round_model.pt" saved at current folder to save time
+Skip_first_round = False # if true, will use the model"first_round_model.pt" saved at current folder to save time
 Use_Bootstrap_Models = False  # if true, will used saved models in bootstrap interations
 Addon_Dataset = False  # if true, new dataset will be added on original dataset and passed to the next round altogether
 Add_Groundtruth = False    # if true, new ground truth will be added in the training loop. Doesn't work together with Addon_dataset
@@ -137,7 +137,7 @@ Mixlabel = False  # if true, will use mixlabel in the process generating new pse
 Basicfilter = 0 # value of threshold for simple filter
 
 
-epochs = 5 # number of epochs each round
+epochs = 1 # number of epochs each round
 BOOTSTRAP_ROUNDS = 5 # maximum number of self-training
 '''Running Bootstrap'''
 for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
@@ -149,7 +149,7 @@ for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
     print(f"Dataset: {len(dataloader_bootstrap.dataset)} samples")
 
     loss_function = nn.BCEWithLogitsLoss()
-    if round_num==1:
+    if round_num==1 and not Skip_first_round:
         model_path = f"checkpoints/EVA/first_round_model.pt"
     else:
         model_path = os.path.join(model_dir,
