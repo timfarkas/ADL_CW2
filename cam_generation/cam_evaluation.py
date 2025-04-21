@@ -25,6 +25,7 @@ def evaluate_cams(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    pin_memory: bool,
     cam_types: list,
     num_samples: int = 50,
 ):
@@ -43,6 +44,7 @@ def evaluate_cams(
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
         )
         dataloaders = dataloader_manager.create_dataloaders(
             shuffle_train=False

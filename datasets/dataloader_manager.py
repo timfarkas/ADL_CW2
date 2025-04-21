@@ -10,11 +10,13 @@ class DataloaderManager:
         batch_size: int,
         workers: int,
         persistent_workers: bool,
+        pin_memory: bool,
     ):
         self.dataset_manager = dataset_manager
         self.batch_size = batch_size
         self.workers = workers
         self.persistent_workers = persistent_workers
+        self.pin_memory = pin_memory
 
     def create_dataloaders(
         self, shuffle_train: bool = True
@@ -27,6 +29,7 @@ class DataloaderManager:
             shuffle=shuffle_train,
             num_workers=self.workers,
             persistent_workers=self.persistent_workers,
+            pin_memory=self.pin_memory,
         )
         val_dataloader = DataLoader(
             val_dataset,
@@ -34,6 +37,7 @@ class DataloaderManager:
             shuffle=False,
             num_workers=self.workers,
             persistent_workers=self.persistent_workers,
+            pin_memory=self.pin_memory,
         )
         test_dataloader = DataLoader(
             test_dataset,
@@ -41,5 +45,6 @@ class DataloaderManager:
             shuffle=False,
             num_workers=self.workers,
             persistent_workers=self.persistent_workers,
+            pin_memory=self.pin_memory,
         )
         return train_dataloader, val_dataloader, test_dataloader

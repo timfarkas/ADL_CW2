@@ -18,6 +18,7 @@ def run_pretraining_process(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    pin_memory: bool,
     learning_rate: float,
     weight_decay: float,
     num_epochs: int,
@@ -32,6 +33,7 @@ def run_pretraining_process(
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
         )
         for model_name in model_names:
             model_config = get_model_dict_by_name(

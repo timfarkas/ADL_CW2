@@ -19,6 +19,7 @@ def run_supervised_training_process(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    pin_memory: bool,
     learning_rate: float,
     weight_decay: float,
     num_epochs: int,
@@ -33,6 +34,7 @@ def run_supervised_training_process(
         batch_size=batch_size,
         workers=workers,
         persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
     )
     train_dataloader, _, _ = dataloader_manager.create_dataloaders(
         shuffle_train=True

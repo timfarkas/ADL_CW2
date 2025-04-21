@@ -47,16 +47,19 @@ if __name__ == "__main__":
         device = torch.device("cuda")
         workers = 0
         persistent_workers = False
+        pin_memory = True
         batch_size = 4 
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         workers = 6
         persistent_workers = True
+        pin_memory = True
         batch_size = 48
     else:
         device = torch.device("cpu")
         workers = 2
         persistent_workers = False
+        pin_memory = False
         batch_size = 32
 
     print(f"Using device: {device} with {workers} workers and batch size {batch_size}")
@@ -74,6 +77,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
             num_epochs=PRETRAIN_NUM_EPOCHS,
@@ -83,9 +87,10 @@ if __name__ == "__main__":
         evaluate_cams(
             runs_config=runs_config,
             device=device,
-            batch_size=batch_size,
-            workers=workers,
-            persistent_workers=persistent_workers,
+            batch_size=3,
+            workers=0,
+            persistent_workers=False,
+            pin_memory=False,
             num_samples=50,
             cam_types=cam_types,
         )
@@ -101,6 +106,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
             visualize=5,
         )
 
@@ -111,6 +117,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
             num_epochs=SELFTRAINING_NUM_EPOCHS,
@@ -124,6 +131,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
             num_epochs=PRETRAIN_NUM_EPOCHS,
@@ -137,6 +145,7 @@ if __name__ == "__main__":
         batch_size=batch_size,
         workers=workers,
         persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
         self_training_dict=best_self_training,
         baseline_model=supervised_model,
     )

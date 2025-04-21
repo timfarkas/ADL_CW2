@@ -19,6 +19,7 @@ def test_and_compare_to_baseline(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    pin_memory: bool,
     self_training_dict: dict,
     baseline_model: torch.nn.Module | None = None,
 ):
@@ -32,6 +33,7 @@ def test_and_compare_to_baseline(
         batch_size=batch_size,
         workers=workers,
         persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
     )
     _, _, test_dataloader = dataloader_manager.create_dataloaders(shuffle_train=False)
 

@@ -21,6 +21,7 @@ def generate_cam_dataset(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    pin_memory: bool,
     visualize: int | None = None,
 ):
     print(
@@ -39,6 +40,7 @@ def generate_cam_dataset(
         batch_size=batch_size,
         workers=workers,
         persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
     )
     dataloaders = dataloader_manager.create_dataloaders(
         shuffle_train=False

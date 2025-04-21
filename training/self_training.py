@@ -23,6 +23,7 @@ def run_self_training_process(
     batch_size: int,
     workers: int,
     persistent_workers: bool,
+    pin_memory: bool,
     learning_rate: float,
     weight_decay: float,
     num_epochs: int,
@@ -46,6 +47,7 @@ def run_self_training_process(
         batch_size=batch_size,
         workers=workers,
         persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
     )
     _, val_dataloader, _ = dataloader_manager.create_dataloaders(
         shuffle_train=False
@@ -95,6 +97,7 @@ def run_self_training_process(
                     shuffle=False,
                     num_workers=workers,
                     persistent_workers=persistent_workers,
+                    pin_memory=pin_memory,
                 )
 
                 os.makedirs(checkpoints_dir, exist_ok=True)
