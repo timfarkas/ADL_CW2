@@ -45,18 +45,18 @@ self_learning_experiments_config = {
 
 # TODO: if possible, create some validation
 runs_config = {
-    # "run_1": {
-    #     "use_augmentation": False,
-    #     "use_mixed_data": False,
-    # },
-    # "run_2": {
-    #     "use_augmentation": True,
-    #     "use_mixed_data": False,
-    # },
-    # "run_3": {
-    #     "use_augmentation": False,
-    #     "use_mixed_data": True,
-    # },
+    "run_1": {
+        "use_augmentation": False,
+        "use_mixed_data": False,
+    },
+    "run_2": {
+        "use_augmentation": True,
+        "use_mixed_data": False,
+    },
+    "run_3": {
+        "use_augmentation": False,
+        "use_mixed_data": True,
+    },
     "run_4": {
         "use_augmentation": True,
         "use_mixed_data": True,
