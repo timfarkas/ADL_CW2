@@ -20,12 +20,12 @@ pip install -r requirements.txt
 
 ## Project Steps
 
-1. Data download, preparation, and pre-training classification models
-2. Generating CAMs from classification models
-3. Using CAMs as pseudo-labels for segmentation models
-4. Applying self-training to improve results
-5. Evaluation and comparison of results
-6. Experiments for the Open-Ended Question
+1. Data Preparation and Pre-training Classification Models
+2. CAM Evaluation And Extraction
+3. Preprocessing CAM files
+4. Self-Training (Alternative Open-Ended Question)
+5. Evaluation of Segmentation Models
+6. Experiments for Open-Ended Questions
     - Experiment 1: Effect of Irrelevant Samples
     - Experiment 2: Effect of Multi-task Training
     - Experiment 3: Effect of Self-training with Augmentations
