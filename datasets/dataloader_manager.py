@@ -42,4 +42,4 @@ class DataloaderManager:
             num_workers=self.workers,
             persistent_workers=self.persistent_workers,
         )
-        return test_dataloader, val_dataloader, train_dataloader
+        return train_dataloader, val_dataloader, test_dataloader

@@ -10,7 +10,7 @@ from datasets.oxford_pet_dataset import OxfordPetDataset
 from datasets.mixed_dataset import MixedDataset
 from new_runs_config import DEFAULT_IMAGE_SIZE
 
-dataset_groups = ["test", "train", "val"]
+dataset_groups = ["train", "val", "test"]
 
 
 class SegmentationToTensor:
@@ -34,7 +34,13 @@ class DatasetManager:
         image_size: tuple = DEFAULT_IMAGE_SIZE,
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
-        target_type: list[ModelTarget] = ["species", "breed", "bbox", "segmentation", "is_animal"],
+        target_type: list[ModelTarget] = [
+            "species",
+            "breed",
+            "bbox",
+            "segmentation",
+            "is_animal",
+        ],
         normalize_bbox: bool = True,
         bg_label: int = -1,
         use_augmentation: bool = False,
