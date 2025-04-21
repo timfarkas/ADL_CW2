@@ -19,6 +19,7 @@ def predict_segmentation_dataset(
     with torch.no_grad():
         for images, former_probs, gt_masks in dataloader:
             images = images.to(device)
+            former_probs = former_probs.to(device)
             logits = model(images)  # [B, 1, H, W]
             probs = torch.sigmoid(logits)  # ∈ [0,1]
             batch_size = images.size(0)
