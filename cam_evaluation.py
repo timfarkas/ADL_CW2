@@ -984,7 +984,7 @@ def getBestCAMCheckpoints(num_best=5, json_path="logs/cam_stats.json") -> List[d
 if __name__ == "__main__":
     cam_types = ["ClassicCAM", "GradCAM"]
 
-    run_name = "run_3"
+    run_name = "run_2"
     checkpoints_dir = "checkpoints/" + run_name
     generate_only = True
     num_best = 5
