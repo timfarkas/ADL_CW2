@@ -1,8 +1,10 @@
 import json
 import os
+import gc
 from matplotlib import pyplot as plt
-import torch
 
+
+import torch
 from torch import nn
 
 from training.evaluations import compute_iou
@@ -100,7 +102,8 @@ def compute_cam_iou(cam: torch.Tensor, segment: torch.Tensor) -> float:
     Returns:
         float: The IoU score
     """
-    binary_cam = (cam > 0).float()
+    with torch.no_grad():
+        binary_cam = (cam > 0).float()
     unique_values = torch.unique(segment)
 
     assert len(binary_cam.shape) == 3, (
@@ -223,3 +226,11 @@ def visualize_cam_samples(dataloader, num_samples=4, storage_path: str | None = 
         plt.close()
     else:
         plt.show()
+
+def clear_cache_and_garbage_collect():
+    """
+    Clear the cache and run garbage collection.
+    """
+    torch.cuda.empty_cache()
+    torch.mps.empty_cache()
+    gc.collect()

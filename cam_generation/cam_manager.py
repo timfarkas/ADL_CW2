@@ -87,6 +87,10 @@ class CAMManager:
                 aug_smooth=smooth,
                 eigen_smooth=smooth,
             )
+            
+            # LLM recommendation: remove hooks from cam
+            if hasattr(cam, 'activations_and_grads') and hasattr(cam.activations_and_grads, 'release'):
+                cam.activations_and_grads.release()
 
             if self.method != "ClassicCAM":
                 tensor_cams = (
@@ -127,9 +131,9 @@ class CAMManager:
         for i, (images, cams, masks) in enumerate(
             self.get_cam_generator(dataloader, target_type, smooth)
         ):
-            all_images.append(images)
-            all_cams.append(cams)
-            all_masks.append(masks)
+            all_images.append(images.detach())
+            all_cams.append(cams.detach())
+            all_masks.append(masks.detach())
             if num_samples is not None and (i + 1) * batch_size >= num_samples:
                 break
 

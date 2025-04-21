@@ -145,7 +145,7 @@ class Pretrainer:
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
 
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
         # Load backbone weights
         self.backbone.load_state_dict(checkpoint["backbone_state_dict"])

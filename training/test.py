@@ -44,7 +44,7 @@ def test_and_compare_to_baseline(
     model.load_state_dict(
         torch.load(
             os.path.join(checkpoints_dir, f"{self_training_dict['round_name']}.pt"),
-            map_location=device,
+            map_location="cpu",
         )
     )
 
@@ -57,7 +57,7 @@ def test_and_compare_to_baseline(
         baseline_model.load_state_dict(
             torch.load(
                 os.path.join(checkpoints_dir, f"{baseline_model_name}.pt"),
-                map_location=device,
+                map_location="cpu",
             )
         )
 

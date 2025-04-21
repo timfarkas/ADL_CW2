@@ -5,6 +5,7 @@ import gc
 
 from cam_generation.cam_manager import CAMManager
 from cam_generation.utils import (
+    clear_cache_and_garbage_collect,
     compute_cam_iou,
     get_conv_layers,
     save_model_cam_settings_to_json,
@@ -16,7 +17,6 @@ from models.utils import get_model_dict_by_name, get_pretrainer_by_config
 from new_runs_config import get_checkpoints_and_logs_dirs
 from training.pre_training import get_best_epoch_per_model
 from new_runs_config import cam_evaluation_json
-
 
 
 def evaluate_cams(
@@ -81,9 +81,8 @@ def evaluate_cams(
                 target_type = model_config["loader_targets"][head_index]
                 for cam_type in cam_types:
                     print(
-                        f"Evaluating {cam_type} for {model_name} head {head_index} ({head.name})"
+                        f"\nEvaluating {cam_type} for {model_name} head {head_index} ({head.name})"
                     )
-                    print(f"Target type: {target_type}")
                     iou_per_layer = find_ioi_per_layer(
                         model=model,
                         loader=dataloaders[1],
@@ -97,9 +96,20 @@ def evaluate_cams(
                         cam_settings=iou_per_layer,
                         json_path=f"{logs_dir}/{cam_evaluation_json}",
                     )
-                    torch.cuda.empty_cache()
-                    gc.collect()
+                    clear_cache_and_garbage_collect()
+
                 del model
+                clear_cache_and_garbage_collect()
+
+            del pretrainer
+            del model_config
+            clear_cache_and_garbage_collect()
+
+        del dataloaders
+        del dataloader_manager
+        del dataset_manager
+        clear_cache_and_garbage_collect()
+
 
 def find_ioi_per_layer(
     model: PretrainedModel,
@@ -136,6 +146,8 @@ def find_ioi_per_layer(
             num_samples=num_samples,
         )
         layers_iou.append((i, iou))
+        clear_cache_and_garbage_collect()
+
     return layers_iou
 
 
