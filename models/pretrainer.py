@@ -485,6 +485,7 @@ class Pretrainer:
                 print(log_str)
 
             # Validation phase
+            print(f"\nValidating {epoch + 1}/{num_epochs}")
             self.backbone.eval()
             for head in self.heads:
                 head.eval()
@@ -498,7 +499,9 @@ class Pretrainer:
             ]  # Track samples with bboxes for each head
 
             with torch.no_grad():
-                for images, labels in self.val_loader:
+                for i, (images, labels) in enumerate(self.val_loader):
+                    if i % max(1, len(self.train_loader) // 10) == 0:
+                        print("|", end="", flush=True)
                     labels = (
                         [labels] if isinstance(labels, torch.Tensor) else labels
                     )  ## convert label tensor to list
