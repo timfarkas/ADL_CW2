@@ -1,0 +1,388 @@
+{
+    "run_1": [
+        {
+            "model_name": "res50_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 51,
+            "iou": 0.5383965939154215,
+            "best_epoch": 9
+        },
+        {
+            "model_name": "res50_breed",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 51,
+            "iou": 0.5382804856856205,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res50_breed_species",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 49,
+            "iou": 0.5314842434148522,
+            "best_epoch": 13
+        },
+        {
+            "model_name": "res50_species_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 51,
+            "iou": 0.5313747298698714,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res50_species_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 49,
+            "iou": 0.5278139736066599,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res18_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 16,
+            "iou": 0.5231501134620788,
+            "best_epoch": 8
+        },
+        {
+            "model_name": "res50_breed_species",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 51,
+            "iou": 0.520646302580484,
+            "best_epoch": 13
+        },
+        {
+            "model_name": "res18_breed_species",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 16,
+            "iou": 0.5187070835678187,
+            "best_epoch": 9
+        },
+        {
+            "model_name": "res18_breed",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 16,
+            "iou": 0.5118669826785905,
+            "best_epoch": 6
+        },
+        {
+            "model_name": "res50_species",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 52,
+            "iou": 0.5099330746312073,
+            "best_epoch": 14
+        },
+        {
+            "model_name": "res50_species_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 52,
+            "iou": 0.5047299388739611,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "res18_species_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 16,
+            "iou": 0.4903394556374961,
+            "best_epoch": 15
+        },
+        {
+            "model_name": "res18_species_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 17,
+            "iou": 0.48690258176737566,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res18_species",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 18,
+            "iou": 0.4866906809171971,
+            "best_epoch": 3
+        },
+        {
+            "model_name": "res18_species_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 16,
+            "iou": 0.463437573572601,
+            "best_epoch": 15
+        },
+        {
+            "model_name": "res18_breed_species",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 17,
+            "iou": 0.4499836518935671,
+            "best_epoch": 9
+        },
+        {
+            "model_name": "res50_breed_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.4460855173437619,
+            "best_epoch": 13
+        },
+        {
+            "model_name": "res50_breed",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.443129827040157,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res50_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.44269486199217967,
+            "best_epoch": 9
+        },
+        {
+            "model_name": "res50_species_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.4387158912011473,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res50_species_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.4201341300985555,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "res18_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.4156095765464795,
+            "best_epoch": 3
+        },
+        {
+            "model_name": "res50_breed_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.41345210644345415,
+            "best_epoch": 13
+        },
+        {
+            "model_name": "cnn_species_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.41242027767448597,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "res50_species_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.41147102480751147,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "res50_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.408994365479369,
+            "best_epoch": 14
+        },
+        {
+            "model_name": "res18_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.4080964417708355,
+            "best_epoch": 8
+        },
+        {
+            "model_name": "res18_breed_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.40749074644579614,
+            "best_epoch": 9
+        },
+        {
+            "model_name": "res18_breed",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.4073368379412435,
+            "best_epoch": 6
+        },
+        {
+            "model_name": "res18_species_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.40717989057786336,
+            "best_epoch": 15
+        },
+        {
+            "model_name": "cnn_breed_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.40580695874765993,
+            "best_epoch": 17
+        },
+        {
+            "model_name": "res18_breed_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.4055344865822235,
+            "best_epoch": 9
+        },
+        {
+            "model_name": "res18_species_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.40538677667454337,
+            "best_epoch": 15
+        },
+        {
+            "model_name": "res18_species_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.40483045585189054,
+            "best_epoch": 5
+        },
+        {
+            "model_name": "cnn_breed",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.4030117047293084,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.4004854061871421,
+            "best_epoch": 20
+        },
+        {
+            "model_name": "cnn_species_breed_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "breed",
+            "layer_index": 0,
+            "iou": 0.3946377310804446,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_species_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 2,
+            "iou": 0.391114580801422,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.3903587964583052,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_species_bbox",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.3875560469703425,
+            "best_epoch": 19
+        },
+        {
+            "model_name": "cnn_breed_species",
+            "cam_type": "ClassicCAM",
+            "head_target": "species",
+            "layer_index": 0,
+            "iou": 0.37592238640098197,
+            "best_epoch": 17
+        },
+        {
+            "model_name": "cnn_breed_species",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 3,
+            "iou": 0.37207338031262643,
+            "best_epoch": 17
+        },
+        {
+            "model_name": "cnn_breed",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 2,
+            "iou": 0.3685451749319641,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "breed",
+            "layer_index": 3,
+            "iou": 0.3593621269154642,
+            "best_epoch": 20
+        },
+        {
+            "model_name": "cnn_species_breed_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 2,
+            "iou": 0.3316597730764206,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_species_bbox",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 1,
+            "iou": 0.32367302567896283,
+            "best_epoch": 19
+        },
+        {
+            "model_name": "cnn_species",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 3,
+            "iou": 0.2766208707685051,
+            "best_epoch": 18
+        },
+        {
+            "model_name": "cnn_breed_species",
+            "cam_type": "GradCAM",
+            "head_target": "species",
+            "layer_index": 3,
+            "iou": 0.2731611866966264,
+            "best_epoch": 17
+        }
+    ]
+}
