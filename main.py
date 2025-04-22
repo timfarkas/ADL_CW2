@@ -4,7 +4,7 @@ import random
 
 from cam_generation.cam_dataset import generate_cam_dataset
 from cam_generation.utils import get_best_cam
-from runs_config import (
+from config import (
     runs_config,
     model_names,
     cam_types,

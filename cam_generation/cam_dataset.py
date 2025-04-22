@@ -7,7 +7,7 @@ from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.pretrainer import PretrainedModel
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
-from runs_config import (
+from config import (
     get_checkpoints_and_logs_dirs,
     cam_dataset_folder,
     visualizations_folder,

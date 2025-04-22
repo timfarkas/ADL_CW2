@@ -1,7 +1,6 @@
 from typing import List, Tuple
 import torch
 from torch import nn
-import gc
 
 from cam_generation.cam_manager import CAMManager
 from cam_generation.utils import (
@@ -14,9 +13,9 @@ from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.pretrainer import PretrainedModel
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
-from runs_config import get_checkpoints_and_logs_dirs
+from config import get_checkpoints_and_logs_dirs
 from training.pre_training import get_best_epoch_per_model
-from runs_config import cam_evaluation_json
+from config import cam_evaluation_json
 
 
 def evaluate_cams(

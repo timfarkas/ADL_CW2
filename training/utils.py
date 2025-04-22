@@ -3,7 +3,7 @@ import os
 from matplotlib import pyplot as plt
 import torch
 
-from runs_config import cam_dataset_folder, get_checkpoints_and_logs_dirs
+from config import cam_dataset_folder, get_checkpoints_and_logs_dirs
 
 
 def unnormalize(img_tensor: torch.Tensor, device: torch.device = torch.device("cpu")):

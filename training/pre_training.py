@@ -5,7 +5,7 @@ import torch
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.utils import get_model_dict_by_name, get_pretrainer_by_config
-from runs_config import get_checkpoints_and_logs_dirs, pretraining_start_model
+from config import get_checkpoints_and_logs_dirs, pretraining_start_model
 
 
 logs_file = "pretraining.json"

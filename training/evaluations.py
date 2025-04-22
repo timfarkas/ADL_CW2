@@ -1,6 +1,6 @@
 import torch
 
-from runs_config import segmentation_output_threshold
+from config import segmentation_output_threshold
 from training.utils import (
     get_binary_masks_from_trimap,
     unnormalize,

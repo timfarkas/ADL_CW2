@@ -7,7 +7,7 @@ from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
 from training.utils import get_binary_masks_from_trimap
 from training.losses import bce_fn
-from runs_config import (
+from config import (
     get_checkpoints_and_logs_dirs,
     baseline_model_name,
     baseline_model_folder,
