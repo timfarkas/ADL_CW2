@@ -1,3 +1,10 @@
+"""
+AI usage statement:
+
+AI was used to assist with researching and debugging, as well as helping
+with creating docstrings. All code was writte, reviewed and/or modified by a human.
+"""
+
 from pathlib import Path
 import random
 from PIL import Image
@@ -33,7 +40,9 @@ class BackgroundDataset(Dataset):
             target_type: Types of targets to generate
         """
         self.bg_dir = Path(
-            download_kaggle_dataset("arnaud58/landscape-pictures", "data/background_images")
+            download_kaggle_dataset(
+                "arnaud58/landscape-pictures", "data/background_images"
+            )
         )
         self.transform = transform
         self.target_label = target_label
@@ -75,16 +84,12 @@ class BackgroundDataset(Dataset):
 
         # Create targets based on target_type
         if len(self.target_type) == 1:
-            target = self._get_target(
-                self.target_type[0]
-            )
+            target = self._get_target(self.target_type[0])
             return image, target
         else:
             targets = {}
             for t_type in self.target_type:
-                targets[t_type] = self._get_target(
-                    t_type
-                )
+                targets[t_type] = self._get_target(t_type)
             return image, targets
 
     def _get_target(self, target_type):

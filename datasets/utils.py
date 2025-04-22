@@ -1,3 +1,10 @@
+"""
+AI usage statement:
+
+AI was used to assist with researching and debugging, as well as helping
+with creating docstrings. All code was writte, reviewed and/or modified by a human.
+"""
+
 import os
 import json
 import subprocess
@@ -55,10 +62,9 @@ def download_kaggle_dataset(dataset_name: str, output_path: str) -> str | None:
     except subprocess.CalledProcessError as e:
         print(f"Error downloading dataset: {e}")
         return None
-    
-def verify_kaggle_dataset(
-    path: str
-) -> bool:
+
+
+def verify_kaggle_dataset(path: str) -> bool:
     # Check if dataset already exists
     if os.path.exists(path):
         image_files = list(Path(path).glob("**/*.jpg"))

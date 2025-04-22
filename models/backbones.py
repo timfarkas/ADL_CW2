@@ -1,3 +1,10 @@
+"""
+AI usage statement:
+
+AI was used to assist with researching and debugging, as well as helping
+with creating docstrings. All code was writte, reviewed and/or modified by a human.
+"""
+
 from torch import nn
 from torchvision.models import (
     ResNet18_Weights,
@@ -9,6 +16,7 @@ from torchvision.models import (
 )
 
 from custom_types import ResNetAdapter
+
 
 class CNNBackbone(nn.Module):
     def __init__(self):

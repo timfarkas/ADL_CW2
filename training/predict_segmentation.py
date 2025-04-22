@@ -1,3 +1,10 @@
+"""
+AI usage statement:
+
+AI was used to assist with researching and debugging, as well as helping
+with creating docstrings. All code was writte, reviewed and/or modified by a human.
+"""
+
 from typing import Literal
 import cv2
 import numpy as np
@@ -23,7 +30,7 @@ def predict_segmentation_dataset(
             logits = model(images)  # [B, 1, H, W]
             probs = torch.sigmoid(logits)  # ∈ [0,1]
             batch_size = images.size(0)
-            
+
             if predictions_transform == "filter":
                 output_segmentation = filter_probs(
                     probs=probs,
@@ -59,7 +66,7 @@ def predict_segmentation_dataset(
                     low_thresh=threshold_value_low,
                     high_thresh=threshold_value_high,
                 )
-            
+
             elif predictions_transform is None:
                 output_segmentation = probs
 

@@ -1,3 +1,10 @@
+"""
+AI usage statement:
+
+AI was used to assist with researching and debugging, as well as helping
+with creating docstrings. All code was writte, reviewed and/or modified by a human.
+"""
+
 from typing import Literal
 import torch
 
@@ -87,9 +94,11 @@ class CAMManager:
                 aug_smooth=smooth,
                 eigen_smooth=smooth,
             )
-            
+
             # LLM recommendation: remove hooks from cam
-            if hasattr(cam, 'activations_and_grads') and hasattr(cam.activations_and_grads, 'release'):
+            if hasattr(cam, "activations_and_grads") and hasattr(
+                cam.activations_and_grads, "release"
+            ):
                 cam.activations_and_grads.release()
 
             if self.method != "ClassicCAM":

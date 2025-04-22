@@ -1,5 +1,10 @@
-import json
-import os
+"""
+AI usage statement:
+
+AI was used to assist with researching and debugging, as well as helping
+with creating docstrings. All code was writte, reviewed and/or modified by a human.
+"""
+
 import torch
 from torch.utils.data import DataLoader
 
