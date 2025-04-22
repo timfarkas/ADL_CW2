@@ -41,7 +41,7 @@ def get_best_cam(runs_config: dict[str, any]):
         best_epoch_dict = get_best_epoch_per_model(
             run_name=run_name,
         )
-
+        
         cam_json_path = os.path.join(logs_dir, cam_evaluation_json)
         if os.path.exists(cam_json_path):
             with open(cam_json_path, "r") as f:
@@ -74,7 +74,9 @@ def get_best_cam(runs_config: dict[str, any]):
                     "head_target": run_best_results[0]["head_target"],
                     "layer_index": run_best_results[0]["layer_index"],
                     "iou": run_best_results[0]["iou"],
-                    "best_epoch": best_epoch_dict.get(model_name, 0),
+                    "best_epoch": best_epoch_dict.get(
+                        run_best_results[0]["model_name"], 0
+                    ),
                 }
     # Save the best overall settings to a JSON file
     best_cam_settings_per_run = os.path.join(
@@ -226,6 +228,7 @@ def visualize_cam_samples(dataloader, num_samples=4, storage_path: str | None = 
         plt.close()
     else:
         plt.show()
+
 
 def clear_cache_and_garbage_collect():
     """
