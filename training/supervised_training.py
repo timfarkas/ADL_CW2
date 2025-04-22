@@ -35,18 +35,8 @@ def run_supervised_training_process(
         initial_dataset_raw = torch.load(
             dataset, weights_only=False, map_location="cpu"
         )
-        binarized_data = []
-        for image, cam, mask in initial_dataset_raw:
-            cam_binary = (cam > cam_threshold).float()
-            binarized_data.append((image, cam_binary, mask))
-
-        cam_dataset = torch.utils.data.TensorDataset(
-            torch.stack([x[0] for x in binarized_data]),
-            torch.stack([x[1] for x in binarized_data]),
-            torch.stack([x[2] for x in binarized_data]),
-        )
         train_dataloader = torch.utils.data.DataLoader(
-            dataset=cam_dataset,
+            dataset=initial_dataset_raw,
             batch_size=batch_size,
             shuffle=True,
             num_workers=workers,
@@ -98,8 +88,11 @@ def run_supervised_training_process(
         for images, masks, *rest in train_dataloader:
             images = images.to(device)
             masks = masks.to(device)
-            masks_bin = get_binary_masks_from_trimap(masks)
-            masks_bin = masks_bin.unsqueeze(1)
+            if use_cam_dataset:
+                masks_bin = (masks > cam_threshold).float()
+            else:
+                masks_bin = get_binary_masks_from_trimap(masks)
+                masks_bin = masks_bin.unsqueeze(1)
 
             optimizer.zero_grad()
             outputs = model(images)
