@@ -36,9 +36,8 @@ def run_supervised_training_process(
         persistent_workers=persistent_workers,
         pin_memory=pin_memory,
     )
-    train_dataloader, _, _ = dataloader_manager.create_dataloaders(
-        shuffle_train=True
-    )
+    train_dataloader, _, _ = dataloader_manager.create_dataloaders(shuffle_train=True)
+    scaler = torch.amp.GradScaler(device.type, enabled=(device.type == "cuda"))
 
     print("\nTraining fully supervised model (baseline)")
     model = UNet().to(device)
@@ -68,10 +67,17 @@ def run_supervised_training_process(
             masks_bin = masks_bin.unsqueeze(1)
 
             optimizer.zero_grad()
-            outputs = model(images)
-            loss = bce_fn(outputs, masks_bin)
+            with torch.autocast(
+                device_type=device.type,
+                dtype=torch.float16,
+                enabled=(device.type == "cuda"),
+            ):
+                outputs = model(images)
+                loss = bce_fn(outputs, masks_bin)
 
-            loss.backward()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             optimizer.step()
 
             # Calculate pixel-wise accuracy

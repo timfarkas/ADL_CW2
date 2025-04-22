@@ -170,7 +170,7 @@ def evaluate_segmentation_model(
     model: torch.nn.Module,
     test_loader: torch.utils.data.DataLoader,
     image_number: int = 5,
-    device: str = None,
+    device: torch.device = None,
     storage_path: str = None,
 ) -> tuple[float, float]:
     """
@@ -190,7 +190,12 @@ def evaluate_segmentation_model(
             images = images.to(device)
             masks_gt = masks_gt.to(device)
 
-            logits = model(images)  # raw output
+            with torch.autocast(
+                device_type=device.type,
+                dtype=torch.float16,
+                enabled=(device.type == "cuda"),
+            ):
+                logits = model(images)  # raw output
             masks_pre = torch.sigmoid(logits)  # apply sigmoid to get probabilities
             masks_pre_binary = (
                 masks_pre > segmentation_output_threshold
