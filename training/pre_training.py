@@ -24,6 +24,13 @@ def run_pretraining_process(
     num_epochs: int,
 ):
     for run_name, run_config in runs_config.items():
+        if int(run_name.split("_")[1]) < int(
+            pretraining_start_model["run_name"].split("_")[1]
+        ):
+            print(
+                f"\nSkipping run {run_name} as it is before the pretraining start model\n"
+            )
+            continue
         dataset_manager = DatasetManager(
             use_augmentation=run_config["use_augmentation"],
             mixed=run_config["use_mixed_data"],

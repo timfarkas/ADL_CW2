@@ -88,8 +88,8 @@ model_names = [
 ]
 
 pretraining_start_model = {
-    "run_name": "run_1",
-    "model_index": model_names.index("res18_species_breed_bbox"),
+    "run_name": "run_3",
+    "model_index": model_names.index("cnn_species"),
 }
 
 cam_types = ["ClassicCAM", "GradCAM"]
