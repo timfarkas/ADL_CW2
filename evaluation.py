@@ -1,5 +1,6 @@
-import os
+# AI usage statement: AI was used to assist in debugging
 
+import os
 import torch
 import torch.nn as nn
 import torchvision

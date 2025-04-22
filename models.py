@@ -1,3 +1,5 @@
+# AI usage statement: AI was used to assist in debugging, building model architecture and visualisation
+
 import os
 from typing import Literal
 

@@ -1,5 +1,6 @@
-import os
+# AI usage statement: AI was used to assist in debugging and preparing code for concatenating datasets and visualisation
 
+import os
 import random
 import matplotlib.pyplot as plt
 import numpy as np
