@@ -49,7 +49,8 @@ eva_dir = os.path.join(log_dir, "evaluation")
 os.makedirs(model_dir, exist_ok=True)
 pre_dir = os.path.join(log_dir, "predicted_masks")
 os.makedirs(model_dir, exist_ok=True)
-
+eva_model_dir = os.path.join("checkpoints", "EVA")
+os.makedirs(eva_model_dir, exist_ok=True)
 '''Clean files in checkpoint'''  # this part of code needs to be disabled if going to use local saved models
 for root, dirs, files in os.walk(log_dir):
     for file in files:
@@ -137,7 +138,7 @@ Mixlabel = False  # if true, will use mixlabel in the process generating new pse
 Basicfilter = 0 # value of threshold for simple filter
 
 
-epochs = 1 # number of epochs each round
+epochs = 5 # number of epochs each round
 BOOTSTRAP_ROUNDS = 5 # maximum number of self-training
 '''Running Bootstrap'''
 for round_num in range(1, BOOTSTRAP_ROUNDS + 1):
