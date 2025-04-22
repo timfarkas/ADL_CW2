@@ -20,7 +20,8 @@ def test_and_compare_to_baseline(
     workers: int,
     persistent_workers: bool,
     pin_memory: bool,
-    self_training_dict: dict,
+    self_training_dict: dict | None = None,
+    semi_supervised_model: torch.nn.Module | None = None,
     baseline_model: torch.nn.Module | None = None,
 ):
     dataset_manager = DatasetManager(
@@ -37,21 +38,61 @@ def test_and_compare_to_baseline(
     )
     _, _, test_dataloader = dataloader_manager.create_dataloaders(shuffle_train=False)
 
+    results = {}
+
     # Get model to compare
-    checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
-        run_name=self_training_dict["dataset_name"],
-        model_name=self_training_dict["run_name"],
-    )
-    model = UNet().to(device)
-    model.load_state_dict(
-        torch.load(
-            os.path.join(checkpoints_dir, f"{self_training_dict['round_name']}.pt"),
-            map_location="cpu",
+    if self_training_dict is not None:
+        checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
+            run_name=self_training_dict["dataset_name"],
+            model_name=self_training_dict["run_name"],
         )
-    )
+        model = UNet().to(device)
+        model.load_state_dict(
+            torch.load(
+                os.path.join(checkpoints_dir, f"{self_training_dict['round_name']}.pt"),
+                map_location="cpu",
+            )
+        )
+
+        print("\nEvaluating self-training model")
+        ioi_self_training, f1_self_training = evaluate_segmentation_model(
+            model=model,
+            test_loader=test_dataloader,
+            device=device,
+            storage_path=f"{visualizations_folder}/{self_training_dict['run_name']}-{self_training_dict['run_name']}.png",
+        )
+        print(
+            f"Self-training model: {self_training_dict['run_name']}, IOI: {ioi_self_training}, F1: {f1_self_training}"
+        )
+
+        results["self_training"] = {
+            "dataset_name": self_training_dict["dataset_name"],
+            "run_name": self_training_dict["run_name"],
+            "round_name": self_training_dict["round_name"],
+            "ioi": ioi_self_training,
+            "f1": f1_self_training,
+        }
+
+    elif semi_supervised_model is not None:
+        print("\nEvaluating semi-supervised model")
+        ioi_semi_supervised_training, f1_semi_supervised_training = (
+            evaluate_segmentation_model(
+                model=semi_supervised_model,
+                test_loader=test_dataloader,
+                device=device,
+                storage_path=f"{visualizations_folder}/semi-supervised-training.png",
+            )
+        )
+        print(
+            f"Semi-supervised model: IOI: {ioi_semi_supervised_training}, F1: {f1_semi_supervised_training}"
+        )
+        results["semi_supervised"] = {
+            "ioi": ioi_self_training,
+            "f1": f1_self_training,
+        }
 
     if baseline_model is None:
-        checkpoints_dir, _ = get_checkpoints_and_logs_dirs(
+        checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
             run_name=baseline_model_folder,
             model_name=baseline_model_name,
         )
@@ -63,14 +104,6 @@ def test_and_compare_to_baseline(
             )
         )
 
-    print("\nEvaluating self-training model")
-    ioi_self_training, f1_self_training = evaluate_segmentation_model(
-        model=model,
-        test_loader=test_dataloader,
-        device=device,
-        storage_path=f"{visualizations_folder}/{self_training_dict['run_name']}-{self_training_dict['run_name']}.png",
-    )
-
     print("\nEvaluating baseline model")
     ioi_baseline, f1_baseline = evaluate_segmentation_model(
         model=baseline_model,
@@ -78,30 +111,16 @@ def test_and_compare_to_baseline(
         device=device,
         storage_path=f"{visualizations_folder}/{baseline_model_folder}-{baseline_model_name}.png",
     )
+    print(f"Baseline model: IOI: {ioi_baseline}, F1: {f1_baseline}")
 
-    print("\nResults...")
-    print(
-        f"Self-training model: {self_training_dict['run_name']}, IOI: {ioi_self_training}, F1: {f1_self_training}"
-    )
-    print(
-        f"Baseline model: {baseline_model_folder}, IOI: {ioi_baseline}, F1: {f1_baseline}"
-    )
-
-    # Log in the logs folder (only the first parth of the path) the results of both models as json
-    results = {
-        "self_training": {
-            "dataset_name": self_training_dict["dataset_name"],
-            "run_name": self_training_dict["run_name"],
-            "round_name": self_training_dict["round_name"],
-            "ioi": ioi_self_training,
-            "f1": f1_self_training,
-        },
-        baseline_model_folder: {
-            "model": baseline_model_name,
+    results[baseline_model_folder] = (
+        {
             "ioi": ioi_baseline,
             "f1": f1_baseline,
         },
-    }
+    )
+
+    # Log in the logs folder (only the first parth of the path) the results of both models as json
 
     comparison_json = os.path.join(logs_dir.split("/")[0], "comparison_json.json")
     with open(comparison_json, "w") as f:

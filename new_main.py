@@ -23,7 +23,8 @@ TEST_MODELS_BEFORE_TRAINING = False
 PRETRAIN_MODELS = False
 EVALUATE_CAMS = False
 GENERATE_CAM_DATASET = False
-TRAIN_SELFTRAINING = True
+TRAIN_SEMI_SUPERVISED = True
+TRAIN_SELFTRAINING = False
 TRAIN_FULLY_SUPERVISED = True
 # Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
@@ -110,6 +111,42 @@ if __name__ == "__main__":
             visualize=5,
         )
 
+    if TRAIN_FULLY_SUPERVISED:
+        supervised_model = run_supervised_training_process(
+            device=device,
+            batch_size=batch_size,
+            workers=0,
+            persistent_workers=False,
+            pin_memory=pin_memory,
+            learning_rate=PRETRAIN_LEARNING_RATE,
+            weight_decay=PRETRAIN_WEIGHT_DECAY,
+            num_epochs=PRETRAIN_NUM_EPOCHS,
+        )
+
+    if TRAIN_SEMI_SUPERVISED:
+        semi_supervised_model = run_supervised_training_process(
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
+            learning_rate=PRETRAIN_LEARNING_RATE,
+            weight_decay=PRETRAIN_WEIGHT_DECAY,
+            num_epochs=PRETRAIN_NUM_EPOCHS,
+            use_cam_dataset=True,
+            cam_threshold=0.2,
+        )
+
+        test_and_compare_to_baseline(
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
+            model_to_compare=semi_supervised_model,
+            baseline_model=supervised_model,
+        )
+
     if TRAIN_SELFTRAINING:
         run_self_training_process(
             runs_config=self_learning_experiments_config,
@@ -125,27 +162,16 @@ if __name__ == "__main__":
             threshold=0.2,
         )
 
-    if TRAIN_FULLY_SUPERVISED:
-        supervised_model = run_supervised_training_process(
+        best_self_training = get_best_self_training(
+            runs_config=self_learning_experiments_config,
+        )
+
+        test_and_compare_to_baseline(
             device=device,
             batch_size=batch_size,
             workers=workers,
             persistent_workers=persistent_workers,
             pin_memory=pin_memory,
-            learning_rate=PRETRAIN_LEARNING_RATE,
-            weight_decay=PRETRAIN_WEIGHT_DECAY,
-            num_epochs=PRETRAIN_NUM_EPOCHS,
+            self_training_dict=best_self_training,
+            baseline_model=supervised_model,
         )
-
-    best_self_training = get_best_self_training(
-        runs_config=self_learning_experiments_config,
-    )
-    test_and_compare_to_baseline(
-        device=device,
-        batch_size=batch_size,
-        workers=workers,
-        persistent_workers=persistent_workers,
-        pin_memory=pin_memory,
-        self_training_dict=best_self_training,
-        baseline_model=supervised_model,
-    )

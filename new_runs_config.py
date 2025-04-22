@@ -2,6 +2,16 @@ DATASET_SIZE = None
 DEFAULT_IMAGE_SIZE = (224, 224)
 
 self_learning_experiments_config = {
+    "self_learning_replace_none": {
+        "dataset_management": "replace",
+        "predictions_transform": "none",
+        "seed_loss": False,
+    },
+    "self_learning_replace_none_seed_loss": {
+        "dataset_management": "replace",
+        "predictions_transform": "none",
+        "seed_loss": True,
+    },
     "self_learning_replace_filter": {
         "dataset_management": "replace",
         "predictions_transform": "filter",
@@ -16,16 +26,6 @@ self_learning_experiments_config = {
         "dataset_management": "replace",
         "predictions_transform": "mixlabel",
         "seed_loss": False,
-    },
-    "self_learning_add_none": {
-        "dataset_management": "add",
-        "predictions_transform": None,
-        "seed_loss": False,
-    },
-    "self_learning_add_none_seedloss": {
-        "dataset_management": "add",
-        "predictions_transform": None,
-        "seed_loss": True,
     },
     "self_learning_add_filter": {
         "dataset_management": "add",
@@ -101,6 +101,8 @@ cam_dataset_folder = "cam_datasets"
 visualizations_folder = "visualizations"
 
 segmentation_output_threshold = 0.5
+
+semi_supervised_model_folder = "semi_supervised"
 
 baseline_model_folder = "baseline"
 

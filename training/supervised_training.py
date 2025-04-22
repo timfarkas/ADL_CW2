@@ -11,6 +11,8 @@ from new_runs_config import (
     baseline_model_name,
     baseline_model_folder,
     segmentation_output_threshold,
+    cam_dataset_folder,
+    semi_supervised_model_folder,
 )
 
 
@@ -23,33 +25,57 @@ def run_supervised_training_process(
     learning_rate: float,
     weight_decay: float,
     num_epochs: int,
+    use_cam_dataset: bool = False,
+    cam_threshold: float = 0.5,
 ):
-    dataset_manager = DatasetManager(
-        target_type=["segmentation"],
-        mixed=False,
-        use_augmentation=False,
-    )
-    dataloader_manager = DataloaderManager(
-        dataset_manager=dataset_manager,
-        batch_size=batch_size,
-        workers=workers,
-        persistent_workers=persistent_workers,
-        pin_memory=pin_memory,
-    )
-    train_dataloader, _, _ = dataloader_manager.create_dataloaders(
-        shuffle_train=True
-    )
+    if use_cam_dataset:
+        dataset = [
+            os.path.join(cam_dataset_folder, f)
+            for f in os.listdir(cam_dataset_folder)
+            if f.endswith(".pt")
+        ][0] # Expects to only have one
+        initial_dataset_raw = torch.load(
+            dataset, weights_only=False, map_location="cpu"
+        )
+        binarized_data = []
+        for image, cam, mask in initial_dataset_raw:
+            cam_binary = (cam > cam_threshold).float()
+            binarized_data.append((image, cam_binary, mask))
+        train_dataloader = torch.utils.data.TensorDataset(
+            torch.stack([x[0] for x in binarized_data]),
+            torch.stack([x[1] for x in binarized_data]),
+            torch.stack([x[2] for x in binarized_data]),
+        )
+        checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
+            run_name=semi_supervised_model_folder,
+            model_name=dataset.split("/")[-1].split(".")[0],
+        )
+    else:
+        dataset_manager = DatasetManager(
+            target_type=["segmentation"],
+            mixed=False,
+            use_augmentation=False,
+        )
+        dataloader_manager = DataloaderManager(
+            dataset_manager=dataset_manager,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
+        )
+        train_dataloader, _, _ = dataloader_manager.create_dataloaders(
+            shuffle_train=True
+        )
+        checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
+            run_name=baseline_model_folder,
+            model_name=baseline_model_name,
+        )
 
     print("\nTraining fully supervised model (baseline)")
     model = UNet().to(device)
     all_params = list(model.parameters())
     optimizer = torch.optim.AdamW(
         all_params, lr=learning_rate, weight_decay=weight_decay
-    )
-
-    checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
-        run_name=baseline_model_folder,
-        model_name=baseline_model_name,
     )
 
     os.makedirs(checkpoints_dir, exist_ok=True)
