@@ -5,10 +5,10 @@ import random
 from cam_generation.cam_dataset import generate_cam_dataset
 from cam_generation.utils import get_best_cam
 from config import (
-    runs_config,
-    model_names,
-    cam_types,
-    self_learning_experiments_config,
+    RUNS_CONFIG,
+    MODEL_NAMES,
+    CAM_TYPES,
+    SELF_LEARNING_EXPERIMENTS_CONFIG,
 )
 from cam_generation.cam_evaluation import evaluate_cams
 from training.pre_training import run_pretraining_process
@@ -20,19 +20,19 @@ from training.utils import get_best_self_training
 # General run configuration
 RANDOM_SEED = 27
 TEST_MODELS_BEFORE_TRAINING = False
-PRETRAIN_MODELS = False
-EVALUATE_CAMS = False
-GENERATE_CAM_DATASET = False
-TRAIN_WEAKLY_SUPERVISED = False
-TRAIN_SELF_SUPERVISED = False
-TRAIN_FULLY_SUPERVISED = False
+PRETRAIN_MODELS = True
+EVALUATE_CAMS = True
+GENERATE_CAM_DATASET = True
+TRAIN_WEAKLY_SUPERVISED = True
+TRAIN_SELF_SUPERVISED = True
+TRAIN_FULLY_SUPERVISED = True
 EVALUATE_MODELS = True
 # Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
-PRETRAIN_NUM_EPOCHS = 20
+PRETRAIN_NUM_EPOCHS = 2
 # Selftraining configuration
-SELFTRAINING_NUM_EPOCHS = 5
+SELFTRAINING_NUM_EPOCHS = 1
 SELTRAINING_BOOSTRAP_ROUNDS = 2
 
 supervised_model = None
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         workers = 24
         persistent_workers = True
         pin_memory = True
-        batch_size = 100 
+        batch_size = 100
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         workers = 6
@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     if PRETRAIN_MODELS:
         run_pretraining_process(
-            runs_config=runs_config,
-            model_names=model_names,
+            runs_config=RUNS_CONFIG,
+            model_names=MODEL_NAMES,
             device=device,
             batch_size=batch_size,
             workers=workers,
@@ -89,22 +89,22 @@ if __name__ == "__main__":
 
     if EVALUATE_CAMS:
         evaluate_cams(
-            runs_config=runs_config,
+            runs_config=RUNS_CONFIG,
             device=device,
             batch_size=3,
             workers=0,
             persistent_workers=False,
             pin_memory=False,
             num_samples=50,
-            cam_types=cam_types,
+            cam_types=CAM_TYPES,
         )
 
     if GENERATE_CAM_DATASET:
         best_cam_dict = get_best_cam(
-            runs_config=runs_config,
+            runs_config=RUNS_CONFIG,
         )
         generate_cam_dataset(
-            runs_config=runs_config,
+            runs_config=RUNS_CONFIG,
             cam_dict=best_cam_dict,
             device=device,
             batch_size=batch_size,
@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
     if TRAIN_SELF_SUPERVISED:
         run_self_training_process(
-            runs_config=self_learning_experiments_config,
+            runs_config=SELF_LEARNING_EXPERIMENTS_CONFIG,
             device=device,
             batch_size=batch_size,
             workers=0,
@@ -156,9 +156,9 @@ if __name__ == "__main__":
         )
 
         best_self_training = get_best_self_training(
-            runs_config=self_learning_experiments_config,
+            runs_config=SELF_LEARNING_EXPERIMENTS_CONFIG,
         )
-    
+
     if EVALUATE_MODELS:
         test_and_compare_to_baseline(
             device=device,

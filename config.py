@@ -1,15 +1,15 @@
 DATASET_SIZE = None
 DEFAULT_IMAGE_SIZE = (224, 224)
 
-self_learning_experiments_config = {
+SELF_LEARNING_EXPERIMENTS_CONFIG = {
     "self_learning_replace_none": {
         "dataset_management": "replace",
-        "predictions_transform": "none",
+        "predictions_transform": None,
         "seed_loss": False,
     },
     "self_learning_replace_none_seed_loss": {
         "dataset_management": "replace",
-        "predictions_transform": "none",
+        "predictions_transform": None,
         "seed_loss": True,
     },
     "self_learning_replace_filter": {
@@ -45,7 +45,7 @@ self_learning_experiments_config = {
 }
 
 # TODO: if possible, create some validation
-runs_config = {
+RUNS_CONFIG = {
     "run_1": {
         "use_augmentation": False,
         "use_mixed_data": False,
@@ -63,7 +63,7 @@ runs_config = {
         "use_mixed_data": True,
     },
 }
-model_names = [
+MODEL_NAMES = [
     "cnn_species",
     "cnn_breed",
     "cnn_bbox",
@@ -88,11 +88,11 @@ model_names = [
 ]
 
 pretraining_start_model = {
-    "run_name": "run_3",
-    "model_index": model_names.index("cnn_species"),
+    "run_name": "run_1",
+    "model_index": MODEL_NAMES.index("cnn_species"),
 }
 
-cam_types = ["ClassicCAM", "GradCAM"]
+CAM_TYPES = ["ClassicCAM", "GradCAM"]
 
 cam_evaluation_json = "cam_evaluation.json"
 
@@ -108,10 +108,11 @@ baseline_model_folder = "baseline"
 
 baseline_model_name = "unet"
 
+
 def get_checkpoints_and_logs_dirs(run_name: str, model_name: str):
     """
     Get the checkpoints and logs directories for a given run and model name.
-    
+
     Args:
         run_name (str): The name of the run.
         model_name (str): The name of the model.
