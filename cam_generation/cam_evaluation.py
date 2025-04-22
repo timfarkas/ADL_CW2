@@ -85,19 +85,6 @@ def evaluate_cams(
                     print(
                         f"\nEvaluating {cam_type} for {model_name} head {head_index} ({head.name})"
                     )
-                    with torch.autocast(
-                        device_type=device.type,
-                        dtype=torch.float16,
-                        enabled=(device.type == "cuda"),
-                    ):
-                        # Find the optimal threshold and IoU for each layer
-                        iou_per_layer = find_ioi_per_layer(
-                            model=model,
-                            loader=dataloaders[1],
-                            target_type=target_type,
-                            cam_type=cam_type,
-                            num_samples=num_samples,
-                        )
                     iou_per_layer = find_ioi_per_layer(
                         model=model,
                         loader=dataloaders[1],

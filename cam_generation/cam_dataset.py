@@ -82,12 +82,7 @@ def generate_cam_dataset(
         target_type=cam_dict["head_target"],
         method=cam_dict["cam_type"],
     )
-    with torch.autocast(
-        device_type=device.type,
-        dtype=torch.float16,
-        enabled=(device.type == "cuda"),
-    ):
-        dataset = manager.get_cam_dataset()
+    dataset = manager.get_cam_dataset()
     os.makedirs(cam_dataset_folder, exist_ok=True)
     cam_name = f"{cam_dict['model_name']}_head_{cam_dict['head_target']}_idx{cam_dict['layer_index']}_{cam_dict['cam_type']}"
     target_path = os.path.join(

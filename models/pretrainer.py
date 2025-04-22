@@ -21,7 +21,7 @@ class Pretrainer:
     heads: list[PretrainHead]
     device: torch.device
 
-    def __init__(self, device: torch.device, log_dir="logs", log_file="training.json"):
+    def __init__(self, device, log_dir="logs", log_file="training.json"):
         """Initialize the Trainer with default None values for all attributes."""
         self.backbone = None
         self.heads = None
@@ -36,8 +36,6 @@ class Pretrainer:
         self.log_dir = log_dir
         self.log_file = log_file
         self.device = device
-        self.is_cuda = device.type == "cuda"
-        self.scaler = torch.amp.GradScaler(device.type, enabled=self.is_cuda)
 
     def __repr__(self):
         """Return a string representation of the Trainer instance."""
@@ -368,34 +366,31 @@ class Pretrainer:
                 labels = [label.to(self.device) for label in labels]
 
                 self.optimizer.zero_grad()
-                with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.is_cuda):
-                    # Forward pass
-                    head_outputs = self._forward_pass(images)
+                head_outputs = self._forward_pass(images)
 
-                    # Compute losses with masking for BboxHead
-                    losses = []
-                    for head, loss_fn, head_output, label in zip(
-                        self.heads, self.loss_functions, head_outputs, labels
-                    ):
-                        if head.is_bbox:
-                            per_sample_loss = loss_fn(head_output, label).mean(
-                                dim=1
-                            )  # (batch_size,)
-                            mask = (
-                                label.sum(dim=1) != 0
-                            ).float()  # 1 if bbox exists, 0 otherwise
-                            if mask.sum() > 0:
-                                loss = (per_sample_loss * mask).sum() / mask.sum()
-                            else:
-                                loss = torch.tensor(0.0, device=self.device)
+                # Compute losses with masking for BboxHead
+                losses = []
+                for head, loss_fn, head_output, label in zip(
+                    self.heads, self.loss_functions, head_outputs, labels
+                ):
+                    if head.is_bbox:
+                        per_sample_loss = loss_fn(head_output, label).mean(
+                            dim=1
+                        )  # (batch_size,)
+                        mask = (
+                            label.sum(dim=1) != 0
+                        ).float()  # 1 if bbox exists, 0 otherwise
+                        if mask.sum() > 0:
+                            loss = (per_sample_loss * mask).sum() / mask.sum()
                         else:
-                            loss = loss_fn(head_output, label)
-                        losses.append(loss)
+                            loss = torch.tensor(0.0, device=self.device)
+                    else:
+                        loss = loss_fn(head_output, label)
+                    losses.append(loss)
 
                 total_batch_loss = sum(losses)
-                self.scaler.scale(total_batch_loss).backward()
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
+                total_batch_loss.backward()
+
                 self.optimizer.step()
 
                 ## METRICS
@@ -519,24 +514,23 @@ class Pretrainer:
                     images = images.to(self.device)
                     labels = [label.to(self.device) for label in labels]
 
-                    with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=self.is_cuda):
-                        head_outputs = self._forward_pass(images)
+                    head_outputs = self._forward_pass(images)
 
-                        # Compute losses with masking for BboxHead
-                        losses = []
-                        for head, loss_fn, head_output, label in zip(
-                            self.heads, self.loss_functions, head_outputs, labels
-                        ):
-                            if head.is_bbox:
-                                per_sample_loss = loss_fn(head_output, label).mean(dim=1)
-                                mask = (label.sum(dim=1) != 0).float()
-                                if mask.sum() > 0:
-                                    loss = (per_sample_loss * mask).sum() / mask.sum()
-                                else:
-                                    loss = torch.tensor(0.0, device=self.device)
+                    # Compute losses with masking for BboxHead
+                    losses = []
+                    for head, loss_fn, head_output, label in zip(
+                        self.heads, self.loss_functions, head_outputs, labels
+                    ):
+                        if head.is_bbox:
+                            per_sample_loss = loss_fn(head_output, label).mean(dim=1)
+                            mask = (label.sum(dim=1) != 0).float()
+                            if mask.sum() > 0:
+                                loss = (per_sample_loss * mask).sum() / mask.sum()
                             else:
-                                loss = loss_fn(head_output, label)
-                            losses.append(loss)
+                                loss = torch.tensor(0.0, device=self.device)
+                        else:
+                            loss = loss_fn(head_output, label)
+                        losses.append(loss)
                     total_batch_loss = sum(losses)
 
                     ## METRICS

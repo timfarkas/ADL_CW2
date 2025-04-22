@@ -53,8 +53,6 @@ def run_self_training_process(
         shuffle_train=False
     )  # No need to shuffle for this
 
-    scaler = torch.amp.GradScaler(device.type, enabled=(device.type == "cuda"))
-
     for dataset in datasets:
         dataset_name = os.path.basename(dataset).split(".")[0]
         print(f"Loading dataset: {dataset_name}")
@@ -116,32 +114,26 @@ def run_self_training_process(
                         masks = masks.to(device).float()
 
                         optimizer.zero_grad()
-                        with torch.autocast(
-                            device_type=device.type,
-                            dtype=torch.float16,
-                            enabled=(device.type == "cuda"),
-                        ):
-                            outputs = model(images)
+                        outputs = model(images)
 
-                            if run_config["seed_loss"]:
-                                threshold_bg = 0.05  # Always
-                                threshold_fg = 1 - threshold
-                                seed_mask = (
-                                    (masks >= threshold_fg) | (masks <= threshold_bg)
-                                ).float()
-                                masks_bin = torch.zeros_like(masks)
-                                masks_bin[masks >= threshold_fg] = 1  # Foreground
-                                masks_bin[masks <= threshold_bg] = 0  # Background
-                                loss_raw = bce_fn(outputs, masks_bin)
-                                loss = (loss_raw * seed_mask).sum() / (
-                                    seed_mask.sum() + 1e-6
-                                )
-                            else:
-                                masks_bin = (masks >= threshold) * masks
-                                loss = bce_fn(outputs, masks_bin)
-                        scaler.scale(loss).backward()
-                        scaler.step(optimizer)
-                        scaler.update()
+                        if run_config["seed_loss"]:
+                            threshold_bg = 0.05  # Always
+                            threshold_fg = 1 - threshold
+                            seed_mask = (
+                                (masks >= threshold_fg) | (masks <= threshold_bg)
+                            ).float()
+                            masks_bin = torch.zeros_like(masks)
+                            masks_bin[masks >= threshold_fg] = 1  # Foreground
+                            masks_bin[masks <= threshold_bg] = 0  # Background
+                            loss_raw = bce_fn(outputs, masks_bin)
+                            loss = (loss_raw * seed_mask).sum() / (
+                                seed_mask.sum() + 1e-6
+                            )
+                        else:
+                            masks_bin = (masks >= threshold) * masks
+                            loss = bce_fn(outputs, masks_bin)
+
+                        loss.backward()
                         optimizer.step()
 
                         # Calculate pixel-wise accuracy
