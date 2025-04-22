@@ -1,6 +1,7 @@
 import os
 import torch
 
+from cam_generation.utils import get_best_cam_dataset_file
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
@@ -11,7 +12,6 @@ from new_runs_config import (
     baseline_model_name,
     baseline_model_folder,
     segmentation_output_threshold,
-    cam_dataset_folder,
     semi_supervised_model_folder,
 )
 
@@ -29,11 +29,8 @@ def run_supervised_training_process(
     cam_threshold: float = 0.5,
 ):
     if use_cam_dataset:
-        dataset = [
-            os.path.join(cam_dataset_folder, f)
-            for f in os.listdir(cam_dataset_folder)
-            if f.endswith(".pt")
-        ][0] # Expects to only have one
+        print("\nTraining weakly supervised model")
+        dataset = get_best_cam_dataset_file()
 
         initial_dataset_raw = torch.load(
             dataset, weights_only=False, map_location="cpu"
@@ -62,6 +59,7 @@ def run_supervised_training_process(
             model_name=dataset.split("/")[-1].split(".")[0],
         )
     else:
+        print("\nTraining fully supervised model (baseline)")
         dataset_manager = DatasetManager(
             target_type=["segmentation"],
             mixed=False,
@@ -82,7 +80,6 @@ def run_supervised_training_process(
             model_name=baseline_model_name,
         )
 
-    print("\nTraining fully supervised model (baseline)")
     model = UNet().to(device)
     all_params = list(model.parameters())
     optimizer = torch.optim.AdamW(

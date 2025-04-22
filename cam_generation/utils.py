@@ -8,7 +8,11 @@ import torch
 from torch import nn
 
 from training.evaluations import compute_iou
-from new_runs_config import cam_evaluation_json, get_checkpoints_and_logs_dirs
+from new_runs_config import (
+    cam_evaluation_json,
+    get_checkpoints_and_logs_dirs,
+    cam_dataset_folder,
+)
 from training.pre_training import get_best_epoch_per_model
 
 
@@ -41,7 +45,7 @@ def get_best_cam(runs_config: dict[str, any]):
         best_epoch_dict = get_best_epoch_per_model(
             run_name=run_name,
         )
-        
+
         cam_json_path = os.path.join(logs_dir, cam_evaluation_json)
         if os.path.exists(cam_json_path):
             with open(cam_json_path, "r") as f:
@@ -237,3 +241,13 @@ def clear_cache_and_garbage_collect():
     torch.cuda.empty_cache()
     torch.mps.empty_cache()
     gc.collect()
+
+
+def get_best_cam_dataset_file():
+    dataset = [
+        os.path.join(cam_dataset_folder, f)
+        for f in os.listdir(cam_dataset_folder)
+        if f.endswith(".pt")
+    ][0]  # Expects to only have one
+
+    return dataset

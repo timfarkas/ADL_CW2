@@ -2,6 +2,7 @@ import json
 import os
 import torch
 
+from cam_generation.utils import get_best_cam_dataset_file
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
@@ -10,6 +11,7 @@ from new_runs_config import (
     baseline_model_folder,
     baseline_model_name,
     visualizations_folder,
+    semi_supervised_model_folder,
 )
 from training.evaluations import evaluate_segmentation_model
 
@@ -21,7 +23,7 @@ def test_and_compare_to_baseline(
     persistent_workers: bool,
     pin_memory: bool,
     self_training_dict: dict | None = None,
-    semi_supervised_model: torch.nn.Module | None = None,
+    weakly_supervised_model: torch.nn.Module | None = None,
     baseline_model: torch.nn.Module | None = None,
 ):
     dataset_manager = DatasetManager(
@@ -61,9 +63,6 @@ def test_and_compare_to_baseline(
             device=device,
             storage_path=f"{visualizations_folder}/{self_training_dict['run_name']}-{self_training_dict['run_name']}.png",
         )
-        print(
-            f"Self-training model: {self_training_dict['run_name']}, IOI: {ioi_self_training}, F1: {f1_self_training}"
-        )
 
         results["self_training"] = {
             "dataset_name": self_training_dict["dataset_name"],
@@ -73,23 +72,33 @@ def test_and_compare_to_baseline(
             "f1": f1_self_training,
         }
 
-    elif semi_supervised_model is not None:
-        print("\nEvaluating semi-supervised model")
-        ioi_semi_supervised_training, f1_semi_supervised_training = (
-            evaluate_segmentation_model(
-                model=semi_supervised_model,
-                test_loader=test_dataloader,
-                device=device,
-                storage_path=f"{visualizations_folder}/semi-supervised-training.png",
+    if weakly_supervised_model is None:
+        dataset = get_best_cam_dataset_file()
+        checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
+            run_name=semi_supervised_model_folder,
+            model_name=dataset.split("/")[-1].split(".")[0],
+        )
+        weakly_supervised_model = UNet().to(device)
+        weakly_supervised_model.load_state_dict(
+            torch.load(
+                os.path.join(checkpoints_dir, f"{baseline_model_name}.pt"),
+                map_location="cpu",
             )
         )
-        print(
-            f"Semi-supervised model: IOI: {ioi_semi_supervised_training}, F1: {f1_semi_supervised_training}"
+
+    print("\nEvaluating weakly-supervised model")
+    ioi_weakly_supervised_training, f1_weakly_supervised_training = (
+        evaluate_segmentation_model(
+            model=weakly_supervised_model,
+            test_loader=test_dataloader,
+            device=device,
+            storage_path=f"{visualizations_folder}/semi-supervised-training.png",
         )
-        results["semi_supervised"] = {
-            "ioi": ioi_self_training,
-            "f1": f1_self_training,
-        }
+    )
+    results["weakly_supervised"] = {
+        "ioi": ioi_weakly_supervised_training,
+        "f1": f1_weakly_supervised_training,
+    }
 
     if baseline_model is None:
         checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
@@ -111,7 +120,6 @@ def test_and_compare_to_baseline(
         device=device,
         storage_path=f"{visualizations_folder}/{baseline_model_folder}-{baseline_model_name}.png",
     )
-    print(f"Baseline model: IOI: {ioi_baseline}, F1: {f1_baseline}")
 
     results[baseline_model_folder] = (
         {

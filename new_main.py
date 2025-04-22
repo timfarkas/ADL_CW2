@@ -35,6 +35,8 @@ SELFTRAINING_NUM_EPOCHS = 5
 SELTRAINING_BOOSTRAP_ROUNDS = 2
 
 supervised_model = None
+weakly_supervised_model = None
+best_self_training = None
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
@@ -124,7 +126,7 @@ if __name__ == "__main__":
         )
 
     if TRAIN_SEMI_SUPERVISED:
-        semi_supervised_model = run_supervised_training_process(
+        weakly_supervised_model = run_supervised_training_process(
             device=device,
             batch_size=batch_size,
             workers=workers,
@@ -135,16 +137,6 @@ if __name__ == "__main__":
             num_epochs=PRETRAIN_NUM_EPOCHS,
             use_cam_dataset=True,
             cam_threshold=0.2,
-        )
-
-        test_and_compare_to_baseline(
-            device=device,
-            batch_size=batch_size,
-            workers=workers,
-            persistent_workers=persistent_workers,
-            pin_memory=pin_memory,
-            model_to_compare=semi_supervised_model,
-            baseline_model=supervised_model,
         )
 
     if TRAIN_SELFTRAINING:
@@ -166,12 +158,13 @@ if __name__ == "__main__":
             runs_config=self_learning_experiments_config,
         )
 
-        test_and_compare_to_baseline(
-            device=device,
-            batch_size=batch_size,
-            workers=workers,
-            persistent_workers=persistent_workers,
-            pin_memory=pin_memory,
-            self_training_dict=best_self_training,
-            baseline_model=supervised_model,
-        )
+    test_and_compare_to_baseline(
+        device=device,
+        batch_size=batch_size,
+        workers=workers,
+        persistent_workers=persistent_workers,
+        pin_memory=pin_memory,
+        self_training_dict=best_self_training,
+        baseline_model=supervised_model,
+        weakly_supervised_model=weakly_supervised_model,
+    )
