@@ -57,7 +57,7 @@ def test_and_compare_to_baseline(
         )
 
         print("\nEvaluating self-training model")
-        ioi_self_training, f1_self_training = evaluate_segmentation_model(
+        iou_self_training, f1_self_training = evaluate_segmentation_model(
             model=model,
             test_loader=test_dataloader,
             device=device,
@@ -68,7 +68,7 @@ def test_and_compare_to_baseline(
             "dataset_name": self_training_dict["dataset_name"],
             "run_name": self_training_dict["run_name"],
             "round_name": self_training_dict["round_name"],
-            "ioi": ioi_self_training,
+            "iou": iou_self_training,
             "f1": f1_self_training,
         }
 
@@ -87,7 +87,7 @@ def test_and_compare_to_baseline(
         )
 
     print("\nEvaluating weakly-supervised model")
-    ioi_weakly_supervised_training, f1_weakly_supervised_training = (
+    iou_weakly_supervised_training, f1_weakly_supervised_training = (
         evaluate_segmentation_model(
             model=weakly_supervised_model,
             test_loader=test_dataloader,
@@ -96,7 +96,7 @@ def test_and_compare_to_baseline(
         )
     )
     results["weakly_supervised"] = {
-        "ioi": ioi_weakly_supervised_training,
+        "iou": iou_weakly_supervised_training,
         "f1": f1_weakly_supervised_training,
     }
 
@@ -114,7 +114,7 @@ def test_and_compare_to_baseline(
         )
 
     print("\nEvaluating baseline model")
-    ioi_baseline, f1_baseline = evaluate_segmentation_model(
+    iou_baseline, f1_baseline = evaluate_segmentation_model(
         model=baseline_model,
         test_loader=test_dataloader,
         device=device,
@@ -123,7 +123,7 @@ def test_and_compare_to_baseline(
 
     results[baseline_model_folder] = (
         {
-            "ioi": ioi_baseline,
+            "iou": iou_baseline,
             "f1": f1_baseline,
         },
     )

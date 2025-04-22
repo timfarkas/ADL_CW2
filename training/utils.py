@@ -101,7 +101,7 @@ def visualize_predicted_masks(images, masks, masks_gt, device, storage_path=None
 
 
 def log_self_training_performance(
-    log_dir: str, run_name: str, round_name: str, ioi: float, f1: float
+    log_dir: str, run_name: str, round_name: str, iou: float, f1: float
 ):
     """
     Log performance metrics to a JSON file.
@@ -123,7 +123,7 @@ def log_self_training_performance(
     if round_name not in log_data[run_name]:
         log_data[run_name][round_name] = {}
 
-    log_data[run_name][round_name]["ioi"] = ioi
+    log_data[run_name][round_name]["iou"] = iou
     log_data[run_name][round_name]["f1"] = f1
 
     # Save updated log
@@ -156,27 +156,27 @@ def get_best_self_training(
 
             run_results = []
             for round_name, metrics in log_data[run_name].items():
-                ioi = metrics["ioi"]
+                iou = metrics["iou"]
                 f1 = metrics["f1"]
                 run_results.append(
                     {
                         "run_name": run_name,
                         "round_name": round_name,
                         "dataset_name": dataset_name,
-                        "ioi": ioi,
+                        "iou": iou,
                         "f1": f1,
                     }
                 )
 
-            run_results.sort(key=lambda x: x["ioi"], reverse=True)
+            run_results.sort(key=lambda x: x["iou"], reverse=True)
             run_best_result = run_results[0]
             results[dataset_name][run_name] = run_best_result
-            if run_best_result["ioi"] > best_overall.get("ioi", 0):
+            if run_best_result["iou"] > best_overall.get("iou", 0):
                 best_overall = {
                     "dataset_name": dataset_name,
                     "run_name": run_name,
                     "round_name": run_best_result["round_name"],
-                    "ioi": run_best_result["ioi"],
+                    "iou": run_best_result["iou"],
                     "f1": run_best_result["f1"],
                 }
 
@@ -188,7 +188,7 @@ def get_best_self_training(
         json.dump(results, f, indent=4)
 
     print(
-        f"Best self-training settings overall: run: {best_overall['run_name']}, dataset: {best_overall['dataset_name']}, ioi: {best_overall['ioi']}, f1: {best_overall['f1']}"
+        f"Best self-training settings overall: run: {best_overall['run_name']}, dataset: {best_overall['dataset_name']}, iou: {best_overall['iou']}, f1: {best_overall['f1']}"
     )
 
     return best_overall

@@ -85,7 +85,7 @@ def evaluate_cams(
                     print(
                         f"\nEvaluating {cam_type} for {model_name} head {head_index} ({head.name})"
                     )
-                    iou_per_layer = find_ioi_per_layer(
+                    iou_per_layer = find_iou_per_layer(
                         model=model,
                         loader=dataloaders[1],
                         target_type=target_type,
@@ -113,7 +113,7 @@ def evaluate_cams(
         clear_cache_and_garbage_collect()
 
 
-def find_ioi_per_layer(
+def find_iou_per_layer(
     model: PretrainedModel,
     loader: torch.utils.data.DataLoader,
     target_type: str,

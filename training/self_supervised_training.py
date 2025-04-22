@@ -154,7 +154,7 @@ def run_self_training_process(
 
                 torch.save(model.state_dict(), f"{checkpoints_dir}/{round_name}.pt")
 
-                ioi, f1 = evaluate_segmentation_model(
+                iou, f1 = evaluate_segmentation_model(
                     model=model,
                     test_loader=val_dataloader,
                     device=device,
@@ -164,7 +164,7 @@ def run_self_training_process(
                     log_dir=logs_dir,
                     run_name=run_name,
                     round_name=round_name,
-                    ioi=ioi,
+                    iou=iou,
                     f1=f1,
                 )
 
