@@ -20,9 +20,9 @@ from training.utils import get_best_self_training
 # General run configuration
 RANDOM_SEED = 27
 TEST_MODELS_BEFORE_TRAINING = False
-PRETRAIN_MODELS = True
-EVALUATE_CAMS = True
-GENERATE_CAM_DATASET = True
+PRETRAIN_MODELS = False
+EVALUATE_CAMS = False
+GENERATE_CAM_DATASET = False
 TRAIN_SELFTRAINING = True
 TRAIN_FULLY_SUPERVISED = True
 # Pretraining configuration
@@ -45,10 +45,10 @@ if __name__ == "__main__":
     # Set device
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        workers = 0
-        persistent_workers = False
+        workers = 24
+        persistent_workers = True
         pin_memory = True
-        batch_size = 4 
+        batch_size = 100 
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         workers = 6
@@ -104,9 +104,9 @@ if __name__ == "__main__":
             cam_dict=best_cam_dict,
             device=device,
             batch_size=batch_size,
-            workers=workers,
-            persistent_workers=persistent_workers,
-            pin_memory=pin_memory,
+            workers=0,
+            persistent_workers=False,
+            pin_memory=False,
             visualize=5,
         )
 
@@ -115,8 +115,8 @@ if __name__ == "__main__":
             runs_config=self_learning_experiments_config,
             device=device,
             batch_size=batch_size,
-            workers=workers,
-            persistent_workers=persistent_workers,
+            workers=0,
+            persistent_workers=False,
             pin_memory=pin_memory,
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
