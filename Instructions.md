@@ -58,7 +58,7 @@ Additionally, you can use `config.py` to control the actual experiments to run; 
 -   `DATASET_SIZE` -> the number of items to include in the dataset (total fo train, test and val); setting as None will use the entire dataset
 -   `DEFAULT_IMAGE_SIZE` -> the size of images to use across the entire pipeline.
 
-If you want to do a test run using the entire pipeline, we recommend setting the `DATASET_SIZE` to 10 and reducing the number of epochs (`PRETRAIN_NUM_EPOCHS` in `main.py`). If you will use the entire dataset we recommend running one section at a time (so, a single flag set as True at a time).
+If you want to do a test run using the entire pipeline, we recommend setting the `DATASET_SIZE` to 10 and reducing the number of epochs (`PRETRAIN_NUM_EPOCHS` in `main.py`). If you will use the entire dataset we recommend running one section at a time (so, a single flag set as True at a time) - this process needs to be done in order so the checkpoints and logs needed exist at every step.
 
 ## Directory Structure
 
