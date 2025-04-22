@@ -34,6 +34,7 @@ def run_supervised_training_process(
             for f in os.listdir(cam_dataset_folder)
             if f.endswith(".pt")
         ][0] # Expects to only have one
+
         initial_dataset_raw = torch.load(
             dataset, weights_only=False, map_location="cpu"
         )
@@ -41,11 +42,21 @@ def run_supervised_training_process(
         for image, cam, mask in initial_dataset_raw:
             cam_binary = (cam > cam_threshold).float()
             binarized_data.append((image, cam_binary, mask))
-        train_dataloader = torch.utils.data.TensorDataset(
+
+        cam_dataset = torch.utils.data.TensorDataset(
             torch.stack([x[0] for x in binarized_data]),
             torch.stack([x[1] for x in binarized_data]),
             torch.stack([x[2] for x in binarized_data]),
         )
+        train_dataloader = torch.utils.data.DataLoader(
+            dataset=cam_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=workers,
+            persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
+        )
+
         checkpoints_dir, logs_dir = get_checkpoints_and_logs_dirs(
             run_name=semi_supervised_model_folder,
             model_name=dataset.split("/")[-1].split(".")[0],
