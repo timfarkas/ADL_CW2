@@ -87,7 +87,7 @@ def run_supervised_training_process(
         total_pixels = 0
         total_loss = 0
 
-        for images, masks in train_dataloader:
+        for images, masks, *rest in train_dataloader:
             images = images.to(device)
             masks = masks.to(device)
             masks_bin = get_binary_masks_from_trimap(masks)
