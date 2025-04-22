@@ -23,9 +23,9 @@ TEST_MODELS_BEFORE_TRAINING = False
 PRETRAIN_MODELS = False
 EVALUATE_CAMS = False
 GENERATE_CAM_DATASET = False
-TRAIN_SEMI_SUPERVISED = True
+TRAIN_SEMI_SUPERVISED = False
 TRAIN_SELFTRAINING = False
-TRAIN_FULLY_SUPERVISED = True
+TRAIN_FULLY_SUPERVISED = False
 # Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
@@ -117,8 +117,8 @@ if __name__ == "__main__":
         supervised_model = run_supervised_training_process(
             device=device,
             batch_size=batch_size,
-            workers=0,
-            persistent_workers=False,
+            workers=workers,
+            persistent_workers=persistent_workers,
             pin_memory=pin_memory,
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
@@ -129,8 +129,8 @@ if __name__ == "__main__":
         weakly_supervised_model = run_supervised_training_process(
             device=device,
             batch_size=batch_size,
-            workers=workers,
-            persistent_workers=persistent_workers,
+            workers=0,
+            persistent_workers=False,
             pin_memory=pin_memory,
             learning_rate=PRETRAIN_LEARNING_RATE,
             weight_decay=PRETRAIN_WEIGHT_DECAY,
