@@ -8,7 +8,7 @@ from custom_types import ModelTarget
 from datasets.background_dataset import BackgroundDataset
 from datasets.oxford_pet_dataset import OxfordPetDataset
 from datasets.mixed_dataset import MixedDataset
-from new_runs_config import DEFAULT_IMAGE_SIZE
+from runs_config import DEFAULT_IMAGE_SIZE
 
 dataset_groups = ["train", "val", "test"]
 

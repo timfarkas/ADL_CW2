@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from custom_types import DatasetGroup
-from new_runs_config import DATASET_SIZE
+from runs_config import DATASET_SIZE
 
 
 class OxfordPetDataset(Dataset):

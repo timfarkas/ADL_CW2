@@ -6,7 +6,7 @@ from cam_generation.utils import get_best_cam_dataset_file
 from datasets.dataloader_manager import DataloaderManager
 from datasets.dataset_manager import DatasetManager
 from models.u_net import UNet
-from new_runs_config import (
+from runs_config import (
     get_checkpoints_and_logs_dirs,
     baseline_model_folder,
     baseline_model_name,

@@ -50,18 +50,18 @@ runs_config = {
         "use_augmentation": False,
         "use_mixed_data": False,
     },
-    # "run_2": {
-    #     "use_augmentation": True,
-    #     "use_mixed_data": False,
-    # },
-    # "run_3": {
-    #     "use_augmentation": False,
-    #     "use_mixed_data": True,
-    # },
-    # "run_4": {
-    #     "use_augmentation": True,
-    #     "use_mixed_data": True,
-    # },
+    "run_2": {
+        "use_augmentation": True,
+        "use_mixed_data": False,
+    },
+    "run_3": {
+        "use_augmentation": False,
+        "use_mixed_data": True,
+    },
+    "run_4": {
+        "use_augmentation": True,
+        "use_mixed_data": True,
+    },
 }
 model_names = [
     "cnn_species",

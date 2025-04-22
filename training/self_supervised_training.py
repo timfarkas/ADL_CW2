@@ -9,7 +9,7 @@ from models.u_net import UNet
 from training.utils import log_self_training_performance
 from training.evaluations import evaluate_segmentation_model
 from training.losses import bce_fn
-from new_runs_config import (
+from runs_config import (
     get_checkpoints_and_logs_dirs,
     cam_dataset_folder,
     segmentation_output_threshold,

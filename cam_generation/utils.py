@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from training.evaluations import compute_iou
-from new_runs_config import (
+from runs_config import (
     cam_evaluation_json,
     get_checkpoints_and_logs_dirs,
     cam_dataset_folder,

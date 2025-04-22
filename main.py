@@ -4,7 +4,7 @@ import random
 
 from cam_generation.cam_dataset import generate_cam_dataset
 from cam_generation.utils import get_best_cam
-from new_runs_config import (
+from runs_config import (
     runs_config,
     model_names,
     cam_types,
@@ -12,7 +12,7 @@ from new_runs_config import (
 )
 from cam_generation.cam_evaluation import evaluate_cams
 from training.pre_training import run_pretraining_process
-from training.self_training import run_self_training_process
+from training.self_supervised_training import run_self_training_process
 from training.supervised_training import run_supervised_training_process
 from training.test import test_and_compare_to_baseline
 from training.utils import get_best_self_training
@@ -23,9 +23,10 @@ TEST_MODELS_BEFORE_TRAINING = False
 PRETRAIN_MODELS = False
 EVALUATE_CAMS = False
 GENERATE_CAM_DATASET = False
-TRAIN_SEMI_SUPERVISED = False
-TRAIN_SELFTRAINING = False
+TRAIN_WEAKLY_SUPERVISED = False
+TRAIN_SELF_SUPERVISED = False
 TRAIN_FULLY_SUPERVISED = False
+EVALUATE_MODELS = True
 # Pretraining configuration
 PRETRAIN_LEARNING_RATE = 3e-4
 PRETRAIN_WEIGHT_DECAY = 1e-4
@@ -125,7 +126,7 @@ if __name__ == "__main__":
             num_epochs=PRETRAIN_NUM_EPOCHS,
         )
 
-    if TRAIN_SEMI_SUPERVISED:
+    if TRAIN_WEAKLY_SUPERVISED:
         weakly_supervised_model = run_supervised_training_process(
             device=device,
             batch_size=batch_size,
@@ -139,7 +140,7 @@ if __name__ == "__main__":
             cam_threshold=0.2,
         )
 
-    if TRAIN_SELFTRAINING:
+    if TRAIN_SELF_SUPERVISED:
         run_self_training_process(
             runs_config=self_learning_experiments_config,
             device=device,
@@ -157,14 +158,15 @@ if __name__ == "__main__":
         best_self_training = get_best_self_training(
             runs_config=self_learning_experiments_config,
         )
-
-    test_and_compare_to_baseline(
-        device=device,
-        batch_size=batch_size,
-        workers=workers,
-        persistent_workers=persistent_workers,
-        pin_memory=pin_memory,
-        self_training_dict=best_self_training,
-        baseline_model=supervised_model,
-        weakly_supervised_model=weakly_supervised_model,
-    )
+    
+    if EVALUATE_MODELS:
+        test_and_compare_to_baseline(
+            device=device,
+            batch_size=batch_size,
+            workers=workers,
+            persistent_workers=persistent_workers,
+            pin_memory=pin_memory,
+            self_training_dict=best_self_training,
+            baseline_model=supervised_model,
+            weakly_supervised_model=weakly_supervised_model,
+        )
