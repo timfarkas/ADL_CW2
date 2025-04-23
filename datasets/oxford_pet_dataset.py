@@ -109,9 +109,9 @@ class OxfordPetDataset(Dataset):
         self.images_dir = self.root_dir / "images"
         self.annotations_dir = self.root_dir / "annotations"
 
-        self.root_dir.mkdir(exist_ok=True)
-        self.images_dir.mkdir(exist_ok=True)
-        self.annotations_dir.mkdir(exist_ok=True)
+        os.makedirs(self.root_dir, exist_ok=True)
+        os.makedirs(self.images_dir, exist_ok=True)
+        os.makedirs(self.annotations_dir, exist_ok=True)
 
         # Paths to downloaded files
         self.images_tar_path = self.root_dir / "images.tar.gz"
