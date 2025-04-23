@@ -731,7 +731,6 @@ class SelfTraining:
             total_pixels = 0
             total_loss = 0
 
-            # total_batches = len(dataloader_new)
             for images, masks, masks_gt in dataloader_new:
                 batch_count += 1
                 # if batch_count % 10 == 0:
@@ -739,7 +738,7 @@ class SelfTraining:
                 images = images.to(device)
                 masks = masks.to(device).float()
                 masks_flat = masks.view(-1)
-                # Compute statsZZZ
+
                 threshold_bg = 0.05
                 threshold_fg = 0.8
                 # threshold_bg = torch.quantile(masks_flat, threshold).item()
@@ -772,9 +771,7 @@ class SelfTraining:
                 loss.backward()
                 optimizer.step()
 
-                # Calculate pixel-wise accuracy
                 probs = torch.sigmoid(outputs)
-                # probs= outputs
                 preds = probs > 0.5  # threshold logits
                 correct_pixels += (preds == masks.bool()).sum().item()
                 total_pixels += masks.numel()
@@ -902,7 +899,7 @@ class SelfTraining:
         model: nn.Module,
         dataloader: torch.utils.data.DataLoader,
         device: str = "cpu",
-        threshold: float = 0.2,
+        # threshold: float = 0.2,
     ):
         """
         Run inference on a dataset and return a new dataset with images and filtered predicted pixel-level probabilities.
@@ -1030,7 +1027,6 @@ class SelfTraining:
         unnormalized_images = images * std + mean
         unnormalized_images = unnormalized_images.clamp(0, 1)
 
-        # Setup plot
         fig, axs = plt.subplots(3, num_samples, figsize=(num_samples * 3, 9))
 
         for i in range(num_samples):
@@ -1066,7 +1062,6 @@ class SelfTraining:
         img_np = image.cpu().permute(1, 2, 0).detach().numpy()  # [H, W, C], float32
         img_np = (img_np * 255).clip(0, 255).astype(np.uint8)  # [H, W, C], uint8
 
-        # Convert prob to NumPy mask
         prob = prob.squeeze().detach().cpu().numpy()  # [H, W]
 
         low_thres = np.percentile(prob, threshold * 100)
@@ -1077,9 +1072,6 @@ class SelfTraining:
         # Assign confident FG and BG based on thresholds
         init_mask[prob >= high_thres] = 1  # definite foreground
         init_mask[prob <= low_thres] = 0  # definite background
-
-        # print(grabcut_mask)
-
         num_fg = np.sum(init_mask == cv2.GC_FGD)
         num_bg = np.sum(init_mask == cv2.GC_BGD)
 
@@ -1087,13 +1079,10 @@ class SelfTraining:
         has_bg = num_bg > 0
 
         if not has_fg or not has_bg:
-            # print("⚠️ GrabCut skipped (no confident FG/BG seeds) → using fallback init_mask.")
-            # # Convert: 1 (FG) and 3 (probable FG) → 1, everything else → 0
             return ((init_mask == cv2.GC_FGD) | (init_mask == cv2.GC_PR_FGD)).astype(
                 np.uint8
             )
 
-        # Proceed with GrabCut if valid seeds exist
         mask = init_mask.copy().astype("uint8")
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
