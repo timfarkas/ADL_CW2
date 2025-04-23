@@ -102,7 +102,7 @@ if __name__ == "__main__":
             workers=0,
             persistent_workers=False,
             pin_memory=False,
-            num_samples=50,
+            num_samples=100,
             cam_types=CAM_TYPES,
         )
 
@@ -160,6 +160,7 @@ if __name__ == "__main__":
             num_epochs=SELFTRAINING_NUM_EPOCHS,
             num_bootstrap_rounds=SELTRAINING_BOOSTRAP_ROUNDS,
             threshold=0.2,
+            num_validation_samples=100,
         )
 
         best_self_training = get_best_self_training(

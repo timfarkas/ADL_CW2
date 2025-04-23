@@ -179,6 +179,7 @@ def evaluate_segmentation_model(
     image_number: int = 5,
     device: str = None,
     storage_path: str = None,
+    num_validation_samples: int = None,
 ) -> tuple[float, float]:
     """
     Evaluates the model on the test data and stores the images.
@@ -217,6 +218,9 @@ def evaluate_segmentation_model(
                     storage_path=storage_path,
                     device=device,
                 )
+                
+            if num_validation_samples and num_samples == num_validation_samples:
+                break
 
     average_IoU = total_IoU / num_samples
     average_f1_score = total_f1_score / num_samples

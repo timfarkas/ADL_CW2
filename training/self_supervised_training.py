@@ -36,6 +36,7 @@ def run_self_training_process(
     num_epochs: int,
     num_bootstrap_rounds: int,
     threshold: float,
+    num_validation_samples: int,
 ):
     # Open the datasets folder and get each file, then load each dataset if its a .pt file
     datasets = [
@@ -165,6 +166,7 @@ def run_self_training_process(
                     model=model,
                     test_loader=val_dataloader,
                     device=device,
+                    num_validation_samples=num_validation_samples,
                 )
 
                 log_self_training_performance(
