@@ -23,12 +23,12 @@ pip install -r requirements.txt
 1. Data Preparation and Pre-training Classification Models
 2. CAM Evaluation And Extraction
 3. Preprocessing CAM files
-4. Self-Training (Alternative Open-Ended Question)
+4. Self-Training to Generate Segmentation Models
 5. Evaluation of Segmentation Models
-6. Experiments for Open-Ended Questions
+6. Experiments for Potential Open-Ended Questions
     - Experiment 1: Effect of Irrelevant Samples
     - Experiment 2: Effect of Multi-task Training
-    - Experiment 3: Effect of Self-training with Augmentations
+    - Experiment 3: Effect of Self-training
 
 ## Step 1: Data Preparation and Pre-training Classification Models
 
@@ -75,7 +75,7 @@ To customize parameters for this step, edit `self_training.py` and modify the fo
 - If the CAMs contain black pixels between the boundary and the foreground (we experienced this issue in the past, but it did not occur in our most recent runs), run `cleanup_CAM.py` to obtain  
   `resized_64_species_breed_cam_mask.pt`
 
-## Step 4: Self-Training  (Alternative Open-Ended Question)
+## Step 4: Self-Training 
 
 The `self_training.py` file includes the complete self-training process. To adjust parameters:
 
@@ -90,19 +90,17 @@ The `self_training.py` file includes the complete self-training process. To adju
 ```bash
 python self_training.py
 ```
-
-1. Unet Models trained in each round of each experiment will be saved under the folder `checkpoints/Bootstrap/model`. To save time for further experiments, you can set `Skip_first_round = True`, if `first_round_model.pt` is saved under `checkpoints/EVA/`after the first round of training is completed for any experiment
-2. Find the best model with highest IOU score, move it to `checkpoints/EVA/` and rename it as `best_model_selftrain.pt`
+6. Unet Models trained in each round of each experiment will be saved under the folder `checkpoints/Bootstrap/model`. To save time for further experiments, you can set `Skip_first_round = True`, if `first_round_model.pt` is saved under `checkpoints/EVA/`after the first round of training is completed for any experiment. The first round model is our basic model for segmentation.
+7. Find the best model with highest IOU score, move it to `checkpoints/EVA/` and rename it as `best_model_selftrain.pt`
     
-    This process:
-    1. Uses CAM as initial pseudo-labels
-    2. Trains a U-Net segmentation model on these labels
-    3. Predicts segmentation on unlabeled data with confidence thresholds
-    4. Adds these predictions to the training set
-    5. Retrains the model
-    6. Repeats for the specified number of rounds
-    7. Creates visualizations in the `visualizations/` directory
-    
+ This process:
+1. Uses CAM as initial pseudo-labels
+2. Trains a U-Net segmentation model on these labels
+3. Predicts segmentation labels and processes with different filtering strategies
+4. Adds these predictions to the training set as new pseudo labels
+5. Retrains the model using new pseudo labels
+6. Repeats for the specified number of rounds
+7. Creates visualisations in the `Bootstrap/evaluation` and `Bootstrap/predicted_masks` directory
 
 ## Step 5: Evaluation of Segmentation Models
 
@@ -113,7 +111,7 @@ python self_training.py
     1. In `final_evaluation_models.py`, modify the file name `model_name=f"first_round_model"` to the model that you want to evaluate under the folder`checkpoints/EVA/` 
     2. run `final_evaluation_models.py`, it will evaluate the model both on the small validation set and the testing set. 
 
-## Step 6: Experiments for Open-Ended Questions
+## Step 6: Experiments for Potential Open-Ended Questions
 
 ### Experiment 1: Effect of Irrelevant Samples
 
@@ -139,33 +137,33 @@ This script:
 
 Compare results using `pretraining.json` in the `logs/` folder.
 
-### Experiment 3: Effect of Self-training with Augmentations
-
-To experiment with augmentations during self-training:
-
-1. Open `data.py`
-2. Find the `create_dataloaders` function
-3. Set `use_augmentation=True`  
-4. Run self_training.py as before
+### Experiment 3: Effect of Self-training
+In `self_training.py`, the self-training process generates the basic and many other segmentation models with different strategies of self-training. Variants include:
+- Data Iteration: In each iteration, we can either use new labels to replace the current labels, or treat them as a new dataset on top of our original dataset and feed into training loop all together (this will increase size of dataset in training)
+- SeedingLoss: A training technique that only calculates loss on part of the pixels (those with pseudo labels generated with high confidence level, namely those with very high predicted probability and very low probability)
+- Add-groundtruth: In some experiments we tried to add 100 samples with ground-truth labels, and feed into the training loop
+- FilterType: How to process the predicted labels generated from current model to get new pseudo labels
+   - Basic: Simple apply a filter (0.2) that filter out predicted pixel labels with value lower than a threshold
+   - MixLabel: We invented this algorithm to update labels on top of previous labels. In which predicted pixel labels larger than a high threshold (0.9) will be converted to 1 and that lower than a low threshold (0.1) will be converted to 0, and both be applied to the original labels (compared with basic filter, which only uses predicted labels and not the original labels)
+   - GrabCut: A computer vision algorithm that takes the image and the preliminary mask, and generate binary mask based on the features of the image such as shape, colour, etc. We used a 10 percentile threshold, which takes the top 10% pixels and the least 10% pixels from the probability mask, as frontground and background, and feed into the GrabCut algorithm.
 
 ## Directory Structure
 
 - `oxford_pet_data/`: Dataset directory
 - `checkpoints/`: Saved model checkpoints
 - `checkpoints/Bootstrap/` : Saved self-training models and images (directory will be automatically created when running self-training)
-- `checkpoints/EVA/` : Saved baseline models
-- `cam_data/`: Generated CAM pseudo-labels
+- `checkpoints/EVA/` : Saved basic and baseline models
 - `visualizations/`: Generated visualization outputs
 - `logs/`: Training logs
+- `cam_data/`: Generated CAMs and tools for CAMs pre-processing
 
 ## Key Files Description
-
 - `data.py`: Oxford Pet Dataset handling
 - `pre_training.py`: Pre-training classification models
 - `models.py`: Model architectures (CNN, ResNet, U-Net)
-- `self_training.py`: Self-training implementation
+- `self_training.py`: Self-training implementation to train basic and best(self-training) models
 - `baseline_training.py`: Training a baseline model
-- `final_evaluation_models.py`: Evaluating Basic, Best and Baseline models on the small validation set and testing set
+- `final_evaluation_models.py`: Evaluating basic, best and baseline models on the small validation set and testing set
 - `evaluation.py`: Evaluation metrics and functions
 - `mixed_data.py`: Mixed dataset handling with background images
 - `utils.py`: Utility functions
