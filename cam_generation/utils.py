@@ -251,10 +251,15 @@ def clear_cache_and_garbage_collect():
 
 
 def get_best_cam_dataset_file():
-    dataset = [
+    datasets = [
         os.path.join(cam_dataset_folder, f)
         for f in os.listdir(cam_dataset_folder)
         if f.endswith(".pt")
-    ][0]  # Expects to only have one
+    ] # Expects to only have one
 
-    return dataset
+    if not datasets:
+        raise ValueError(
+            f"Expected at least one dataset file in {cam_dataset_folder}. Please run cam generation."
+        )
+    
+    return datasets[0]

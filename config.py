@@ -2,11 +2,6 @@ DATASET_SIZE = None
 DEFAULT_IMAGE_SIZE = (224, 224)
 
 SELF_LEARNING_EXPERIMENTS_CONFIG = {
-    "self_learning_replace_none": {
-        "dataset_management": "replace",
-        "predictions_transform": None,
-        "seed_loss": False,
-    },
     "self_learning_replace_none_seed_loss": {
         "dataset_management": "replace",
         "predictions_transform": None,

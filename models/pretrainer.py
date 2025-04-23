@@ -594,7 +594,7 @@ class Pretrainer:
 
             # Log overall loss, head-specific losses and metrics for validation
             avg_val_loss = val_epoch_loss_sum / val_sample_count
-            print(f"Epoch:{epoch + 1}/{num_epochs}, Val Loss:{avg_val_loss:.4f}")
+            print(f"\nEpoch:{epoch + 1}/{num_epochs}, Val Loss:{avg_val_loss:.4f}")
             metrics_to_log.append(("val_loss", avg_val_loss))
 
             # Log individual head losses and evaluation metrics for validation

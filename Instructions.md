@@ -7,7 +7,7 @@ This document provides detailed steps to run the code and reproduce all reported
 **Within the comp0197-cw1-pt environment**, install the additional required libraries:
 
 ```bash
-pip install matplotlib opencv-python pytorch-grad-cam
+pip install matplotlib opencv-python grad-cam
 ```
 
 Alternatively, you can use the provided requirements.txt:
